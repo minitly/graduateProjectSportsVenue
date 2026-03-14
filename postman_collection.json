@@ -1,132 +1,188 @@
 {
   "info": {
-    "name": "体育馆预约与仓库管理系统 - 身份认证接口",
+    "name": "体育馆预约与仓库管理系统 - API 测试",
     "_postman_id": "a4c7a4b4-0000-0000-0000-auth-collection",
-    "description": "用于测试后端注册与登录接口（USER 注册、OWNER 注册，USER/OWNER/ADMIN 登录）。基础地址为 http://localhost:9999/sportsVenue。",
+    "description": "认证、场地管理、文件上传/获取。基础地址见变量 baseUrl；鉴权接口请先登录后把返回的 token 填到变量 token，再请求。",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:9999/sportsVenue" },
+    { "key": "token", "value": "" }
+  ],
   "item": [
     {
-      "name": "01-用户注册-USER",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"username\": \"user01\",\n  \"password\": \"123456\",\n  \"realName\": \"普通用户01\",\n  \"role\": \"USER\",\n  \"adminPassword\": \"\",\n  \"phone\": \"13800000001\",\n  \"email\": \"user01@example.com\"\n}"
+      "name": "认证",
+      "item": [
+        {
+          "name": "01-用户注册-USER",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"user01\",\n  \"password\": \"123456\",\n  \"realName\": \"普通用户01\",\n  \"role\": \"USER\",\n  \"adminPassword\": \"\",\n  \"phone\": \"13800000001\",\n  \"email\": \"user01@example.com\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/register"
+          },
+          "response": []
         },
-        "url": {
-          "raw": "http://localhost:9999/sportsVenue/auth/register",
-          "protocol": "http",
-          "host": ["localhost"],
-          "port": "9999",
-          "path": ["sportsVenue", "auth", "register"]
+        {
+          "name": "02-用户注册-OWNER",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"owner01\",\n  \"password\": \"123456\",\n  \"realName\": \"场馆管理员01\",\n  \"role\": \"OWNER\",\n  \"adminPassword\": \"admin\",\n  \"phone\": \"13800000002\",\n  \"email\": \"owner01@example.com\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/register"
+          },
+          "response": []
+        },
+        {
+          "name": "03-用户登录-USER",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"user01\",\n  \"password\": \"123456\",\n  \"role\": \"USER\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login"
+          },
+          "response": []
+        },
+        {
+          "name": "04-用户登录-OWNER",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"owner01\",\n  \"password\": \"123456\",\n  \"role\": \"OWNER\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login"
+          },
+          "response": []
+        },
+        {
+          "name": "05-用户登录-ADMIN",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin\",\n  \"role\": \"ADMIN\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login"
+          },
+          "response": []
         }
-      },
-      "response": []
+      ]
     },
     {
-      "name": "02-用户注册-OWNER",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"username\": \"owner01\",\n  \"password\": \"123456\",\n  \"realName\": \"场馆管理员01\",\n  \"role\": \"OWNER\",\n  \"adminPassword\": \"admin\",  // TODO: 改成实际 ADMIN 明文密码\n  \"phone\": \"13800000002\",\n  \"email\": \"owner01@example.com\"\n}"
+      "name": "文件上传与获取",
+      "item": [
+        {
+          "name": "06-文件上传-单张或多张",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": [], "description": "可选多个文件（添加多个 file 键）" },
+                { "key": "biz", "value": "venue", "type": "text" }
+              ]
+            },
+            "url": "{{baseUrl}}/files/upload"
+          },
+          "response": []
         },
-        "url": {
-          "raw": "http://localhost:9999/sportsVenue/auth/register",
-          "protocol": "http",
-          "host": ["localhost"],
-          "port": "9999",
-          "path": ["sportsVenue", "auth", "register"]
+        {
+          "name": "07-图片获取-单张或多张",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/files/serve?path=/upload/venue/替换为上传返回的path"
+          },
+          "response": []
         }
-      },
-      "response": []
+      ]
     },
     {
-      "name": "03-用户登录-USER",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"username\": \"user01\",\n  \"password\": \"123456\",\n  \"role\": \"USER\"\n}"
+      "name": "场地管理",
+      "item": [
+        {
+          "name": "08-场地-新增",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"一号篮球场\",\n  \"code\": \"V001\",\n  \"type\": \"篮球场\",\n  \"capacity\": 20,\n  \"price\": 120,\n  \"openTimeDesc\": \"每日 08:00-22:00\",\n  \"description\": \"标准室内篮球场\",\n  \"status\": \"AVAILABLE\",\n  \"coverImageUrl\": \"\",\n  \"imageUrls\": [],\n  \"remark\": \"\"\n}"
+            },
+            "url": "{{baseUrl}}/venues"
+          },
+          "response": []
         },
-        "url": {
-          "raw": "http://localhost:9999/sportsVenue/auth/login",
-          "protocol": "http",
-          "host": ["localhost"],
-          "port": "9999",
-          "path": ["sportsVenue", "auth", "login"]
-        }
-      },
-      "response": []
-    },
-    {
-      "name": "04-用户登录-OWNER",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"username\": \"owner01\",\n  \"password\": \"123456\",\n  \"role\": \"OWNER\"\n}"
+        {
+          "name": "09-场地-列表查询",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/venues?pageNo=1&pageSize=10"
+          },
+          "response": []
         },
-        "url": {
-          "raw": "http://localhost:9999/sportsVenue/auth/login",
-          "protocol": "http",
-          "host": ["localhost"],
-          "port": "9999",
-          "path": ["sportsVenue", "auth", "login"]
-        }
-      },
-      "response": []
-    },
-    {
-      "name": "05-用户登录-ADMIN",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin\",  // TODO: 改成你插入 sys_user 表时的 ADMIN 明文密码\n  \"role\": \"ADMIN\"\n}"
+        {
+          "name": "10-场地-详情",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/venues/1"
+          },
+          "response": []
         },
-        "url": {
-          "raw": "http://localhost:9999/sportsVenue/auth/login",
-          "protocol": "http",
-          "host": ["localhost"],
-          "port": "9999",
-          "path": ["sportsVenue", "auth", "login"]
+        {
+          "name": "11-场地-修改",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1,\n  \"name\": \"一号篮球场（已修改）\",\n  \"code\": \"V001\",\n  \"type\": \"篮球场\",\n  \"capacity\": 24,\n  \"price\": 150,\n  \"openTimeDesc\": \"每日 08:00-22:00\",\n  \"description\": \"标准室内篮球场\",\n  \"status\": \"AVAILABLE\",\n  \"coverImageUrl\": \"\",\n  \"imageUrls\": [],\n  \"remark\": \"\"\n}"
+            },
+            "url": "{{baseUrl}}/venues/1"
+          },
+          "response": []
+        },
+        {
+          "name": "12-场地-删除",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/venues/1"
+          },
+          "response": []
         }
-      },
-      "response": []
+      ]
     }
-  ],
-  "variable": []
+  ]
 }
-

@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tly.mapper.VenueMapper">
+
+    <resultMap id="VenueResultMap" type="com.tly.entity.Venue">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="code" column="code"/>
+        <result property="type" column="type"/>
+        <result property="capacity" column="capacity"/>
+        <result property="price" column="price"/>
+        <result property="openTimeDesc" column="open_time_desc"/>
+        <result property="description" column="description"/>
+        <result property="status" column="status"/>
+        <result property="coverImageUrl" column="cover_image_url"/>
+        <result property="imageUrlsJson" column="image_urls" jdbcType="LONGVARCHAR"/>
+        <result property="remark" column="remark"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.tly.entity.Venue" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO venue
+        (name, code, type, capacity, price, open_time_desc, description, status, cover_image_url, image_urls, remark, create_time, update_time)
+        VALUES
+        (#{name}, #{code}, #{type}, #{capacity}, #{price}, #{openTimeDesc}, #{description}, #{status},
+         #{coverImageUrl}, #{imageUrlsJson,jdbcType=LONGVARCHAR}, #{remark}, NOW(), NOW())
+    </insert>
+
+    <update id="update" parameterType="com.tly.entity.Venue">
+        UPDATE venue
+        SET
+            name = #{name},
+            code = #{code},
+            type = #{type},
+            capacity = #{capacity},
+            price = #{price},
+            open_time_desc = #{openTimeDesc},
+            description = #{description},
+            status = #{status},
+            cover_image_url = #{coverImageUrl},
+            image_urls = #{imageUrlsJson,jdbcType=LONGVARCHAR},
+            remark = #{remark},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="long">
+        DELETE FROM venue WHERE id = #{id}
+    </delete>
+
+    <select id="selectById" parameterType="long" resultMap="VenueResultMap">
+        SELECT
+            id, name, code, type, capacity, price, open_time_desc, description,
+            status, cover_image_url, image_urls, remark, create_time, update_time
+        FROM venue
+        WHERE id = #{id}
+        LIMIT 1
+    </select>
+
+    <select id="countByCondition" resultType="long">
+        SELECT COUNT(1)
+        FROM venue
+        <where>
+            <if test="type != null and type != ''">
+                AND type = #{type}
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (name LIKE CONCAT('%', #{keyword}, '%')
+                     OR code LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+    </select>
+
+    <select id="listByCondition" resultMap="VenueResultMap">
+        SELECT
+            id, name, code, type, capacity, price, open_time_desc, description,
+            status, cover_image_url, image_urls, remark, create_time, update_time
+        FROM venue
+        <where>
+            <if test="type != null and type != ''">
+                AND type = #{type}
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (name LIKE CONCAT('%', #{keyword}, '%')
+                     OR code LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+        ORDER BY create_time DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+</mapper>
+

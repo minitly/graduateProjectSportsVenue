@@ -1,4 +1,4 @@
---- 系统用户表
+-- 系统用户表
 DROP TABLE IF EXISTS sys_user;
 CREATE TABLE sys_user (
                           id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '用户主键ID',
@@ -12,8 +12,13 @@ CREATE TABLE sys_user (
                           create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                           update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
 ) COMMENT='系统用户表';
+INSERT INTO sys_user (username,password,real_name,role,status,phone,email,create_time,update_time) 
+VALUES ('admin','$2a$10$TbwDQQlVPK1dH9nyU8mJN.mDBLf3LpMU8aE7faE7XPo4Tdd7vQYx.','超级管理员','ADMIN',1,NULL,NULL,NOW(),NOW());
 
---- 系统权限表
+
+
+
+-- 系统权限表
 DROP TABLE IF EXISTS sys_permission;
 CREATE TABLE sys_permission (
                                 id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '权限主键ID',
@@ -24,7 +29,30 @@ CREATE TABLE sys_permission (
                                 create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                 update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
 ) COMMENT='系统权限表';
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES
+  ('MODULE_VENUE',      '场地管理模块',   NULL, '场地信息、场地配置等相关功能的入口权限'),
+  ('MODULE_BOOKING',    '预约管理模块',   NULL, '预约下单、预约审核、预约记录等相关功能的入口权限'),
+  ('MODULE_WAREHOUSE',  '仓库管理模块',   NULL, '物资入库、出库及库存管理等相关功能的入口权限'),
+  ('MODULE_USER',       '用户管理模块',   NULL, '前台用户、场地管理员等用户信息管理相关功能的入口权限'),
+  ('MODULE_REPORT',     '数据报表模块',   NULL, '统计报表、数据分析等相关功能的入口权限'),
+  ('MODULE_SYSTEM',     '系统管理模块',   NULL, '系统配置、公告发布等系统级管理功能的入口权限');
 
+-- 场地管理模块下的具体权限（5 条：新增、修改、删除、详情查看、列表查询）
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('VENUE_ADD', '场地-新增', 'MODULE_VENUE', '新增场地基本信息的权限');
+
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('VENUE_UPDATE', '场地-修改', 'MODULE_VENUE', '编辑并保存场地基础信息的权限');
+
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('VENUE_DELETE', '场地-删除', 'MODULE_VENUE', '删除（或逻辑删除）场地信息的权限');
+
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('VENUE_VIEW_DETAIL', '场地-详情查看', 'MODULE_VENUE', '查看单个场地详情的权限');
+
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('VENUE_QUERY_LIST', '场地-列表查询', 'MODULE_VENUE', '按条件分页查询场地列表的权限');
 
 --- 角色权限关联表
 DROP TABLE IF EXISTS sys_role_permission;
@@ -35,3 +63,51 @@ CREATE TABLE sys_role_permission (
                                      create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                      UNIQUE KEY uk_role_permission (role, permission_code)
 ) COMMENT='角色权限关联表';
+
+-- USER 角色：场地管理模块
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('USER', 'MODULE_VENUE');
+-- USER 角色：场地详情查看
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('USER', 'VENUE_VIEW_DETAIL');
+-- USER 角色：场地列表查询
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('USER', 'VENUE_QUERY_LIST');
+-- OWNER 角色：场地管理模块
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'MODULE_VENUE');
+-- OWNER 角色：新增场地
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'VENUE_ADD');
+-- OWNER 角色：修改场地信息
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'VENUE_UPDATE');
+-- OWNER 角色：删除场地
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'VENUE_DELETE');
+-- OWNER 角色：场地详情查看
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'VENUE_VIEW_DETAIL');
+-- OWNER 角色：场地列表查询
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'VENUE_QUERY_LIST');
+
+
+-- 场地信息表
+DROP TABLE IF EXISTS venue;
+CREATE TABLE venue (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '场地主键ID',
+    name VARCHAR(100) NOT NULL COMMENT '场地名称',
+    code VARCHAR(50) NOT NULL UNIQUE COMMENT '场地编号，系统内唯一',
+    type VARCHAR(50) NOT NULL COMMENT '场地类型，例如：篮球场、羽毛球馆',
+    capacity INT DEFAULT NULL COMMENT '容纳人数',
+    price DECIMAL(10,2) DEFAULT NULL COMMENT '收费标准（元/小时）',
+    open_time_desc VARCHAR(255) DEFAULT NULL COMMENT '开放时间说明',
+    description TEXT DEFAULT NULL COMMENT '场地描述',
+    status VARCHAR(20) NOT NULL DEFAULT 'AVAILABLE' COMMENT '场地状态：AVAILABLE-空闲可用，DISABLED-已停用，MAINTAIN-维护中，SUSPEND-暂停预约',
+    cover_image_url VARCHAR(255) DEFAULT NULL COMMENT '封面图片URL',
+    image_urls TEXT DEFAULT NULL COMMENT '图片URL集合，JSON数组字符串',
+    remark VARCHAR(255) DEFAULT NULL COMMENT '备注信息',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
+) COMMENT='场地信息表';
