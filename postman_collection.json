@@ -1,0 +1,132 @@
+{
+  "info": {
+    "name": "体育馆预约与仓库管理系统 - 身份认证接口",
+    "_postman_id": "a4c7a4b4-0000-0000-0000-auth-collection",
+    "description": "用于测试后端注册与登录接口（USER 注册、OWNER 注册，USER/OWNER/ADMIN 登录）。基础地址为 http://localhost:9999/sportsVenue。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01-用户注册-USER",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"user01\",\n  \"password\": \"123456\",\n  \"realName\": \"普通用户01\",\n  \"role\": \"USER\",\n  \"adminPassword\": \"\",\n  \"phone\": \"13800000001\",\n  \"email\": \"user01@example.com\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:9999/sportsVenue/auth/register",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "9999",
+          "path": ["sportsVenue", "auth", "register"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "02-用户注册-OWNER",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"owner01\",\n  \"password\": \"123456\",\n  \"realName\": \"场馆管理员01\",\n  \"role\": \"OWNER\",\n  \"adminPassword\": \"admin\",  // TODO: 改成实际 ADMIN 明文密码\n  \"phone\": \"13800000002\",\n  \"email\": \"owner01@example.com\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:9999/sportsVenue/auth/register",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "9999",
+          "path": ["sportsVenue", "auth", "register"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "03-用户登录-USER",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"user01\",\n  \"password\": \"123456\",\n  \"role\": \"USER\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:9999/sportsVenue/auth/login",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "9999",
+          "path": ["sportsVenue", "auth", "login"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "04-用户登录-OWNER",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"owner01\",\n  \"password\": \"123456\",\n  \"role\": \"OWNER\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:9999/sportsVenue/auth/login",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "9999",
+          "path": ["sportsVenue", "auth", "login"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "05-用户登录-ADMIN",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin\",  // TODO: 改成你插入 sys_user 表时的 ADMIN 明文密码\n  \"role\": \"ADMIN\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:9999/sportsVenue/auth/login",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "9999",
+          "path": ["sportsVenue", "auth", "login"]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": []
+}
+
