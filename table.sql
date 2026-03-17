@@ -15,6 +15,7 @@ CREATE TABLE sys_user (
 INSERT INTO sys_user (username,password,real_name,role,status,phone,email,create_time,update_time) 
 VALUES ('admin','$2a$10$TbwDQQlVPK1dH9nyU8mJN.mDBLf3LpMU8aE7faE7XPo4Tdd7vQYx.','超级管理员','ADMIN',1,NULL,NULL,NOW(),NOW());
 
+--admin 初始密码admin
 
 
 

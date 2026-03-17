@@ -5,9 +5,6 @@ import com.tly.dto.file.FileServeResult;
 import com.tly.service.FileStorageService;
 import com.tly.dto.file.FileUploadResult;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -54,14 +51,10 @@ public class FileUploadController {
     /**
      * GET /sportsVenue/files/serve?path=/upload/venue/xxx.jpg&path=/upload/venue/yyy.jpg
      * 支持单张或多张 path，返回 data.images 数组，单张时长度为 1；封面等取 images[0]，content 为 Base64。
+     * 统一使用自定义 Result 返回。
      */
     @GetMapping("/serve")
-    public ResponseEntity<Result<FileServeResult>> serve(@RequestParam("path") List<String> path) {
-        Result<FileServeResult> result = fileStorageService.getByPaths(path);
-        HttpStatus status = result.getCode() == 404 ? HttpStatus.NOT_FOUND
-                : result.getCode() == 403 ? HttpStatus.FORBIDDEN
-                : result.getCode() == 400 ? HttpStatus.BAD_REQUEST
-                : HttpStatus.OK;
-        return ResponseEntity.status(status).contentType(MediaType.APPLICATION_JSON).body(result);
+    public Result<FileServeResult> serve(@RequestParam("path") List<String> path) {
+        return fileStorageService.getByPaths(path);
     }
 }
