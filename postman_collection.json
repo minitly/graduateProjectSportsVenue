@@ -127,7 +127,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"一号篮球场\",\n  \"code\": \"V001\",\n  \"type\": \"篮球场\",\n  \"capacity\": 20,\n  \"price\": 120,\n  \"openTimeDesc\": \"每日 08:00-22:00\",\n  \"description\": \"标准室内篮球场\",\n  \"status\": \"AVAILABLE\",\n  \"coverImageUrl\": \"\",\n  \"imageUrls\": [],\n  \"remark\": \"\"\n}"
+              "raw": "{\n  \"name\": \"一号篮球场\",\n  \"code\": \"V001\",\n  \"type\": \"篮球场\",\n  \"capacity\": 20,\n  \"price\": 120,\n  \"openTime\": \"08:00\",\n  \"closeTime\": \"22:00\",\n  \"openTimeDesc\": \"每日 08:00-22:00\",\n  \"description\": \"标准室内篮球场\",\n  \"status\": \"AVAILABLE\",\n  \"coverImageUrl\": \"\",\n  \"imageUrls\": [],\n  \"remark\": \"\"\n}"
             },
             "url": "{{baseUrl}}/venues"
           },
@@ -165,7 +165,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"id\": 1,\n  \"name\": \"一号篮球场（已修改）\",\n  \"code\": \"V001\",\n  \"type\": \"篮球场\",\n  \"capacity\": 24,\n  \"price\": 150,\n  \"openTimeDesc\": \"每日 08:00-22:00\",\n  \"description\": \"标准室内篮球场\",\n  \"status\": \"AVAILABLE\",\n  \"coverImageUrl\": \"\",\n  \"imageUrls\": [],\n  \"remark\": \"\"\n}"
+              "raw": "{\n  \"id\": 1,\n  \"name\": \"一号篮球场（已修改）\",\n  \"code\": \"V001\",\n  \"type\": \"篮球场\",\n  \"capacity\": 24,\n  \"price\": 150,\n  \"openTime\": \"08:00\",\n  \"closeTime\": \"22:00\",\n  \"openTimeDesc\": \"每日 08:00-22:00\",\n  \"description\": \"标准室内篮球场\",\n  \"status\": \"AVAILABLE\",\n  \"coverImageUrl\": \"\",\n  \"imageUrls\": [],\n  \"remark\": \"\"\n}"
             },
             "url": "{{baseUrl}}/venues/1"
           },

@@ -15,6 +15,14 @@ public class Venue {
     private String type;
     private Integer capacity;
     private BigDecimal price;
+    /**
+     * 开放时间，例如：08:00
+     */
+    private String openTime;
+    /**
+     * 结束时间，例如：22:00
+     */
+    private String closeTime;
     private String openTimeDesc;
     private String description;
     /**

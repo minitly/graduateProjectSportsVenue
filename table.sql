@@ -122,6 +122,8 @@ CREATE TABLE venue (
                        type VARCHAR(50) NOT NULL COMMENT '场地类型，例如：篮球场、羽毛球馆',
                        capacity INT DEFAULT NULL COMMENT '容纳人数',
                        price DECIMAL(10,2) DEFAULT NULL COMMENT '收费标准（元/小时）',
+                       open_time VARCHAR(20) DEFAULT NULL COMMENT '开放时间，例如：08:00',
+                       close_time VARCHAR(20) DEFAULT NULL COMMENT '结束时间，例如：22:00',
                        open_time_desc VARCHAR(255) DEFAULT NULL COMMENT '开放时间说明',
                        description TEXT DEFAULT NULL COMMENT '场地描述',
                        status VARCHAR(20) NOT NULL DEFAULT 'AVAILABLE' COMMENT '场地状态：AVAILABLE-空闲可用，DISABLED-已停用，MAINTAIN-维护中，SUSPEND-暂停预约',

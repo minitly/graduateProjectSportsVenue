@@ -11,6 +11,8 @@
         <result property="type" column="type"/>
         <result property="capacity" column="capacity"/>
         <result property="price" column="price"/>
+        <result property="openTime" column="open_time"/>
+        <result property="closeTime" column="close_time"/>
         <result property="openTimeDesc" column="open_time_desc"/>
         <result property="description" column="description"/>
         <result property="status" column="status"/>
@@ -23,9 +25,11 @@
 
     <insert id="insert" parameterType="com.tly.entity.Venue" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO venue
-        (name, code, type, capacity, price, open_time_desc, description, status, cover_image_url, image_urls, remark, create_time, update_time)
+        (name, code, type, capacity, price, open_time, close_time, open_time_desc, description,
+         status, cover_image_url, image_urls, remark, create_time, update_time)
         VALUES
-        (#{name}, #{code}, #{type}, #{capacity}, #{price}, #{openTimeDesc}, #{description}, #{status},
+        (#{name}, #{code}, #{type}, #{capacity}, #{price},
+         #{openTime}, #{closeTime}, #{openTimeDesc}, #{description}, #{status},
          #{coverImageUrl}, #{imageUrlsJson,jdbcType=LONGVARCHAR}, #{remark}, NOW(), NOW())
     </insert>
 
@@ -37,6 +41,8 @@
             type = #{type},
             capacity = #{capacity},
             price = #{price},
+            open_time = #{openTime},
+            close_time = #{closeTime},
             open_time_desc = #{openTimeDesc},
             description = #{description},
             status = #{status},
@@ -53,7 +59,7 @@
 
     <select id="selectById" parameterType="long" resultMap="VenueResultMap">
         SELECT
-            id, name, code, type, capacity, price, open_time_desc, description,
+            id, name, code, type, capacity, price, open_time, close_time, open_time_desc, description,
             status, cover_image_url, image_urls, remark, create_time, update_time
         FROM venue
         WHERE id = #{id}
@@ -79,7 +85,7 @@
 
     <select id="listByCondition" resultMap="VenueResultMap">
         SELECT
-            id, name, code, type, capacity, price, open_time_desc, description,
+            id, name, code, type, capacity, price, open_time, close_time, open_time_desc, description,
             status, cover_image_url, image_urls, remark, create_time, update_time
         FROM venue
         <where>
