@@ -13,6 +13,21 @@ public interface SysUserMapper {
 
     int insert(SysUser user);
 
+    SysUser findById(@Param("id") Long id);
+
+    long countAll();
+
+    List<SysUser> listAll(@Param("offset") long offset, @Param("limit") long limit);
+
+    long countByCondition(@Param("status") Integer status, @Param("keyword") String keyword);
+
+    List<SysUser> listByCondition(@Param("status") Integer status,
+                                  @Param("keyword") String keyword,
+                                  @Param("offset") long offset,
+                                  @Param("limit") long limit);
+
+    int update(SysUser user);
+
     /**
      * 根据角色查询权限编码列表
      */

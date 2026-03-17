@@ -41,6 +41,94 @@
         (#{username}, #{password}, #{realName}, #{role}, #{status}, #{phone}, #{email}, now(), now())
     </insert>
 
+    <select id="findById" parameterType="long" resultMap="SysUserResultMap">
+        select
+            id,
+            username,
+            password,
+            real_name,
+            role,
+            status,
+            phone,
+            email,
+            create_time,
+            update_time
+        from sys_user
+        where id = #{id}
+        limit 1
+    </select>
+
+    <select id="countAll" resultType="long">
+        select count(*) from sys_user
+    </select>
+
+    <select id="listAll" resultMap="SysUserResultMap">
+        select
+            id,
+            username,
+            password,
+            real_name,
+            role,
+            status,
+            phone,
+            email,
+            create_time,
+            update_time
+        from sys_user
+        order by create_time desc
+        limit #{limit} offset #{offset}
+    </select>
+
+    <select id="countByCondition" resultType="long">
+        select count(*)
+        from sys_user
+        where 1 = 1
+        <if test="status != null">
+            and status = #{status}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            and username like concat('%', #{keyword}, '%')
+        </if>
+    </select>
+
+    <select id="listByCondition" resultMap="SysUserResultMap">
+        select
+            id,
+            username,
+            password,
+            real_name,
+            role,
+            status,
+            phone,
+            email,
+            create_time,
+            update_time
+        from sys_user
+        where 1 = 1
+        <if test="status != null">
+            and status = #{status}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            and username like concat('%', #{keyword}, '%')
+        </if>
+        order by create_time desc
+        limit #{limit} offset #{offset}
+    </select>
+
+    <update id="update" parameterType="com.tly.entity.SysUser">
+        update sys_user
+        set
+            username = #{username},
+            password = #{password},
+            real_name = #{realName},
+            role = #{role},
+            status = #{status},
+            phone = #{phone},
+            email = #{email},
+            update_time = now()
+        where id = #{id}
+    </update>
+
     <select id="findPermissionCodesByRole" parameterType="string" resultType="string">
         select
             permission_code
