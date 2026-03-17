@@ -60,6 +60,24 @@ VALUES ('USER_MANAGE_DETAIL', '用户-详情查看', 'MODULE_USER', '根据ID查
 INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
 VALUES ('USER_MANAGE_UPDATE', '用户-修改', 'MODULE_USER', '修改用户基础信息及状态（含禁用/启用）的权限');
 
+-- -------------------仓库（器材）模块权限------------------------
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('WAREHOUSE_ITEM_ADD', '仓库-器材新增', 'MODULE_WAREHOUSE', '器材信息的新增');
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('WAREHOUSE_ITEM_UPDATE', '仓库-器材修改', 'MODULE_WAREHOUSE', '器材信息的修改');
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('WAREHOUSE_ITEM_DETAIL', '仓库-器材详细', 'MODULE_WAREHOUSE', '按ID查询器材详细信息');
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('WAREHOUSE_ITEM_QUERY_LIST', '仓库-器材查询', 'MODULE_WAREHOUSE', '按条件分页查询器材列表的权限');
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('WAREHOUSE_BORROW_APPLY', '仓库-借用申请', 'MODULE_WAREHOUSE', '用户发起器材借用申请的权限');
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('WAREHOUSE_BORROW_APPROVE', '仓库-借出/归还', 'MODULE_WAREHOUSE', '管理员确认借出与归还的权限');
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('WAREHOUSE_BORROW_QUERY_LIST', '仓库-借用记录查询', 'MODULE_WAREHOUSE', '按条件分页查询借用记录的权限');
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('WAREHOUSE_BORROW_QUERY_MY', '仓库-借用记录我的查询', 'MODULE_WAREHOUSE', '查询当前登录用户的所有借用记录');
+
 -- 角色权限关联表
 DROP TABLE IF EXISTS sys_role_permission;
 CREATE TABLE sys_role_permission (
@@ -106,6 +124,37 @@ VALUES ('OWNER', 'USER_MANAGE_DETAIL');
 INSERT INTO sys_role_permission (role, permission_code)
 VALUES ('OWNER', 'USER_MANAGE_SEARCH');
 
+-- -------------------------仓库模块---------------------------
+-- USER：查看器材列表、器材详细，仅能发起借用申请、查看自身相关借用记录
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('USER', 'MODULE_WAREHOUSE');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('USER', 'WAREHOUSE_ITEM_DETAIL');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('USER', 'WAREHOUSE_ITEM_QUERY_LIST');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('USER', 'WAREHOUSE_BORROW_APPLY');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('USER', 'WAREHOUSE_BORROW_QUERY_MY');
+
+-- OWNER：器材管理 + 借用全流程 + 查询
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'MODULE_WAREHOUSE');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'WAREHOUSE_ITEM_ADD');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'WAREHOUSE_ITEM_UPDATE');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'WAREHOUSE_ITEM_DETAIL');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'WAREHOUSE_ITEM_QUERY_LIST');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'WAREHOUSE_BORROW_APPROVE');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'WAREHOUSE_BORROW_QUERY_LIST');
+
+
+
 
 
 
@@ -133,3 +182,40 @@ CREATE TABLE venue (
                        create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                        update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
 ) COMMENT='场地信息表';
+
+
+-- 器材信息表：不区分场地，所有器材统一属于体育馆
+DROP TABLE IF EXISTS warehouse_item;
+CREATE TABLE warehouse_item (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '器材主键ID',
+    name VARCHAR(100) NOT NULL COMMENT '器材名称，如：篮球、羽毛球拍',
+    type VARCHAR(50) DEFAULT NULL COMMENT '器材类型，如：球类、球拍、护具等',
+    model VARCHAR(100) DEFAULT NULL COMMENT '规格型号/品牌型号',
+    total_quantity INT NOT NULL DEFAULT 0 COMMENT '总数量（当前仓库该类器材总数）',
+    available_quantity INT NOT NULL DEFAULT 0 COMMENT '当前可借数量',
+    damaged_quantity INT NOT NULL DEFAULT 0 COMMENT '损坏/报废数量（统计用，可选）',
+    deposit_amount DECIMAL(10,2) DEFAULT NULL COMMENT '建议押金金额',
+    description TEXT DEFAULT NULL COMMENT '器材描述/备注',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
+) COMMENT='体育馆器材信息表';
+
+
+-- 器材借用记录表：记录每一次借用的完整生命周期
+DROP TABLE IF EXISTS borrow_record;
+CREATE TABLE borrow_record (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '借用记录主键ID',
+    user_id BIGINT NOT NULL COMMENT '借用人用户ID，对应 sys_user.id',
+    item_id BIGINT NOT NULL COMMENT '借用的器材ID，对应 warehouse_item.id',
+    quantity INT NOT NULL DEFAULT 1 COMMENT '借用数量',
+    status VARCHAR(20) NOT NULL COMMENT '借用状态：REQUESTED-提出申请，USING-使用中，RETURNED-已归还',
+    requested_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '提出申请时间',
+    approved_time DATETIME DEFAULT NULL COMMENT '管理员确认借出时间',
+    returned_time DATETIME DEFAULT NULL COMMENT '管理员确认归还时间',
+    deposit_snapshot DECIMAL(10,2) DEFAULT NULL COMMENT '借用时记录的建议押金金额快照（仅用于记录）',
+    condition_on_borrow VARCHAR(20) DEFAULT NULL COMMENT '器材状况：GOOD-完好，DAMAGED-损坏，LOST-丢失',
+    condition_on_return VARCHAR(20) DEFAULT NULL COMMENT '器材状况：GOOD-完好，DAMAGED-损坏，LOST-丢失',
+    remark VARCHAR(255) DEFAULT NULL COMMENT '备注，如损坏说明、特殊情况说明等',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录创建时间',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '记录更新时间'
+) COMMENT='器材借用记录表';

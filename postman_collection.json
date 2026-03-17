@@ -253,6 +253,136 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "仓库-器材管理与借用",
+      "item": [
+        {
+          "name": "18-仓库-新增器材",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"篮球\",\n  \"type\": \"球类\",\n  \"model\": \"7号比赛用球\",\n  \"totalQuantity\": 10,\n  \"availableQuantity\": 10,\n  \"damagedQuantity\": 0,\n  \"depositAmount\": 50,\n  \"description\": \"标准7号室内篮球，一般训练/比赛用。\"\n}"
+            },
+            "url": "{{baseUrl}}/items"
+          },
+          "response": []
+        },
+        {
+          "name": "19-仓库-修改器材",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1,\n  \"name\": \"篮球（加厚款）\",\n  \"type\": \"球类\",\n  \"model\": \"7号加厚耐磨球\",\n  \"totalQuantity\": 12,\n  \"availableQuantity\": 9,\n  \"damagedQuantity\": 3,\n  \"depositAmount\": 60,\n  \"description\": \"加厚耐磨款篮球。\"\n}"
+            },
+            "url": "{{baseUrl}}/items/1"
+          },
+          "response": []
+        },
+        {
+          "name": "20-仓库-器材分页查询",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/items?type=球类&onlyAvailable=true&pageNo=1&pageSize=10"
+          },
+          "response": []
+        },
+        {
+          "name": "20.1-仓库-器材详情",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/items/1"
+          },
+          "response": []
+        },
+        {
+          "name": "21-仓库-发起借用申请",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemId\": 1,\n  \"quantity\": 2,\n  \"remark\": \"打两小时篮球训练。\"\n}"
+            },
+            "url": "{{baseUrl}}/borrows"
+          },
+          "response": []
+        },
+        {
+          "name": "22-仓库-确认借出",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"conditionOnBorrow\": \"GOOD\",\n  \"remark\": \"器材外观正常，无明显磨损。\"\n}"
+            },
+            "url": "{{baseUrl}}/borrows/100/approve"
+          },
+          "response": []
+        },
+        {
+          "name": "23-仓库-确认归还",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"conditionOnReturn\": \"GOOD\",\n  \"remark\": \"使用正常，完好归还。\"\n}"
+            },
+            "url": "{{baseUrl}}/borrows/100/return"
+          },
+          "response": []
+        },
+        {
+          "name": "24-仓库-借用记录分页查询",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/borrows?status=USING&pageNo=1&pageSize=10"
+          },
+          "response": []
+        }
+        ,
+        {
+          "name": "25-仓库-我的借用记录",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/borrows/my?status=USING&startTime=2025-03-20T00:00:00&endTime=2025-03-20T23:59:59&pageNo=1&pageSize=10"
+          },
+          "response": []
+        }
+      ]
     }
   ]
 }

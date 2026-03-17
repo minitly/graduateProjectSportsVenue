@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tly.mapper.WarehouseItemMapper">
+
+    <resultMap id="WarehouseItemResultMap" type="com.tly.entity.WarehouseItem">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="type" column="type"/>
+        <result property="model" column="model"/>
+        <result property="totalQuantity" column="total_quantity"/>
+        <result property="availableQuantity" column="available_quantity"/>
+        <result property="damagedQuantity" column="damaged_quantity"/>
+        <result property="depositAmount" column="deposit_amount"/>
+        <result property="description" column="description"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.tly.entity.WarehouseItem" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO warehouse_item
+        (name, type, model, total_quantity, available_quantity, damaged_quantity, deposit_amount, description, create_time, update_time)
+        VALUES
+        (#{name}, #{type}, #{model}, #{totalQuantity}, #{availableQuantity}, #{damagedQuantity},
+         #{depositAmount}, #{description}, NOW(), NOW())
+    </insert>
+
+    <update id="update" parameterType="com.tly.entity.WarehouseItem">
+        UPDATE warehouse_item
+        SET
+            name = #{name},
+            type = #{type},
+            model = #{model},
+            total_quantity = #{totalQuantity},
+            available_quantity = #{availableQuantity},
+            damaged_quantity = #{damagedQuantity},
+            deposit_amount = #{depositAmount},
+            description = #{description},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <select id="selectById" parameterType="long" resultMap="WarehouseItemResultMap">
+        SELECT
+            id, name, type, model,
+            total_quantity, available_quantity, damaged_quantity,
+            deposit_amount, description, create_time, update_time
+        FROM warehouse_item
+        WHERE id = #{id}
+        LIMIT 1
+    </select>
+
+    <select id="countByCondition" resultType="long">
+        SELECT COUNT(1)
+        FROM warehouse_item
+        <where>
+            <if test="type != null and type != ''">
+                AND type = #{type}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (name LIKE CONCAT('%', #{keyword}, '%')
+                     OR model LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="onlyAvailable != null and onlyAvailable">
+                AND available_quantity &gt; 0
+            </if>
+        </where>
+    </select>
+
+    <select id="listByCondition" resultMap="WarehouseItemResultMap">
+        SELECT
+            id, name, type, model,
+            total_quantity, available_quantity, damaged_quantity,
+            deposit_amount, description, create_time, update_time
+        FROM warehouse_item
+        <where>
+            <if test="type != null and type != ''">
+                AND type = #{type}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (name LIKE CONCAT('%', #{keyword}, '%')
+                     OR model LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="onlyAvailable != null and onlyAvailable">
+                AND available_quantity &gt; 0
+            </if>
+        </where>
+        ORDER BY create_time DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+</mapper>
+

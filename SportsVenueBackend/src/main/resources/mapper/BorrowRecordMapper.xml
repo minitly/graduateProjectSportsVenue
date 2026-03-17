@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tly.mapper.BorrowRecordMapper">
+
+    <resultMap id="BorrowRecordResultMap" type="com.tly.entity.BorrowRecord">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="itemId" column="item_id"/>
+        <result property="quantity" column="quantity"/>
+        <result property="status" column="status"/>
+        <result property="requestedTime" column="requested_time"/>
+        <result property="approvedTime" column="approved_time"/>
+        <result property="returnedTime" column="returned_time"/>
+        <result property="depositSnapshot" column="deposit_snapshot"/>
+        <result property="conditionOnBorrow" column="condition_on_borrow"/>
+        <result property="conditionOnReturn" column="condition_on_return"/>
+        <result property="remark" column="remark"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.tly.entity.BorrowRecord" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO borrow_record
+        (user_id, item_id, quantity, status, requested_time,
+         approved_time, returned_time, deposit_snapshot,
+         condition_on_borrow, condition_on_return, remark,
+         create_time, update_time)
+        VALUES
+        (#{userId}, #{itemId}, #{quantity}, #{status}, #{requestedTime},
+         #{approvedTime}, #{returnedTime}, #{depositSnapshot},
+         #{conditionOnBorrow}, #{conditionOnReturn}, #{remark},
+         NOW(), NOW())
+    </insert>
+
+    <update id="update" parameterType="com.tly.entity.BorrowRecord">
+        UPDATE borrow_record
+        SET
+            user_id = #{userId},
+            item_id = #{itemId},
+            quantity = #{quantity},
+            status = #{status},
+            requested_time = #{requestedTime},
+            approved_time = #{approvedTime},
+            returned_time = #{returnedTime},
+            deposit_snapshot = #{depositSnapshot},
+            condition_on_borrow = #{conditionOnBorrow},
+            condition_on_return = #{conditionOnReturn},
+            remark = #{remark},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <select id="selectById" parameterType="long" resultMap="BorrowRecordResultMap">
+        SELECT
+            id, user_id, item_id, quantity, status,
+            requested_time, approved_time, returned_time,
+            deposit_snapshot, condition_on_borrow, condition_on_return,
+            remark, create_time, update_time
+        FROM borrow_record
+        WHERE id = #{id}
+        LIMIT 1
+    </select>
+
+    <select id="countByCondition" resultType="long">
+        SELECT COUNT(1)
+        FROM borrow_record
+        <where>
+            <if test="userId != null">
+                AND user_id = #{userId}
+            </if>
+            <if test="itemId != null">
+                AND item_id = #{itemId}
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="startTime != null">
+                AND requested_time &gt;= #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND requested_time &lt;= #{endTime}
+            </if>
+        </where>
+    </select>
+
+    <select id="listByCondition" resultMap="BorrowRecordResultMap">
+        SELECT
+            id, user_id, item_id, quantity, status,
+            requested_time, approved_time, returned_time,
+            deposit_snapshot, condition_on_borrow, condition_on_return,
+            remark, create_time, update_time
+        FROM borrow_record
+        <where>
+            <if test="userId != null">
+                AND user_id = #{userId}
+            </if>
+            <if test="itemId != null">
+                AND item_id = #{itemId}
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="startTime != null">
+                AND requested_time &gt;= #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND requested_time &lt;= #{endTime}
+            </if>
+        </where>
+        ORDER BY requested_time DESC
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+</mapper>
+
