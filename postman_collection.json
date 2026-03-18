@@ -176,8 +176,13 @@
           "request": {
             "method": "DELETE",
             "header": [
+              { "key": "Content-Type", "value": "application/json" },
               { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"adminPassword\": \"admin\"\n}"
+            },
             "url": "{{baseUrl}}/venues/1"
           },
           "response": []

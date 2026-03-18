@@ -2,6 +2,7 @@ package com.tly.controller;
 
 import com.tly.common.PageResult;
 import com.tly.common.Result;
+import com.tly.dto.venue.VenueDeleteRequest;
 import com.tly.entity.Venue;
 import com.tly.service.VenueService;
 import jakarta.validation.Valid;
@@ -35,8 +36,10 @@ public class VenueController {
      * 场地信息删除：DELETE /sportsVenue/venues/{id}
      */
     @DeleteMapping("/{id}")
-    public Result<Void> delete(@PathVariable("id") Long id) {
-        return venueService.delete(id);
+    public Result<Void> delete(@PathVariable("id") Long id,
+                               @RequestBody(required = false) VenueDeleteRequest body) {
+        String adminPassword = body != null ? body.getAdminPassword() : null;
+        return venueService.delete(id, adminPassword);
     }
 
     /**

@@ -5,10 +5,14 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tly.common.PageResult;
 import com.tly.common.Result;
+import com.tly.auth.UserContext;
+import com.tly.entity.SysUser;
 import com.tly.entity.Venue;
+import com.tly.mapper.SysUserMapper;
 import com.tly.mapper.VenueMapper;
 import com.tly.service.BookingService;
 import com.tly.service.VenueService;
+import com.tly.util.PasswordUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +26,9 @@ public class VenueServiceImpl implements VenueService {
 
     @Autowired
     private VenueMapper venueMapper;
+
+    @Autowired
+    private SysUserMapper sysUserMapper;
 
     @Autowired
     private BookingService bookingService;
@@ -94,11 +101,35 @@ public class VenueServiceImpl implements VenueService {
     }
 
     @Override
-    public Result<Void> delete(Long id) {
+    @Transactional(rollbackFor = Exception.class)
+    public Result<Void> delete(Long id, String adminPassword) {
+        UserContext.CurrentUser currentUser = UserContext.get();
+        if (currentUser == null) {
+            return Result.fail(401, "未登录");
+        }
+        if (!"OWNER".equalsIgnoreCase(currentUser.getRole()) && !"ADMIN".equalsIgnoreCase(currentUser.getRole())) {
+            return Result.fail(403, "无权限删除场地");
+        }
+        if (!StringUtils.hasText(adminPassword)) {
+            return Result.fail(400, "adminPassword不能为空");
+        }
+
+        SysUser admin = sysUserMapper.findByUsername("admin");
+        if (admin == null || !"ADMIN".equalsIgnoreCase(admin.getRole())) {
+            return Result.fail(400, "系统 ADMIN 账号不存在，请先初始化管理员");
+        }
+        if (!PasswordUtil.matches(adminPassword, admin.getPassword())) {
+            return Result.fail(403, "ADMIN 密码错误，禁止删除场地");
+        }
+
         Venue exists = venueMapper.selectById(id);
         if (exists == null) {
             return Result.fail(404, "场地不存在");
         }
+
+        // 删除场地前联动取消该场地所有申请中的预约，并释放占用时段
+        bookingService.cancelAppliedByVenueStatusChange(id, "VENUE_DISABLED", "场地删除");
+
         venueMapper.deleteById(id);
         return Result.success("删除场地成功", null);
     }

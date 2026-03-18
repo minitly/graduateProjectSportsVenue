@@ -10,7 +10,7 @@ public interface VenueService {
 
     Result<Venue> update(Long id, Venue venue);
 
-    Result<Void> delete(Long id);
+    Result<Void> delete(Long id, String adminPassword);
 
     Result<Venue> getById(Long id);
 
