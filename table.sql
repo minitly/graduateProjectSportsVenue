@@ -298,3 +298,75 @@ CREATE TABLE booking_reservation_slot (
     INDEX idx_slot_reservation (reservation_id),
     INDEX idx_slot_venue_time (venue_id, slot_start_time)
 ) COMMENT='预约占用时段表（60分钟粒度）';
+
+
+
+
+
+-- mock数据----------------------------------------
+INSERT INTO venue
+(name, code, type, capacity, price, open_time, close_time, open_time_desc, description, status, cover_image_url, image_urls, remark, create_time, update_time)
+VALUES
+    ('一号篮球场', 'V101', '篮球场', 20, 120.00, '08:00', '22:00', '每日 08:00-22:00', '标准室内篮球场，木地板，含记分牌。', 'AVAILABLE',
+     '/upload/venue/v101-cover.jpg', '["/upload/venue/v101-1.jpg","/upload/venue/v101-2.jpg"]', '周末高峰建议提前预约', NOW(), NOW()),
+    ('二号篮球场', 'V102', '篮球场', 18, 100.00, '08:00', '22:00', '每日 08:00-22:00', '半场训练场，适合三对三。', 'AVAILABLE',
+     '/upload/venue/v102-cover.jpg', '["/upload/venue/v102-1.jpg"]', '', NOW(), NOW()),
+    ('羽毛球馆A区', 'V201', '羽毛球馆', 16, 80.00, '09:00', '21:00', '每日 09:00-21:00', '4片标准羽毛球场，含灯光。', 'AVAILABLE',
+     '/upload/venue/v201-cover.jpg', '["/upload/venue/v201-1.jpg","/upload/venue/v201-2.jpg","/upload/venue/v201-3.jpg"]', '自带球拍可优惠', NOW(), NOW()),
+    ('羽毛球馆B区', 'V202', '羽毛球馆', 12, 70.00, '09:00', '21:00', '每日 09:00-21:00', '3片场地，适合团体活动。', 'SUSPEND',
+     '/upload/venue/v202-cover.jpg', '["/upload/venue/v202-1.jpg"]', '临时暂停预约（活动占用）', NOW(), NOW()),
+    ('乒乓球室', 'V301', '乒乓球室', 10, 50.00, '10:00', '20:00', '每日 10:00-20:00', '6张球台，配备挡板。', 'AVAILABLE',
+     '/upload/venue/v301-cover.jpg', '["/upload/venue/v301-1.jpg","/upload/venue/v301-2.jpg"]', '', NOW(), NOW()),
+    ('健身房', 'V401', '健身房', 40, 60.00, '07:00', '23:00', '每日 07:00-23:00', '器械区+有氧区，含更衣室。', 'MAINTAIN',
+     '/upload/venue/v401-cover.jpg', '["/upload/venue/v401-1.jpg"]', '设备维护中', NOW(), NOW()),
+    ('游泳馆', 'V501', '游泳馆', 60, 90.00, '08:00', '20:00', '每日 08:00-20:00', '25米标准泳池，分深浅水区。', 'DISABLED',
+     '/upload/venue/v501-cover.jpg', '["/upload/venue/v501-1.jpg"]', '整改停用', NOW(), NOW());
+
+INSERT INTO venue
+(name, code, type, capacity, price, open_time, close_time, open_time_desc, description, status, cover_image_url, image_urls, remark, create_time, update_time)
+VALUES
+    ('三号篮球场（室外）', 'V103', '篮球场', 22, 60.00, '08:00', '21:00', '每日 08:00-21:00', '室外塑胶场地，夜间照明一般。', 'AVAILABLE',
+     '/upload/venue/v103-cover.jpg', '["/upload/venue/v103-1.jpg","/upload/venue/v103-2.jpg"]', '雨天可能临时关闭', NOW(), NOW()),
+    ('四号篮球场（训练馆）', 'V104', '篮球场', 16, 90.00, '09:00', '22:00', '每日 09:00-22:00', '训练馆半场，适合教学/训练。', 'AVAILABLE',
+     '/upload/venue/v104-cover.jpg', '["/upload/venue/v104-1.jpg"]', '', NOW(), NOW()),
+    ('五人制足球场', 'V601', '足球场', 30, 200.00, '08:00', '22:00', '每日 08:00-22:00', '人造草坪五人制，含围网。', 'AVAILABLE',
+     '/upload/venue/v601-cover.jpg', '["/upload/venue/v601-1.jpg","/upload/venue/v601-2.jpg","/upload/venue/v601-3.jpg"]', '需穿碎钉/TF', NOW(), NOW()),
+    ('网球场A', 'V701', '网球场', 8, 160.00, '09:00', '21:00', '每日 09:00-21:00', '硬地网球场，标准双打场地。', 'AVAILABLE',
+     '/upload/venue/v701-cover.jpg', '["/upload/venue/v701-1.jpg","/upload/venue/v701-2.jpg"]', '', NOW(), NOW()),
+    ('网球场B', 'V702', '网球场', 8, 160.00, '09:00', '21:00', '每日 09:00-21:00', '硬地网球场，靠近看台。', 'SUSPEND',
+     '/upload/venue/v702-cover.jpg', '["/upload/venue/v702-1.jpg"]', '场地翻新暂停预约', NOW(), NOW()),
+    ('舞蹈房', 'V801', '舞蹈房', 35, 110.00, '10:00', '22:00', '每日 10:00-22:00', '镜面+把杆+音响，适合排练。', 'AVAILABLE',
+     '/upload/venue/v801-cover.jpg', '["/upload/venue/v801-1.jpg","/upload/venue/v801-2.jpg"]', '请自备干净运动鞋', NOW(), NOW()),
+    ('多功能活动室', 'V802', '多功能厅', 80, 300.00, '09:00', '21:00', '每日 09:00-21:00', '可举办讲座/团建/社团活动。', 'AVAILABLE',
+     '/upload/venue/v802-cover.jpg', '["/upload/venue/v802-1.jpg"]', '可提供投影（需提前预约）', NOW(), NOW()),
+    ('攀岩墙体验区', 'V901', '攀岩', 12, 150.00, '13:00', '20:00', '每日 13:00-20:00', '抱石+线路体验，需签安全协议。', 'MAINTAIN',
+     '/upload/venue/v901-cover.jpg', '["/upload/venue/v901-1.jpg","/upload/venue/v901-2.jpg"]', '安全检查中', NOW(), NOW()),
+    ('室内跑道', 'V902', '跑道', 50, 30.00, '06:00', '23:00', '每日 06:00-23:00', '室内环形跑道，适合晨跑。', 'AVAILABLE',
+     '/upload/venue/v902-cover.jpg', '["/upload/venue/v902-1.jpg"]', '', NOW(), NOW());
+
+INSERT INTO warehouse_item
+(name, type, model, total_quantity, available_quantity, damaged_quantity, deposit_amount, description, create_time, update_time)
+VALUES
+    ('篮球', '球类', '7号比赛用球', 30, 28, 2, 50.00, '标准7号室内篮球，训练/比赛通用。', NOW(), NOW()),
+    ('羽毛球拍', '球拍', '碳素中端拍', 40, 35, 5, 80.00, '适合初中级，重量适中。', NOW(), NOW()),
+    ('羽毛球', '球类', '训练用耐打12只装', 80, 75, 5, 20.00, '一筒12只，训练用。', NOW(), NOW()),
+    ('乒乓球拍', '球拍', '双面反胶成品拍', 25, 22, 3, 30.00, '大众成品拍，适合入门。', NOW(), NOW()),
+    ('乒乓球', '球类', '40+三星球 6只装', 100, 96, 4, 10.00, '比赛训练通用。', NOW(), NOW()),
+    ('瑜伽垫', '健身器材', '加厚防滑 183cm', 35, 34, 1, 20.00, '加厚防滑，适合团课。', NOW(), NOW()),
+    ('跳绳', '健身器材', '可调节钢丝绳', 50, 48, 2, 15.00, '可调节长度，带轴承。', NOW(), NOW()),
+    ('护腕', '护具', '运动护腕通用', 60, 58, 2, 5.00, '篮球/羽毛球通用护腕。', NOW(), NOW()),
+    ('训练背心', '训练用品', '分队背心（红/黄）', 80, 80, 0, NULL, '对抗训练分组背心，红黄各40。', NOW(), NOW()),
+    ('哑铃（可调）', '健身器材', '2.5-25kg可调哑铃', 10, 9, 1, 200.00, '可调重量哑铃，使用需登记。', NOW(), NOW());
+INSERT INTO warehouse_item
+(name, type, model, total_quantity, available_quantity, damaged_quantity, deposit_amount, description, create_time, update_time)
+VALUES
+    ('足球', '球类', '5号比赛用球', 20, 19, 1, 60.00, '五人制/七人制训练比赛用。', NOW(), NOW()),
+    ('网球拍', '球拍', '入门铝合金拍', 18, 16, 2, 100.00, '入门友好，适合初学者。', NOW(), NOW()),
+    ('网球', '球类', '练习球 3只装', 60, 58, 2, 15.00, '耐打练习球。', NOW(), NOW()),
+    ('运动锥桶', '训练用品', '标志桶 23cm', 80, 78, 2, NULL, '带孔训练标志桶，用于绕桩训练。', NOW(), NOW()),
+    ('训练标志碟', '训练用品', '标志碟 10cm', 200, 195, 5, NULL, '足球/体能训练标志碟。', NOW(), NOW()),
+    ('救生圈', '泳具', '成人加厚款', 25, 24, 1, 30.00, '游泳馆训练备用。', NOW(), NOW()),
+    ('浮板', '泳具', 'EVA训练浮板', 30, 29, 1, 25.00, '游泳打腿训练用。', NOW(), NOW()),
+    ('拉力带', '健身器材', '5档阻力套装', 40, 38, 2, 20.00, '力量训练/康复训练。', NOW(), NOW()),
+    ('心率带', '健身器材', '蓝牙心率带', 12, 11, 1, 120.00, '团课监测心率用。', NOW(), NOW()),
+    ('计分牌（便携）', '比赛器材', '翻页计分牌', 6, 6, 0, 80.00, '篮球/羽毛球比赛训练用。', NOW(), NOW());
