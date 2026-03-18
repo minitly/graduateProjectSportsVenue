@@ -308,41 +308,20 @@ INSERT INTO venue
 (name, code, type, capacity, price, open_time, close_time, open_time_desc, description, status, cover_image_url, image_urls, remark, create_time, update_time)
 VALUES
     ('一号篮球场', 'V101', '篮球场', 20, 120.00, '08:00', '22:00', '每日 08:00-22:00', '标准室内篮球场，木地板，含记分牌。', 'AVAILABLE',
-     '/upload/venue/v101-cover.jpg', '["/upload/venue/v101-1.jpg","/upload/venue/v101-2.jpg"]', '周末高峰建议提前预约', NOW(), NOW()),
+     '/upload/venue/v101-cover.png', '["/upload/venue/v101-1.png","/upload/venue/v101-2.png"]', '周末高峰建议提前预约', NOW(), NOW()),
     ('二号篮球场', 'V102', '篮球场', 18, 100.00, '08:00', '22:00', '每日 08:00-22:00', '半场训练场，适合三对三。', 'AVAILABLE',
-     '/upload/venue/v102-cover.jpg', '["/upload/venue/v102-1.jpg"]', '', NOW(), NOW()),
+     '/upload/venue/v102-cover.png', '["/upload/venue/v102-1.png"]', '', NOW(), NOW()),
     ('羽毛球馆A区', 'V201', '羽毛球馆', 16, 80.00, '09:00', '21:00', '每日 09:00-21:00', '4片标准羽毛球场，含灯光。', 'AVAILABLE',
-     '/upload/venue/v201-cover.jpg', '["/upload/venue/v201-1.jpg","/upload/venue/v201-2.jpg","/upload/venue/v201-3.jpg"]', '自带球拍可优惠', NOW(), NOW()),
+     '/upload/venue/v201-cover.png', '["/upload/venue/v201-1.jpg","/upload/venue/v201-2.jpg","/upload/venue/v201-3.jpg"]', '自带球拍可优惠', NOW(), NOW()),
     ('羽毛球馆B区', 'V202', '羽毛球馆', 12, 70.00, '09:00', '21:00', '每日 09:00-21:00', '3片场地，适合团体活动。', 'SUSPEND',
      '/upload/venue/v202-cover.jpg', '["/upload/venue/v202-1.jpg"]', '临时暂停预约（活动占用）', NOW(), NOW()),
     ('乒乓球室', 'V301', '乒乓球室', 10, 50.00, '10:00', '20:00', '每日 10:00-20:00', '6张球台，配备挡板。', 'AVAILABLE',
      '/upload/venue/v301-cover.jpg', '["/upload/venue/v301-1.jpg","/upload/venue/v301-2.jpg"]', '', NOW(), NOW()),
     ('健身房', 'V401', '健身房', 40, 60.00, '07:00', '23:00', '每日 07:00-23:00', '器械区+有氧区，含更衣室。', 'MAINTAIN',
-     '/upload/venue/v401-cover.jpg', '["/upload/venue/v401-1.jpg"]', '设备维护中', NOW(), NOW()),
+     '/upload/venue/v401-cover.png', '["/upload/venue/v401-1.png"]', '设备维护中', NOW(), NOW()),
     ('游泳馆', 'V501', '游泳馆', 60, 90.00, '08:00', '20:00', '每日 08:00-20:00', '25米标准泳池，分深浅水区。', 'DISABLED',
      '/upload/venue/v501-cover.jpg', '["/upload/venue/v501-1.jpg"]', '整改停用', NOW(), NOW());
 
-INSERT INTO venue
-(name, code, type, capacity, price, open_time, close_time, open_time_desc, description, status, cover_image_url, image_urls, remark, create_time, update_time)
-VALUES
-    ('三号篮球场（室外）', 'V103', '篮球场', 22, 60.00, '08:00', '21:00', '每日 08:00-21:00', '室外塑胶场地，夜间照明一般。', 'AVAILABLE',
-     '/upload/venue/v103-cover.jpg', '["/upload/venue/v103-1.jpg","/upload/venue/v103-2.jpg"]', '雨天可能临时关闭', NOW(), NOW()),
-    ('四号篮球场（训练馆）', 'V104', '篮球场', 16, 90.00, '09:00', '22:00', '每日 09:00-22:00', '训练馆半场，适合教学/训练。', 'AVAILABLE',
-     '/upload/venue/v104-cover.jpg', '["/upload/venue/v104-1.jpg"]', '', NOW(), NOW()),
-    ('五人制足球场', 'V601', '足球场', 30, 200.00, '08:00', '22:00', '每日 08:00-22:00', '人造草坪五人制，含围网。', 'AVAILABLE',
-     '/upload/venue/v601-cover.jpg', '["/upload/venue/v601-1.jpg","/upload/venue/v601-2.jpg","/upload/venue/v601-3.jpg"]', '需穿碎钉/TF', NOW(), NOW()),
-    ('网球场A', 'V701', '网球场', 8, 160.00, '09:00', '21:00', '每日 09:00-21:00', '硬地网球场，标准双打场地。', 'AVAILABLE',
-     '/upload/venue/v701-cover.jpg', '["/upload/venue/v701-1.jpg","/upload/venue/v701-2.jpg"]', '', NOW(), NOW()),
-    ('网球场B', 'V702', '网球场', 8, 160.00, '09:00', '21:00', '每日 09:00-21:00', '硬地网球场，靠近看台。', 'SUSPEND',
-     '/upload/venue/v702-cover.jpg', '["/upload/venue/v702-1.jpg"]', '场地翻新暂停预约', NOW(), NOW()),
-    ('舞蹈房', 'V801', '舞蹈房', 35, 110.00, '10:00', '22:00', '每日 10:00-22:00', '镜面+把杆+音响，适合排练。', 'AVAILABLE',
-     '/upload/venue/v801-cover.jpg', '["/upload/venue/v801-1.jpg","/upload/venue/v801-2.jpg"]', '请自备干净运动鞋', NOW(), NOW()),
-    ('多功能活动室', 'V802', '多功能厅', 80, 300.00, '09:00', '21:00', '每日 09:00-21:00', '可举办讲座/团建/社团活动。', 'AVAILABLE',
-     '/upload/venue/v802-cover.jpg', '["/upload/venue/v802-1.jpg"]', '可提供投影（需提前预约）', NOW(), NOW()),
-    ('攀岩墙体验区', 'V901', '攀岩', 12, 150.00, '13:00', '20:00', '每日 13:00-20:00', '抱石+线路体验，需签安全协议。', 'MAINTAIN',
-     '/upload/venue/v901-cover.jpg', '["/upload/venue/v901-1.jpg","/upload/venue/v901-2.jpg"]', '安全检查中', NOW(), NOW()),
-    ('室内跑道', 'V902', '跑道', 50, 30.00, '06:00', '23:00', '每日 06:00-23:00', '室内环形跑道，适合晨跑。', 'AVAILABLE',
-     '/upload/venue/v902-cover.jpg', '["/upload/venue/v902-1.jpg"]', '', NOW(), NOW());
 
 INSERT INTO warehouse_item
 (name, type, model, total_quantity, available_quantity, damaged_quantity, deposit_amount, description, create_time, update_time)
