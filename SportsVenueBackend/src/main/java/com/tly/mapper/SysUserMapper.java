@@ -28,6 +28,11 @@ public interface SysUserMapper {
 
     int update(SysUser user);
 
+    int updateBookingCredit(@Param("id") Long id,
+                            @Param("violationCountMonth") Integer violationCountMonth,
+                            @Param("violationMonth") String violationMonth,
+                            @Param("bookingBannedUntil") java.time.LocalDateTime bookingBannedUntil);
+
     /**
      * 根据角色查询权限编码列表
      */

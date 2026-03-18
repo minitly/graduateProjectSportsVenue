@@ -7,6 +7,9 @@ CREATE TABLE sys_user (
                           real_name VARCHAR(50) NOT NULL COMMENT '真实姓名',
                           role VARCHAR(20) NOT NULL COMMENT '角色：USER/OWNER/ADMIN',
                           status TINYINT NOT NULL DEFAULT 1 COMMENT '账号状态：1-正常，0-禁用',
+                          violation_count_month INT NOT NULL DEFAULT 0 COMMENT '本月违规次数（自然月累计）',
+                          violation_month CHAR(7) DEFAULT NULL COMMENT '违规次数所属月份（yyyy-MM），用于跨月自动清零',
+                          booking_banned_until DATETIME DEFAULT NULL COMMENT '预约禁用截止时间（到下月1日00:00），NULL表示未禁用',
                           phone VARCHAR(20) DEFAULT NULL COMMENT '手机号',
                           email VARCHAR(100) DEFAULT NULL COMMENT '邮箱',
                           create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -78,6 +81,20 @@ VALUES ('WAREHOUSE_BORROW_QUERY_LIST', '仓库-借用记录查询', 'MODULE_WARE
 INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
 VALUES ('WAREHOUSE_BORROW_QUERY_MY', '仓库-借用记录我的查询', 'MODULE_WAREHOUSE', '查询当前登录用户的所有借用记录');
 
+-- -------------------预约管理模块权限------------------------
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('BOOKING_OCCUPIED_QUERY', '预约-占用时段查询', 'MODULE_BOOKING', '查询场地已被预约（占用）的时段，供前端展示');
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('BOOKING_CREATE', '预约-创建预约', 'MODULE_BOOKING', '用户发起预约申请并占用时段');
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('BOOKING_CANCEL', '预约-取消预约', 'MODULE_BOOKING', '用户取消自己的预约（含2小时内取消违规判定）');
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('BOOKING_MY_QUERY', '预约-我的预约查询', 'MODULE_BOOKING', '用户查询自己的预约记录（分页+条件）');
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('BOOKING_QUERY_ALL', '预约-全部预约查询', 'MODULE_BOOKING', 'OWNER/ADMIN 查询全部预约记录（分页+条件）');
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('BOOKING_VERIFY', '预约-核销', 'MODULE_BOOKING', 'OWNER 对预约进行核销');
+
 -- 角色权限关联表
 DROP TABLE IF EXISTS sys_role_permission;
 CREATE TABLE sys_role_permission (
@@ -122,7 +139,7 @@ VALUES ('OWNER', 'USER_MANAGE_LIST');
 INSERT INTO sys_role_permission (role, permission_code)
 VALUES ('OWNER', 'USER_MANAGE_DETAIL');
 INSERT INTO sys_role_permission (role, permission_code)
-VALUES ('OWNER', 'USER_MANAGE_SEARCH');
+VALUES ('OWNER', 'USER_MANAGE_UPDATE');
 
 -- -------------------------仓库模块---------------------------
 -- USER：查看器材列表、器材详细，仅能发起借用申请、查看自身相关借用记录
@@ -152,6 +169,29 @@ INSERT INTO sys_role_permission (role, permission_code)
 VALUES ('OWNER', 'WAREHOUSE_BORROW_APPROVE');
 INSERT INTO sys_role_permission (role, permission_code)
 VALUES ('OWNER', 'WAREHOUSE_BORROW_QUERY_LIST');
+
+-- -------------------------预约模块---------------------------
+-- USER：查询占用时段、创建预约、取消预约、查询我的预约
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('USER', 'MODULE_BOOKING');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('USER', 'BOOKING_OCCUPIED_QUERY');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('USER', 'BOOKING_CREATE');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('USER', 'BOOKING_CANCEL');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('USER', 'BOOKING_MY_QUERY');
+
+-- OWNER：查询占用时段、查询全部预约、核销
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'MODULE_BOOKING');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'BOOKING_OCCUPIED_QUERY');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'BOOKING_QUERY_ALL');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'BOOKING_VERIFY');
 
 
 
@@ -219,3 +259,42 @@ CREATE TABLE borrow_record (
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录创建时间',
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '记录更新时间'
 ) COMMENT='器材借用记录表';
+
+
+-- 预约记录表：一条预约记录对应一个场地、一个开始/结束时间区间（按60分钟粒度）
+DROP TABLE IF EXISTS booking_reservation;
+CREATE TABLE booking_reservation (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '预约记录主键ID',
+    user_id BIGINT NOT NULL COMMENT '预约用户ID，对应 sys_user.id',
+    venue_id BIGINT NOT NULL COMMENT '预约场地ID，对应 venue.id',
+    start_time DATETIME NOT NULL COMMENT '预约开始时间（整点，60分钟粒度）',
+    end_time DATETIME NOT NULL COMMENT '预约结束时间（整点，60分钟粒度，且 end_time > start_time）',
+    status VARCHAR(20) NOT NULL COMMENT '预约状态：APPLIED-申请，CANCELED-已取消，VERIFIED-已核销，VIOLATION-违规',
+    cancel_time DATETIME DEFAULT NULL COMMENT '取消时间',
+    cancel_reason VARCHAR(50) DEFAULT NULL COMMENT '取消原因：USER_CANCEL/ADMIN_CANCEL/VENUE_DISABLED/VENUE_MAINTAIN/VENUE_SUSPEND 等',
+    cancel_remark VARCHAR(255) DEFAULT NULL COMMENT '取消备注（如：场地停用/维护/暂停预约）',
+    verify_time DATETIME DEFAULT NULL COMMENT '核销时间（OWNER核销）',
+    violation_time DATETIME DEFAULT NULL COMMENT '违规判定时间',
+    violation_type VARCHAR(50) DEFAULT NULL COMMENT '违规类型：CANCEL_LATE-开始前2小时内取消，NO_SHOW-开始后60分钟未核销',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX idx_booking_user_time (user_id, start_time),
+    INDEX idx_booking_venue_time (venue_id, start_time),
+    INDEX idx_booking_status (status),
+    INDEX idx_booking_create_time (create_time)
+) COMMENT='场地预约记录表';
+
+
+-- 预约占用时段表：按60分钟拆分占用，用唯一约束保证并发不重复占用
+DROP TABLE IF EXISTS booking_reservation_slot;
+CREATE TABLE booking_reservation_slot (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '占用时段主键ID',
+    reservation_id BIGINT NOT NULL COMMENT '预约记录ID，对应 booking_reservation.id',
+    venue_id BIGINT NOT NULL COMMENT '场地ID，对应 venue.id',
+    slot_start_time DATETIME NOT NULL COMMENT '占用开始时间（整点，60分钟粒度）',
+    slot_end_time DATETIME NOT NULL COMMENT '占用结束时间（需与开始时间相差60分钟，且为60分钟倍数）',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    UNIQUE KEY uk_venue_slot_start (venue_id, slot_start_time),
+    INDEX idx_slot_reservation (reservation_id),
+    INDEX idx_slot_venue_time (venue_id, slot_start_time)
+) COMMENT='预约占用时段表（60分钟粒度）';

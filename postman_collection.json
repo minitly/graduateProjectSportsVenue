@@ -383,6 +383,87 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "预约管理",
+      "item": [
+        {
+          "name": "26-预约-查询场地占用时段",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/bookings/occupied?venueId=1&startDate=2025-03-18&endDate=2025-03-24"
+          },
+          "response": []
+        },
+        {
+          "name": "27-预约-创建预约",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"venueId\": 1,\n  \"startTime\": \"2025-03-19T18:00:00\",\n  \"endTime\": \"2025-03-19T20:00:00\"\n}"
+            },
+            "url": "{{baseUrl}}/bookings"
+          },
+          "response": []
+        },
+        {
+          "name": "28-预约-取消预约",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"remark\": \"临时有事取消\"\n}"
+            },
+            "url": "{{baseUrl}}/bookings/101/cancel"
+          },
+          "response": []
+        },
+        {
+          "name": "29-预约-我的预约（分页+条件）",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/bookings/my?status=APPLIED&startDate=2025-03-18&endDate=2025-03-24&pageNo=1&pageSize=10"
+          },
+          "response": []
+        },
+        {
+          "name": "30-预约-OWNER查询全部预约（分页+条件）",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/bookings?venueId=1&username=user&status=APPLIED&startDate=2025-03-18&endDate=2025-03-24&pageNo=1&pageSize=10"
+          },
+          "response": []
+        },
+        {
+          "name": "31-预约-OWNER核销预约",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/bookings/101/verify"
+          },
+          "response": []
+        }
+      ]
     }
   ]
 }

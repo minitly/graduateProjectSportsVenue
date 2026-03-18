@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tly.mapper.BookingReservationSlotMapper">
+
+    <resultMap id="BookingReservationSlotResultMap" type="com.tly.entity.BookingReservationSlot">
+        <id property="id" column="id"/>
+        <result property="reservationId" column="reservation_id"/>
+        <result property="venueId" column="venue_id"/>
+        <result property="slotStartTime" column="slot_start_time"/>
+        <result property="slotEndTime" column="slot_end_time"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.tly.entity.BookingReservationSlot" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO booking_reservation_slot
+        (reservation_id, venue_id, slot_start_time, slot_end_time, create_time)
+        VALUES
+        (#{reservationId}, #{venueId}, #{slotStartTime}, #{slotEndTime}, NOW())
+    </insert>
+
+    <delete id="deleteByReservationId" parameterType="long">
+        DELETE FROM booking_reservation_slot
+        WHERE reservation_id = #{reservationId}
+    </delete>
+
+    <delete id="deleteByReservationIds">
+        DELETE FROM booking_reservation_slot
+        WHERE reservation_id IN
+        <foreach collection="reservationIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <select id="listOccupied" resultMap="BookingReservationSlotResultMap">
+        SELECT
+            id, reservation_id, venue_id, slot_start_time, slot_end_time, create_time
+        FROM booking_reservation_slot
+        WHERE venue_id = #{venueId}
+          AND slot_start_time &gt;= #{startTime}
+          AND slot_start_time &lt; #{endTime}
+        ORDER BY slot_start_time ASC
+    </select>
+
+</mapper>
+

@@ -7,9 +7,11 @@ import com.tly.common.PageResult;
 import com.tly.common.Result;
 import com.tly.entity.Venue;
 import com.tly.mapper.VenueMapper;
+import com.tly.service.BookingService;
 import com.tly.service.VenueService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.Collections;
@@ -20,6 +22,9 @@ public class VenueServiceImpl implements VenueService {
 
     @Autowired
     private VenueMapper venueMapper;
+
+    @Autowired
+    private BookingService bookingService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -41,6 +46,7 @@ public class VenueServiceImpl implements VenueService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Result<Venue> update(Long id, Venue venue) {
         if (id == null || venue.getId() == null || !id.equals(venue.getId())) {
             return Result.fail(400, "路径ID与请求体ID不一致");
@@ -56,8 +62,31 @@ public class VenueServiceImpl implements VenueService {
             return Result.fail(400, "场地名称、编号、类型和状态为必填项");
         }
 
+        String oldStatus = exists.getStatus();
+        String newStatus = venue.getStatus();
+
         normalizeImageUrlsForSave(venue);
         venueMapper.update(venue);
+
+        // 场地从可用变更为不可用时，联动取消该场地所有申请中的预约
+        if ("AVAILABLE".equalsIgnoreCase(oldStatus) && ! "AVAILABLE".equalsIgnoreCase(newStatus)) {
+            String reason;
+            String remark;
+            if ("DISABLED".equalsIgnoreCase(newStatus)) {
+                reason = "VENUE_DISABLED";
+                remark = "场地停用";
+            } else if ("MAINTAIN".equalsIgnoreCase(newStatus)) {
+                reason = "VENUE_MAINTAIN";
+                remark = "场地维护";
+            } else if ("SUSPEND".equalsIgnoreCase(newStatus)) {
+                reason = "VENUE_SUSPEND";
+                remark = "暂停预约";
+            } else {
+                reason = "VENUE_DISABLED";
+                remark = "场地不可用";
+            }
+            bookingService.cancelAppliedByVenueStatusChange(id, reason, remark);
+        }
 
         Venue dbVenue = venueMapper.selectById(id);
         normalizeImageUrlsForRead(dbVenue);
