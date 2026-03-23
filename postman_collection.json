@@ -469,6 +469,130 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "公告管理",
+      "item": [
+        {
+          "name": "32-公告-OWNER新建草稿",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"清明节场馆开放时间调整通知\",\n  \"content\": \"<p>清明节期间，体育馆开放时间调整为 <strong>09:00-18:00</strong>。</p>\",\n  \"status\": \"DRAFT\"\n}"
+            },
+            "url": "{{baseUrl}}/notices"
+          },
+          "response": []
+        },
+        {
+          "name": "33-公告-OWNER新建并直接发布",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"五一假期营业安排公告\",\n  \"content\": \"<p>五一期间体育馆正常开放，营业时间调整为 <strong>08:00-20:00</strong>。</p>\",\n  \"status\": \"PUBLISHED\"\n}"
+            },
+            "url": "{{baseUrl}}/notices"
+          },
+          "response": []
+        },
+        {
+          "name": "34-公告-OWNER修改公告（草稿改发布）",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1,\n  \"title\": \"清明节场馆开放时间调整通知（更新）\",\n  \"content\": \"<p>清明节期间，体育馆开放时间调整为 <strong>09:00-19:00</strong>。</p>\",\n  \"status\": \"PUBLISHED\"\n}"
+            },
+            "url": "{{baseUrl}}/notices/1"
+          },
+          "response": []
+        },
+        {
+          "name": "35-公告-OWNER删除公告（逻辑删除）",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/notices/1"
+          },
+          "response": []
+        },
+        {
+          "name": "36-公告-OWNER发布/下线状态切换",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"OFFLINE\"\n}"
+            },
+            "url": "{{baseUrl}}/notices/1/status"
+          },
+          "response": []
+        },
+        {
+          "name": "37-公告-OWNER管理分页查询",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/notices/manage?keyword=开放&status=PUBLISHED&pageNo=1&pageSize=10"
+          },
+          "response": []
+        },
+        {
+          "name": "38-公告-OWNER管理详情",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/notices/manage/1"
+          },
+          "response": []
+        },
+        {
+          "name": "39-公告-用户分页列表（已发布）",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/notices?keyword=通知&pageNo=1&pageSize=10"
+          },
+          "response": []
+        },
+        {
+          "name": "40-公告-用户详情（已发布）",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/notices/1"
+          },
+          "response": []
+        }
+      ]
     }
   ]
 }

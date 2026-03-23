@@ -39,7 +39,8 @@ VALUES
     ('MODULE_BOOKING',    '预约管理模块',   NULL, '预约下单、预约审核、预约记录等相关功能的入口权限'),
     ('MODULE_WAREHOUSE',  '仓库管理模块',   NULL, '物资入库、出库及库存管理等相关功能的入口权限'),
     ('MODULE_USER',       '用户管理模块',   NULL, '前台用户、场地管理员等用户信息管理相关功能的入口权限'),
-    ('MODULE_REPORT',     '数据报表模块',   NULL, '统计报表、数据分析等相关功能的入口权限');
+    ('MODULE_REPORT',     '数据报表模块',   NULL, '统计报表、数据分析等相关功能的入口权限'),
+    ('MODULE_NOTICE',     '公告管理模块',   NULL, '公告发布、草稿管理、公告查询等相关功能的入口权限');
 
 -- -------------------场地管理模块下的具体权限（5 条：新增、修改、删除、详情查看、列表查询）-------------------------
 INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
@@ -94,6 +95,24 @@ INSERT INTO sys_permission (permission_code, permission_name, module_name, descr
 VALUES ('BOOKING_QUERY_ALL', '预约-全部预约查询', 'MODULE_BOOKING', 'OWNER/ADMIN 查询全部预约记录（分页+条件）');
 INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
 VALUES ('BOOKING_VERIFY', '预约-核销', 'MODULE_BOOKING', 'OWNER 对预约进行核销');
+
+-- -------------------公告模块权限------------------------
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('NOTICE_CREATE', '公告-新增', 'MODULE_NOTICE', '场地管理者创建公告草稿');
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('NOTICE_UPDATE', '公告-修改', 'MODULE_NOTICE', '场地管理者修改公告内容');
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('NOTICE_DELETE', '公告-删除', 'MODULE_NOTICE', '场地管理者逻辑删除公告');
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('NOTICE_PUBLISH', '公告-发布/下线', 'MODULE_NOTICE', '场地管理者发布公告或下线公告');
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('NOTICE_MANAGE_LIST', '公告-管理列表查询', 'MODULE_NOTICE', '场地管理者按条件分页查询公告');
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('NOTICE_MANAGE_DETAIL', '公告-管理详情查看', 'MODULE_NOTICE', '场地管理者按ID查看公告详情');
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('NOTICE_USER_LIST', '公告-用户列表查询', 'MODULE_NOTICE', '登录用户分页查询已发布公告');
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('NOTICE_USER_DETAIL', '公告-用户详情查看', 'MODULE_NOTICE', '登录用户按ID查看已发布公告详情');
 
 -- 角色权限关联表
 DROP TABLE IF EXISTS sys_role_permission;
@@ -192,6 +211,35 @@ INSERT INTO sys_role_permission (role, permission_code)
 VALUES ('OWNER', 'BOOKING_QUERY_ALL');
 INSERT INTO sys_role_permission (role, permission_code)
 VALUES ('OWNER', 'BOOKING_VERIFY');
+
+-- -------------------------公告模块---------------------------
+-- USER：查看已发布公告
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('USER', 'MODULE_NOTICE');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('USER', 'NOTICE_USER_LIST');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('USER', 'NOTICE_USER_DETAIL');
+
+-- OWNER：公告草稿/发布/删除/查询 + 查看已发布公告
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'MODULE_NOTICE');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'NOTICE_CREATE');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'NOTICE_UPDATE');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'NOTICE_DELETE');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'NOTICE_PUBLISH');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'NOTICE_MANAGE_LIST');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'NOTICE_MANAGE_DETAIL');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'NOTICE_USER_LIST');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'NOTICE_USER_DETAIL');
 
 
 
@@ -300,6 +348,25 @@ CREATE TABLE booking_reservation_slot (
 ) COMMENT='预约占用时段表（60分钟粒度）';
 
 
+-- 公告信息表：全站公告，支持草稿、发布、下线与逻辑删除
+DROP TABLE IF EXISTS notice;
+CREATE TABLE notice (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '公告主键ID',
+    title VARCHAR(200) NOT NULL COMMENT '公告标题',
+    content LONGTEXT NOT NULL COMMENT '公告正文（HTML富文本）',
+    status VARCHAR(20) NOT NULL DEFAULT 'DRAFT' COMMENT '公告状态：DRAFT-草稿，PUBLISHED-已发布，OFFLINE-已下线',
+    publish_time DATETIME DEFAULT NULL COMMENT '发布时间（仅发布时写入）',
+    is_deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除：0-未删除，1-已删除',
+    create_by BIGINT NOT NULL COMMENT '创建人用户ID，对应 sys_user.id',
+    update_by BIGINT NOT NULL COMMENT '最后更新人用户ID，对应 sys_user.id',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX idx_notice_status_deleted_publish (status, is_deleted, publish_time),
+    INDEX idx_notice_title (title),
+    INDEX idx_notice_create_time (create_time)
+) COMMENT='系统公告表';
+
+
 
 
 
@@ -349,3 +416,34 @@ VALUES
     ('拉力带', '健身器材', '5档阻力套装', 40, 38, 2, 20.00, '力量训练/康复训练。', NOW(), NOW()),
     ('心率带', '健身器材', '蓝牙心率带', 12, 11, 1, 120.00, '团课监测心率用。', NOW(), NOW()),
     ('计分牌（便携）', '比赛器材', '翻页计分牌', 6, 6, 0, 80.00, '篮球/羽毛球比赛训练用。', NOW(), NOW());
+
+INSERT INTO notice
+(title, content, status, publish_time, is_deleted, create_by, update_by, create_time, update_time)
+VALUES
+    ('清明节场馆开放时间调整通知',
+     '<p>清明节期间体育馆开放时间调整为 <strong>09:00-18:00</strong>，请提前安排预约。</p>',
+     'PUBLISHED',
+     DATE_SUB(NOW(), INTERVAL 2 DAY),
+     0,
+     2,
+     2,
+     DATE_SUB(NOW(), INTERVAL 3 DAY),
+     DATE_SUB(NOW(), INTERVAL 2 DAY)),
+    ('器材借用规范更新（草稿）',
+     '<p>本公告为草稿，拟更新借用审批时效与归还验收标准。</p>',
+     'DRAFT',
+     NULL,
+     0,
+     2,
+     3,
+     DATE_SUB(NOW(), INTERVAL 1 DAY),
+     DATE_SUB(NOW(), INTERVAL 1 HOUR)),
+    ('五一假期营业安排公告（已下线）',
+     '<p>五一期间营业时间原为 <strong>08:00-20:00</strong>，该公告现已下线。</p>',
+     'OFFLINE',
+     DATE_SUB(NOW(), INTERVAL 10 DAY),
+     0,
+     3,
+     3,
+     DATE_SUB(NOW(), INTERVAL 12 DAY),
+     DATE_SUB(NOW(), INTERVAL 5 DAY));
