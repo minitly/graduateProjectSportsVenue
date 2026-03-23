@@ -1,0 +1,58 @@
+{
+  "hash": "1af2d1f7",
+  "configHash": "166b44b7",
+  "lockfileHash": "12ddb2af",
+  "browserHash": "fb8a14ec",
+  "optimized": {
+    "@tanstack/vue-query": {
+      "src": "../../node_modules/.pnpm/@tanstack+vue-query@5.92.9_vue@3.5.30/node_modules/@tanstack/vue-query/build/modern/index.js",
+      "file": "@tanstack_vue-query.js",
+      "fileHash": "49089108",
+      "needsInterop": false
+    },
+    "@tsparticles/vue3": {
+      "src": "../../node_modules/.pnpm/@tsparticles+vue3@3.0.1/node_modules/@tsparticles/vue3/dist/particles.es.js",
+      "file": "@tsparticles_vue3.js",
+      "fileHash": "ba48e4bc",
+      "needsInterop": false
+    },
+    "pinia": {
+      "src": "../../node_modules/.pnpm/pinia@3.0.4_vue@3.5.30/node_modules/pinia/dist/pinia.mjs",
+      "file": "pinia.js",
+      "fileHash": "ab271d30",
+      "needsInterop": false
+    },
+    "tsparticles": {
+      "src": "../../node_modules/.pnpm/tsparticles@3.9.1/node_modules/tsparticles/browser/index.js",
+      "file": "tsparticles.js",
+      "fileHash": "120d47f0",
+      "needsInterop": false
+    },
+    "vue-router": {
+      "src": "../../node_modules/.pnpm/vue-router@4.6.4_vue@3.5.30/node_modules/vue-router/dist/vue-router.mjs",
+      "file": "vue-router.js",
+      "fileHash": "771ab224",
+      "needsInterop": false
+    },
+    "vue": {
+      "src": "../../node_modules/.pnpm/vue@3.5.30/node_modules/vue/dist/vue.runtime.esm-bundler.js",
+      "file": "vue.js",
+      "fileHash": "1537ea28",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "browser-pNiIJbRV": {
+      "file": "browser-pNiIJbRV.js",
+      "isDynamicEntry": false
+    },
+    "esm-3u-rqs6D": {
+      "file": "esm-3u-rqs6D.js",
+      "isDynamicEntry": false
+    },
+    "vue.runtime.esm-bundler-DWDfmXPD": {
+      "file": "vue.runtime.esm-bundler-DWDfmXPD.js",
+      "isDynamicEntry": false
+    }
+  }
+}
