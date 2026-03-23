@@ -21,6 +21,7 @@
         "update:agree-policy",
         "toast",
         "success",
+        "open-agreement",
     ]);
 
     const registerForm = reactive({
@@ -87,6 +88,7 @@
             }
         },
     );
+
 
     onUnmounted(() => {
         if (emailTimer.value) {
@@ -475,7 +477,14 @@
                     :checked="agreePolicy"
                     @change="emit('update:agree-policy', $event.target.checked)"
                 />
-                同意用户协议与隐私政策
+                同意
+                <button
+                    type="button"
+                    class="inline-link"
+                    @click="emit('open-agreement')"
+                >
+                    用户协议与隐私政策
+                </button>
             </label>
             <span class="text-muted">注册即代表同意平台条款</span>
         </div>
@@ -489,3 +498,22 @@
         </button>
     </form>
 </template>
+
+<style scoped>
+.inline-link {
+    border: none;
+    background: transparent;
+    color: #2563eb;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.inline-link:hover {
+    color: #1d4ed8;
+}
+</style>
+
+
