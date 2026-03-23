@@ -66,6 +66,15 @@
         LIMIT 1
     </select>
 
+    <select id="selectByCode" parameterType="string" resultMap="VenueResultMap">
+        SELECT
+            id, name, code, type, capacity, price, open_time, close_time, open_time_desc, description,
+            status, cover_image_url, image_urls, remark, create_time, update_time
+        FROM venue
+        WHERE code = #{code}
+        LIMIT 1
+    </select>
+
     <select id="countByCondition" resultType="long">
         SELECT COUNT(1)
         FROM venue
