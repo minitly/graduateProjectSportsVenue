@@ -2,6 +2,7 @@ package com.tly.service;
 
 import com.tly.common.PageResult;
 import com.tly.common.Result;
+import com.tly.dto.booking.BookingAllReservationRecord;
 import com.tly.entity.BookingReservation;
 import com.tly.entity.BookingReservationSlot;
 
@@ -19,8 +20,8 @@ public interface BookingService {
     Result<PageResult<BookingReservation>> my(Long venueId, String status, LocalDate startDate, LocalDate endDate,
                                               long pageNo, long pageSize);
 
-    Result<PageResult<BookingReservation>> query(Long venueId, String username, String status, LocalDate startDate, LocalDate endDate,
-                                                 long pageNo, long pageSize);
+    Result<PageResult<BookingAllReservationRecord>> query(Long venueId, String username, String status, LocalDate startDate, LocalDate endDate,
+                                                           long pageNo, long pageSize);
 
     Result<BookingReservation> verify(Long id);
 

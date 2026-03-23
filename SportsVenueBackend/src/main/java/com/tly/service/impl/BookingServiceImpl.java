@@ -3,6 +3,7 @@ package com.tly.service.impl;
 import com.tly.auth.UserContext;
 import com.tly.common.PageResult;
 import com.tly.common.Result;
+import com.tly.dto.booking.BookingAllReservationRecord;
 import com.tly.entity.BookingReservation;
 import com.tly.entity.BookingReservationSlot;
 import com.tly.entity.SysUser;
@@ -191,8 +192,8 @@ public class BookingServiceImpl implements BookingService {
     }
 
     @Override
-    public Result<PageResult<BookingReservation>> query(Long venueId, String username, String status, LocalDate startDate, LocalDate endDate,
-                                                       long pageNo, long pageSize) {
+    public Result<PageResult<BookingAllReservationRecord>> query(Long venueId, String username, String status, LocalDate startDate, LocalDate endDate,
+                                                                     long pageNo, long pageSize) {
         UserContext.CurrentUser currentUser = UserContext.get();
         if (currentUser == null) {
             return Result.fail(401, "未登录");
@@ -212,13 +213,13 @@ public class BookingServiceImpl implements BookingService {
         LocalDateTime endTime = endDate != null ? endDate.plusDays(1).atStartOfDay() : null;
 
         long total = reservationMapper.countAllByCondition(venueId, status, startTime, endTime, username);
-        List<BookingReservation> records;
+        List<BookingAllReservationRecord> records;
         if (total == 0) {
             records = Collections.emptyList();
         } else {
             records = reservationMapper.listAllByCondition(venueId, status, startTime, endTime, username, offset, pageSize);
         }
-        PageResult<BookingReservation> pageResult = new PageResult<>(total, pageNo, pageSize, records);
+        PageResult<BookingAllReservationRecord> pageResult = new PageResult<>(total, pageNo, pageSize, records);
         return Result.success("查询成功", pageResult);
     }
 

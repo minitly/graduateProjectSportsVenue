@@ -3,6 +3,7 @@ package com.tly.controller;
 import com.tly.common.PageResult;
 import com.tly.common.Result;
 import com.tly.dto.booking.BookingCancelRequest;
+import com.tly.dto.booking.BookingAllReservationRecord;
 import com.tly.entity.BookingReservation;
 import com.tly.entity.BookingReservationSlot;
 import com.tly.service.BookingService;
@@ -70,15 +71,15 @@ public class BookingController {
      * OWNER 查询全部预约记录（分页 + 条件查询）：GET /sportsVenue/bookings
      */
     @GetMapping
-    public Result<PageResult<BookingReservation>> query(@RequestParam(value = "venueId", required = false) Long venueId,
-                                                        @RequestParam(value = "username", required = false) String username,
-                                                        @RequestParam(value = "status", required = false) String status,
-                                                        @RequestParam(value = "startDate", required = false)
-                                                        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-                                                        @RequestParam(value = "endDate", required = false)
-                                                        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-                                                        @RequestParam(value = "pageNo", required = false, defaultValue = "1") long pageNo,
-                                                        @RequestParam(value = "pageSize", required = false, defaultValue = "10") long pageSize) {
+    public Result<PageResult<BookingAllReservationRecord>> query(@RequestParam(value = "venueId", required = false) Long venueId,
+                                                                    @RequestParam(value = "username", required = false) String username,
+                                                                    @RequestParam(value = "status", required = false) String status,
+                                                                    @RequestParam(value = "startDate", required = false)
+                                                                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+                                                                    @RequestParam(value = "endDate", required = false)
+                                                                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+                                                                    @RequestParam(value = "pageNo", required = false, defaultValue = "1") long pageNo,
+                                                                    @RequestParam(value = "pageSize", required = false, defaultValue = "10") long pageSize) {
         return bookingService.query(venueId, username, status, startDate, endDate, pageNo, pageSize);
     }
 

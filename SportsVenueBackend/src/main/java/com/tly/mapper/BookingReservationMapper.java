@@ -4,6 +4,8 @@ import com.tly.entity.BookingReservation;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import com.tly.dto.booking.BookingAllReservationRecord;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -56,13 +58,13 @@ public interface BookingReservationMapper {
                              @Param("endTime") LocalDateTime endTime,
                              @Param("usernameLike") String usernameLike);
 
-    List<BookingReservation> listAllByCondition(@Param("venueId") Long venueId,
-                                                @Param("status") String status,
-                                                @Param("startTime") LocalDateTime startTime,
-                                                @Param("endTime") LocalDateTime endTime,
-                                                @Param("usernameLike") String usernameLike,
-                                                @Param("offset") long offset,
-                                                @Param("pageSize") long pageSize);
+    List<BookingAllReservationRecord> listAllByCondition(@Param("venueId") Long venueId,
+                                                          @Param("status") String status,
+                                                          @Param("startTime") LocalDateTime startTime,
+                                                          @Param("endTime") LocalDateTime endTime,
+                                                          @Param("usernameLike") String usernameLike,
+                                                          @Param("offset") long offset,
+                                                          @Param("pageSize") long pageSize);
 
     List<Long> listAppliedIdsByVenueId(@Param("venueId") Long venueId);
 

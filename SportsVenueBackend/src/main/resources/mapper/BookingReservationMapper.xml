@@ -21,6 +21,23 @@
         <result property="updateTime" column="update_time"/>
     </resultMap>
 
+    <resultMap id="BookingAllReservationResultMap" type="com.tly.dto.booking.BookingAllReservationRecord">
+        <id property="id" column="id"/>
+        <result property="userName" column="user_name"/>
+        <result property="venueId" column="venue_id"/>
+        <result property="startTime" column="start_time"/>
+        <result property="endTime" column="end_time"/>
+        <result property="status" column="status"/>
+        <result property="cancelTime" column="cancel_time"/>
+        <result property="cancelReason" column="cancel_reason"/>
+        <result property="cancelRemark" column="cancel_remark"/>
+        <result property="verifyTime" column="verify_time"/>
+        <result property="violationTime" column="violation_time"/>
+        <result property="violationType" column="violation_type"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
     <insert id="insert" parameterType="com.tly.entity.BookingReservation" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO booking_reservation
         (user_id, venue_id, start_time, end_time, status,
@@ -170,30 +187,34 @@
         </if>
     </select>
 
-    <select id="listAllByCondition" resultMap="BookingReservationResultMap">
+    <select id="listAllByCondition" resultMap="BookingAllReservationResultMap">
         SELECT
-            id, user_id, venue_id, start_time, end_time, status,
+            br.id,
+            u.username AS user_name,
+            br.venue_id,
+            br.start_time, br.end_time, br.status,
             cancel_time, cancel_reason, cancel_remark,
             verify_time,
             violation_time, violation_type,
-            create_time, update_time
-        FROM booking_reservation
+            br.create_time AS create_time, br.update_time AS update_time
+        FROM booking_reservation br
+                 JOIN sys_user u ON u.id = br.user_id
         WHERE 1 = 1
         <if test="venueId != null">
-            AND venue_id = #{venueId}
+            AND br.venue_id = #{venueId}
         </if>
         <if test="status != null and status != ''">
-            AND status = #{status}
+            AND br.status = #{status}
         </if>
         <if test="startTime != null">
-            AND start_time &gt;= #{startTime}
+            AND br.start_time &gt;= #{startTime}
         </if>
         <if test="endTime != null">
-            AND start_time &lt; #{endTime}
+            AND br.start_time &lt; #{endTime}
         </if>
         <if test="usernameLike != null and usernameLike != ''">
-            AND user_id IN (
-                SELECT id FROM sys_user WHERE username LIKE CONCAT('%', #{usernameLike}, '%')
+            AND br.user_id IN (
+                SELECT su.id FROM sys_user su WHERE su.username LIKE CONCAT('%', #{usernameLike}, '%')
             )
         </if>
         ORDER BY start_time DESC
