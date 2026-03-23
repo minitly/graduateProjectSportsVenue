@@ -1245,6 +1245,44 @@ body {
   align-items: center;
 }
 
+.auth-hero .brand {
+  cursor: pointer;
+  transition: transform 0.18s ease, opacity 0.18s ease;
+  user-select: none;
+}
+
+.auth-hero .brand:hover {
+  transform: translateY(-1px);
+  opacity: 0.96;
+}
+
+.auth-hero .brand:active {
+  transform: translateY(0) scale(0.99);
+}
+
+.auth-hero .brand:focus-visible {
+  outline: 3px solid rgba(59, 130, 246, 0.35);
+  outline-offset: 6px;
+  border-radius: 14px;
+}
+
+.home-hint {
+  margin-left: auto;
+  font-size: 12px;
+  color: #93a2b8;
+  letter-spacing: 0.02em;
+  opacity: 0;
+  transform: translateX(-6px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+
+.auth-hero .brand:hover .home-hint,
+.auth-hero .brand:focus-visible .home-hint {
+  opacity: 1;
+  transform: translateX(0);
+}
+
 .brand-mark {
   width: 56px;
   height: 56px;
@@ -1255,6 +1293,12 @@ body {
   place-items: center;
   font-weight: 700;
   letter-spacing: 1px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.auth-hero .brand:hover .brand-mark {
+  transform: scale(1.04);
+  box-shadow: 0 10px 22px rgba(59, 130, 246, 0.3);
 }
 
 .auth-hero h1 {
@@ -1302,8 +1346,68 @@ body {
   max-width: 560px;
   margin: 0 auto;
   flex: 1;
-  display: flex;
   width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 0;
+  gap: 18px;
+  align-items: stretch;
+  transition: max-width 0.28s ease, grid-template-columns 0.28s ease;
+}
+
+.auth-card.agreement-open {
+  max-width: 1040px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 460px);
+}
+
+.auth-main-card {
+  width: 100%;
+}
+
+.agreement-side-card {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(20px);
+  transition: opacity 0.26s ease, transform 0.26s ease;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.agreement-side-card.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
+.agreement-side-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.agreement-side-header h3 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.agreement-side-content {
+  overflow: auto;
+  color: #334155;
+  line-height: 1.75;
+  padding-right: 4px;
+}
+
+.agreement-side-content h4 {
+  margin: 12px 0 6px;
+  color: #0f172a;
+  font-size: 15px;
+}
+
+.agreement-side-content p {
+  margin: 0;
 }
 
 .home-actions,
