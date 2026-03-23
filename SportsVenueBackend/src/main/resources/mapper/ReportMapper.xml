@@ -12,7 +12,7 @@
             SUM(CASE WHEN status = 'VIOLATION' THEN 1 ELSE 0 END) AS booking_violation_total
         FROM booking_reservation
         WHERE start_time >= #{startTime}
-          AND start_time < #{endTime}
+          AND start_time &lt; #{endTime}
     </select>
 
     <select id="selectBookingTrend" resultType="com.tly.dto.report.BookingTrendRecord">
@@ -24,7 +24,7 @@
             SUM(CASE WHEN br.status = 'VIOLATION' THEN 1 ELSE 0 END) AS violation_total
         FROM booking_reservation br
         WHERE br.start_time >= #{startTime}
-          AND br.start_time < #{endTime}
+          AND br.start_time &lt; #{endTime}
         GROUP BY DATE(br.start_time)
         ORDER BY DATE(br.start_time) ASC
     </select>
@@ -40,7 +40,7 @@
         FROM booking_reservation br
                  JOIN venue v ON v.id = br.venue_id
         WHERE br.start_time >= #{startTime}
-          AND br.start_time < #{endTime}
+          AND br.start_time &lt; #{endTime}
         GROUP BY v.id, v.name
         ORDER BY booking_total DESC
         LIMIT #{topN}
