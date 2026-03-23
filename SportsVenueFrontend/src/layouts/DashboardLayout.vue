@@ -47,11 +47,6 @@ const menuItems = computed(() => {
         path: '/app/admin-users'
       },
       {
-        label: '公告管理',
-        description: '创建、发布、下线与维护公告',
-        path: '/app/admin-notices'
-      },
-      {
         label: '数据分析管理',
         description: '查看全局预约与运营数据分析',
         path: '/app/admin-analytics'
@@ -82,11 +77,6 @@ const menuItems = computed(() => {
         path: '/app/admin-users'
       },
       {
-        label: '公告管理',
-        description: '创建、发布、下线与维护公告',
-        path: '/app/admin-notices'
-      },
-      {
         label: '数据分析管理',
         description: '查看全局预约与运营数据分析',
         path: '/app/admin-analytics'
@@ -113,6 +103,11 @@ const roleLabel = computed(() => {
   if (authStore.role === 'ADMIN') return '系统管理员'
   if (authStore.role === 'OWNER') return '场馆管理员'
   return '普通用户'
+})
+
+const showQuickBooking = computed(() => {
+  if (authStore.role !== 'USER') return false
+  return route.path === '/app/venues' || route.path === '/app/borrow'
 })
 
 function handleNavigate(path) {
@@ -184,7 +179,7 @@ function handleQuickBooking() {
         </div>
         <div class="dashboard__actions">
           <button class="ghost" type="button">帮助中心</button>
-          <button class="primary" type="button" @click="handleQuickBooking">
+          <button v-if="showQuickBooking" class="primary" type="button" @click="handleQuickBooking">
             立即预约
           </button>
         </div>

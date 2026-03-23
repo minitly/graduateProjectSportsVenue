@@ -66,16 +66,6 @@ const routes = [
         }
       },
       {
-        path: 'admin-notices',
-        name: 'admin-notices',
-        component: NoticesPage,
-        meta: {
-          title: '公告管理',
-          subtitle: '创建、发布、下线和维护公告内容',
-          roles: ['OWNER']
-        }
-      },
-      {
         path: 'admin-users',
         name: 'admin-users',
         component: AdminUsersPage,

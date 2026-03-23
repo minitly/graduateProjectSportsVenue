@@ -766,8 +766,14 @@ body {
   overflow: hidden;
 }
 
-.notice-editor-wrapper .w-e-text-container {
-  min-height: 240px;
+.notice-editor-wrapper .ql-container {
+  min-height: 360px;
+}
+
+.notice-editor-wrapper .ql-editor {
+  min-height: 320px;
+  font-size: 14px;
+  line-height: 1.7;
 }
 
 .notice-html-preview {
