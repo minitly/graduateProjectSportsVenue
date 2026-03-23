@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { NAlert, NButton, NCard, NInput, NInputNumber, NSelect, NSpace, NSwitch, NTag } from 'naive-ui'
 
 const STORAGE_KEY = 'sports-venue-2d-model-v33'
@@ -51,6 +52,7 @@ const state = reactive({
 
 const history = reactive({ undoStack: [], redoStack: [], restoring: false })
 const canvasRef = ref(null)
+const router = useRouter()
 
 const toolOptions = [
   { label: '选择', value: 'select' },
@@ -1062,6 +1064,28 @@ function saveLocal() {
   state.message = '已保存到本地'
 }
 
+function sendTo3DPreview() {
+  const payload = {
+    version: 3.3,
+    type: 'sports-venue-semantic-model',
+    modelName: modelConfig.modelName,
+    config: {
+      gridSize: modelConfig.gridSize,
+      showGrid: modelConfig.showGrid,
+      snapToGrid: modelConfig.snapToGrid,
+      seatPerSqm: modelConfig.seatPerSqm,
+      gateFlowPerMeter: modelConfig.gateFlowPerMeter,
+      pathFlowPerMeter: modelConfig.pathFlowPerMeter,
+      walkSpeedMpm: modelConfig.walkSpeedMpm
+    },
+    layers: state.layers,
+    entities: state.entities,
+    links: state.links
+  }
+  localStorage.setItem('sports-venue-3d-payload', JSON.stringify(payload))
+  router.push('/app/admin-model-3d')
+}
+
 function loadLocal() {
   const raw = localStorage.getItem(STORAGE_KEY)
   if (!raw) {
@@ -1167,6 +1191,7 @@ onBeforeUnmount(() => {
             <NButton tertiary @click="loadLocal">恢复本地</NButton>
             <NButton tertiary @click="exportJson">导出JSON</NButton>
             <NButton tertiary @click="importJson">导入JSON</NButton>
+            <NButton type="info" secondary @click="sendTo3DPreview">发送到3D预览</NButton>
             <NButton type="error" secondary @click="deleteSelected">删除选中</NButton>
           </NSpace>
 

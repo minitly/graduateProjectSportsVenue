@@ -760,6 +760,25 @@ body {
   margin-top: 16px;
 }
 
+.notice-editor-wrapper {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.notice-editor-wrapper .w-e-text-container {
+  min-height: 240px;
+}
+
+.notice-html-preview {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  background: #f8fafc;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
 .booking-modal {
   max-width: 560px;
 }
