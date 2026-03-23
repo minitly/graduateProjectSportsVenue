@@ -593,6 +593,44 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "运营与统计",
+      "item": [
+        {
+          "name": "41-运营总览-统计",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/reports/dashboard?startDate=2026-03-20&endDate=2026-03-23"
+          },
+          "response": []
+        },
+        {
+          "name": "42-预约趋势-按天统计",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/reports/bookings/trend?startDate=2026-03-20&endDate=2026-03-23"
+          },
+          "response": []
+        },
+        {
+          "name": "43-场地热度排行-按预约次数",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/reports/bookings/venue-rank?startDate=2026-03-20&endDate=2026-03-23&topN=10"
+          },
+          "response": []
+        }
+      ]
     }
   ]
 }

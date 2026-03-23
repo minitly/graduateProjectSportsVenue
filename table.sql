@@ -96,6 +96,14 @@ VALUES ('BOOKING_QUERY_ALL', '预约-全部预约查询', 'MODULE_BOOKING', 'OWN
 INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
 VALUES ('BOOKING_VERIFY', '预约-核销', 'MODULE_BOOKING', 'OWNER 对预约进行核销');
 
+-- -------------------报表模块权限------------------------
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('REPORT_DASHBOARD', '报表-总览统计', 'MODULE_REPORT', '查询运营总览核心指标');
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('REPORT_BOOKING_TREND', '报表-预约趋势', 'MODULE_REPORT', '按天查询预约相关趋势统计');
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('REPORT_VENUE_RANK', '报表-场地热度排行', 'MODULE_REPORT', '按预约次数统计场地热度排行');
+
 -- -------------------公告模块权限------------------------
 INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
 VALUES ('NOTICE_CREATE', '公告-新增', 'MODULE_NOTICE', '场地管理者创建公告草稿');
@@ -211,6 +219,17 @@ INSERT INTO sys_role_permission (role, permission_code)
 VALUES ('OWNER', 'BOOKING_QUERY_ALL');
 INSERT INTO sys_role_permission (role, permission_code)
 VALUES ('OWNER', 'BOOKING_VERIFY');
+
+-- -------------------------报表模块---------------------------
+-- OWNER：运营与统计（前三类）
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'MODULE_REPORT');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'REPORT_DASHBOARD');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'REPORT_BOOKING_TREND');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'REPORT_VENUE_RANK');
 
 -- -------------------------公告模块---------------------------
 -- USER：查看已发布公告
@@ -447,3 +466,82 @@ VALUES
      3,
      DATE_SUB(NOW(), INTERVAL 12 DAY),
      DATE_SUB(NOW(), INTERVAL 5 DAY));
+
+-- mock数据：预约记录（用于报表统计）
+INSERT INTO booking_reservation
+    (user_id, venue_id, start_time, end_time, status,
+     cancel_time, cancel_reason, cancel_remark,
+     verify_time, violation_time, violation_type,
+     create_time, update_time)
+VALUES
+    -- 3天前
+    (1, 1, TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 3 DAY), '10:00:00'),
+        TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 3 DAY), '11:00:00'),
+        'APPLIED', NULL, NULL, NULL, NULL, NULL, NULL, NOW(), NOW()),
+    (1, 1, TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 3 DAY), '12:00:00'),
+        TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 3 DAY), '13:00:00'),
+        'VERIFIED', NULL, NULL, NULL,
+        TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 3 DAY), '13:00:00'), NULL, NULL, NOW(), NOW()),
+    (1, 2, TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 3 DAY), '14:00:00'),
+        TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 3 DAY), '15:00:00'),
+        'CANCELED',
+        TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 3 DAY), '14:00:00'), 'USER_CANCEL', 'mock取消',
+        NULL, NULL, NULL, NOW(), NOW()),
+    (1, 3, TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 3 DAY), '16:00:00'),
+        TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 3 DAY), '17:00:00'),
+        'VIOLATION', NULL, NULL, NULL, NULL,
+        TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 3 DAY), '17:00:00'), 'NO_SHOW', NOW(), NOW()),
+
+    -- 2天前
+    (1, 1, TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 2 DAY), '10:00:00'),
+        TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 2 DAY), '11:00:00'),
+        'APPLIED', NULL, NULL, NULL, NULL, NULL, NULL, NOW(), NOW()),
+    (1, 1, TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 2 DAY), '12:00:00'),
+        TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 2 DAY), '13:00:00'),
+        'VERIFIED', NULL, NULL, NULL,
+        TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 2 DAY), '13:00:00'), NULL, NULL, NOW(), NOW()),
+    (1, 2, TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 2 DAY), '14:00:00'),
+        TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 2 DAY), '15:00:00'),
+        'CANCELED',
+        TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 2 DAY), '14:00:00'), 'USER_CANCEL', 'mock取消',
+        NULL, NULL, NULL, NOW(), NOW()),
+    (1, 3, TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 2 DAY), '16:00:00'),
+        TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 2 DAY), '17:00:00'),
+        'VIOLATION', NULL, NULL, NULL, NULL,
+        TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 2 DAY), '17:00:00'), 'NO_SHOW', NOW(), NOW()),
+
+    -- 1天前
+    (1, 1, TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 1 DAY), '12:00:00'),
+        TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 1 DAY), '13:00:00'),
+        'VERIFIED', NULL, NULL, NULL,
+        TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 1 DAY), '13:00:00'), NULL, NULL, NOW(), NOW()),
+    (1, 2, TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 1 DAY), '10:00:00'),
+        TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 1 DAY), '11:00:00'),
+        'APPLIED', NULL, NULL, NULL, NULL, NULL, NULL, NOW(), NOW()),
+    (1, 2, TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 1 DAY), '14:00:00'),
+        TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 1 DAY), '15:00:00'),
+        'CANCELED',
+        TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 1 DAY), '14:00:00'), 'USER_CANCEL', 'mock取消',
+        NULL, NULL, NULL, NOW(), NOW()),
+    (1, 3, TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 1 DAY), '16:00:00'),
+        TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 1 DAY), '17:00:00'),
+        'VIOLATION', NULL, NULL, NULL, NULL,
+        TIMESTAMP(DATE_SUB(CURDATE(), INTERVAL 1 DAY), '17:00:00'), 'NO_SHOW', NOW(), NOW()),
+
+    -- 当天
+    (1, 1, TIMESTAMP(CURDATE(), '14:00:00'),
+        TIMESTAMP(CURDATE(), '15:00:00'),
+        'CANCELED',
+        TIMESTAMP(CURDATE(), '14:00:00'), 'USER_CANCEL', 'mock取消',
+        NULL, NULL, NULL, NOW(), NOW()),
+    (1, 2, TIMESTAMP(CURDATE(), '10:00:00'),
+        TIMESTAMP(CURDATE(), '11:00:00'),
+        'APPLIED', NULL, NULL, NULL, NULL, NULL, NULL, NOW(), NOW()),
+    (1, 2, TIMESTAMP(CURDATE(), '12:00:00'),
+        TIMESTAMP(CURDATE(), '13:00:00'),
+        'VERIFIED', NULL, NULL, NULL,
+        TIMESTAMP(CURDATE(), '13:00:00'), NULL, NULL, NOW(), NOW()),
+    (1, 3, TIMESTAMP(CURDATE(), '16:00:00'),
+        TIMESTAMP(CURDATE(), '17:00:00'),
+        'VIOLATION', NULL, NULL, NULL, NULL,
+        TIMESTAMP(CURDATE(), '17:00:00'), 'NO_SHOW', NOW(), NOW());

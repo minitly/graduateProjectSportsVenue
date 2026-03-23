@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tly.mapper.ReportMapper">
+
+    <select id="selectDashboard" resultType="com.tly.dto.report.DashboardStatResponse">
+        SELECT
+            COUNT(1) AS booking_total,
+            SUM(CASE WHEN status = 'VERIFIED' THEN 1 ELSE 0 END) AS booking_verified_total,
+            SUM(CASE WHEN status = 'CANCELED' THEN 1 ELSE 0 END) AS booking_canceled_total,
+            SUM(CASE WHEN status = 'VIOLATION' THEN 1 ELSE 0 END) AS booking_violation_total
+        FROM booking_reservation
+        WHERE start_time >= #{startTime}
+          AND start_time < #{endTime}
+    </select>
+
+    <select id="selectBookingTrend" resultType="com.tly.dto.report.BookingTrendRecord">
+        SELECT
+            DATE(br.start_time) AS date,
+            COUNT(1) AS booking_total,
+            SUM(CASE WHEN br.status = 'VERIFIED' THEN 1 ELSE 0 END) AS verified_total,
+            SUM(CASE WHEN br.status = 'CANCELED' THEN 1 ELSE 0 END) AS canceled_total,
+            SUM(CASE WHEN br.status = 'VIOLATION' THEN 1 ELSE 0 END) AS violation_total
+        FROM booking_reservation br
+        WHERE br.start_time >= #{startTime}
+          AND br.start_time < #{endTime}
+        GROUP BY DATE(br.start_time)
+        ORDER BY DATE(br.start_time) ASC
+    </select>
+
+    <select id="selectVenueRank" resultType="com.tly.dto.report.VenueRankRecord">
+        SELECT
+            v.id AS venue_id,
+            v.name AS venue_name,
+            COUNT(1) AS booking_total,
+            SUM(CASE WHEN br.status = 'VERIFIED' THEN 1 ELSE 0 END) AS verified_total,
+            SUM(CASE WHEN br.status = 'CANCELED' THEN 1 ELSE 0 END) AS canceled_total,
+            SUM(CASE WHEN br.status = 'VIOLATION' THEN 1 ELSE 0 END) AS violation_total
+        FROM booking_reservation br
+                 JOIN venue v ON v.id = br.venue_id
+        WHERE br.start_time >= #{startTime}
+          AND br.start_time < #{endTime}
+        GROUP BY v.id, v.name
+        ORDER BY booking_total DESC
+        LIMIT #{topN}
+    </select>
+
+</mapper>
+
