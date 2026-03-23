@@ -8,6 +8,8 @@ import ProfilePage from '../views/ProfilePage.vue'
 import AdminUsersPage from '../views/AdminUsersPage.vue'
 import AdminAnalyticsPage from '../views/AdminAnalyticsPage.vue'
 import AdminModel2DPage from '../views/AdminModel2DPage.vue'
+import AdminModel3DPreviewPage from '../views/AdminModel3DPreviewPage.vue'
+import NoticesPage from '../views/NoticesPage.vue'
 import { useAuthStore } from '../stores/auth'
 import { useToast } from '../composables/useToast'
 
@@ -55,6 +57,25 @@ const routes = [
         }
       },
       {
+        path: 'notices',
+        name: 'notices',
+        component: NoticesPage,
+        meta: {
+          title: '公告中心',
+          subtitle: '查看平台已发布公告与活动通知'
+        }
+      },
+      {
+        path: 'admin-notices',
+        name: 'admin-notices',
+        component: NoticesPage,
+        meta: {
+          title: '公告管理',
+          subtitle: '创建、发布、下线和维护公告内容',
+          roles: ['OWNER']
+        }
+      },
+      {
         path: 'admin-users',
         name: 'admin-users',
         component: AdminUsersPage,
@@ -81,6 +102,16 @@ const routes = [
         meta: {
           title: '2D建模管理',
           subtitle: '在数据分析管理下进行2D建模配置与预览',
+          roles: ['ADMIN', 'OWNER']
+        }
+      },
+      {
+        path: 'admin-model-3d',
+        name: 'admin-model-3d',
+        component: AdminModel3DPreviewPage,
+        meta: {
+          title: '3D场馆预览',
+          subtitle: '基于2D语义模型生成3D场馆可视化预览',
           roles: ['ADMIN', 'OWNER']
         }
       }

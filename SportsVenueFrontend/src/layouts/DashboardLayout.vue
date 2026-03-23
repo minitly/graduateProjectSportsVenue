@@ -25,6 +25,11 @@ const baseMenuItems = [
     label: '用户中心',
     description: '完善个人资料、查看账号状态',
     path: '/app/profile'
+  },
+  {
+    label: '公告中心',
+    description: '查看平台公告与运营通知',
+    path: '/app/notices'
   }
 ]
 
@@ -42,6 +47,11 @@ const menuItems = computed(() => {
         path: '/app/admin-users'
       },
       {
+        label: '公告管理',
+        description: '创建、发布、下线与维护公告',
+        path: '/app/admin-notices'
+      },
+      {
         label: '数据分析管理',
         description: '查看全局预约与运营数据分析',
         path: '/app/admin-analytics'
@@ -50,6 +60,11 @@ const menuItems = computed(() => {
         label: '2D建模管理',
         description: '进行2D建模配置与画布预览',
         path: '/app/admin-model-2d'
+      },
+      {
+        label: '3D场馆预览',
+        description: '查看2D模型转化的3D场馆效果',
+        path: '/app/admin-model-3d'
       }
     ]
   }
@@ -67,6 +82,11 @@ const menuItems = computed(() => {
         path: '/app/admin-users'
       },
       {
+        label: '公告管理',
+        description: '创建、发布、下线与维护公告',
+        path: '/app/admin-notices'
+      },
+      {
         label: '数据分析管理',
         description: '查看全局预约与运营数据分析',
         path: '/app/admin-analytics'
@@ -75,6 +95,11 @@ const menuItems = computed(() => {
         label: '2D建模管理',
         description: '进行2D建模配置与画布预览',
         path: '/app/admin-model-2d'
+      },
+      {
+        label: '3D场馆预览',
+        description: '查看2D模型转化的3D场馆效果',
+        path: '/app/admin-model-3d'
       }
     ]
   }
