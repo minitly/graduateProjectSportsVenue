@@ -5,6 +5,8 @@ import { useDialog, NButton, NCard, NDatePicker, NDivider, NInput, NModal, NSele
 import { useToast } from '../composables/useToast'
 import api from '../services/api'
 import { useAuthStore } from '../stores/auth'
+import { getStatusText } from '../constants/statusMap'
+import { formatDisplayDateTime } from '../utils/dateFormat'
 
 const { pushToast } = useToast()
 const queryClient = useQueryClient()
@@ -120,12 +122,12 @@ watch(
 const stats = computed(() => [
   { label: '可预约场地', value: venuesTotal.value },
   { label: '预约窗口', value: '未来 7 天' },
-  { label: '当前状态', value: filters.status || '全部' }
+  { label: '当前状态', value: filters.status ? getStatusText(filters.status) : '全部' }
 ])
 
 const bookingSummary = computed(() => [
   { label: '我的预约', value: myBookingsTotal.value },
-  { label: '筛选状态', value: bookingFilters.status || '全部' }
+  { label: '筛选状态', value: bookingFilters.status ? getStatusText(bookingFilters.status) : '全部' }
 ])
 
 const statusOptions = [
@@ -162,11 +164,22 @@ const venueManageModal = reactive({
   }
 })
 
+const coverUploadFile = ref(null)
+const coverUploadPreview = ref('')
+const coverPreviewObjectUrl = ref('')
+const isCoverUploading = ref(false)
+
 const deleteModal = reactive({
   show: false,
   venue: null,
   adminPassword: '',
   submitting: false
+})
+
+const venueDetailModal = reactive({
+  show: false,
+  loading: false,
+  data: null
 })
 
 const bookingStatusOptions = [
@@ -200,6 +213,24 @@ const bookingDateRange = computed({
 })
 
 const debouncedSearch = ref(null)
+const currentTimeTick = ref(Date.now())
+const nowTimer = ref(null)
+
+function getTodayDateString() {
+  const now = new Date(currentTimeTick.value)
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
+function getEarliestStartHourForToday() {
+  const now = new Date(currentTimeTick.value)
+  return now.getHours() + 1
+}
+
+function isPastStartSlot(slotValue) {
+  if (!bookingModal.date || bookingModal.date !== getTodayDateString()) return false
+  const [hour] = slotValue.split(':').map(Number)
+  return hour < getEarliestStartHourForToday()
+}
 
 const timeSlots = computed(() => {
   if (!bookingModal.venue?.openTime || !bookingModal.venue?.closeTime) return []
@@ -221,7 +252,7 @@ const unavailableSlots = computed(() => {
 const timeSlotOptions = computed(() =>
   timeSlots.value.map((slot) => ({
     ...slot,
-    disabled: unavailableSlots.value.includes(slot.value)
+    disabled: unavailableSlots.value.includes(slot.value) || isPastStartSlot(slot.value)
   }))
 )
 
@@ -236,8 +267,16 @@ const slotStatusList = computed(() => {
   const occupiedSet = new Set(unavailableSlots.value)
   return timeSlots.value.map((slot, index) => {
     let status = 'available'
-    if (occupiedSet.has(slot.value)) {
+    if (isPastStartSlot(slot.value)) {
+      status = 'disabled'
+    } else if (occupiedSet.has(slot.value)) {
       status = 'occupied'
+    } else if (bookingModal.startTime && !bookingModal.endTime) {
+      const startIndex = timeSlots.value.findIndex((item) => item.value === bookingModal.startTime)
+      const currentIndex = timeSlots.value.findIndex((item) => item.value === slot.value)
+      if (currentIndex === startIndex) {
+        status = 'selected'
+      }
     } else if (bookingModal.startTime && bookingModal.endTime) {
       const startIndex = timeSlots.value.findIndex((item) => item.value === bookingModal.startTime)
       const endIndex = timeSlots.value.findIndex((item) => item.value === bookingModal.endTime)
@@ -273,8 +312,9 @@ function formatDate(timestamp) {
   return new Date(timestamp).toISOString().slice(0, 10)
 }
 
+
 function handleSlotSelect(slot) {
-  if (slot.status === 'occupied') return
+  if (slot.status === 'occupied' || isPastStartSlot(slot.value)) return
   if (!bookingModal.startTime || bookingModal.endTime) {
     bookingModal.startTime = slot.value
     bookingModal.endTime = null
@@ -535,6 +575,9 @@ function resetVenueForm() {
     status: 'AVAILABLE',
     coverImageUrl: ''
   }
+  cleanupCoverObjectUrl()
+  coverUploadFile.value = null
+  coverUploadPreview.value = ''
 }
 
 function openCreateVenue() {
@@ -557,16 +600,84 @@ function openEditVenue(venue) {
     status: venue.status || 'AVAILABLE',
     coverImageUrl: venue.coverImageUrl || ''
   }
+  coverUploadFile.value = null
+  coverUploadPreview.value = venueImageMap[venue.id] || ''
+}
+
+function cleanupCoverObjectUrl() {
+  if (coverPreviewObjectUrl.value) {
+    URL.revokeObjectURL(coverPreviewObjectUrl.value)
+    coverPreviewObjectUrl.value = ''
+  }
 }
 
 function closeVenueModal() {
   venueManageModal.show = false
+  cleanupCoverObjectUrl()
+  coverUploadFile.value = null
+  coverUploadPreview.value = ''
+}
+
+function handleCoverFileChange(event) {
+  const file = event?.target?.files?.[0]
+  if (!file) return
+  if (!file.type?.startsWith('image/')) {
+    pushToast('请上传图片文件', 'warning')
+    event.target.value = ''
+    return
+  }
+  const maxSize = 3 * 1024 * 1024
+  if (file.size > maxSize) {
+    pushToast('图片大小不能超过 3MB', 'warning')
+    event.target.value = ''
+    return
+  }
+  cleanupCoverObjectUrl()
+  coverUploadFile.value = file
+  coverPreviewObjectUrl.value = URL.createObjectURL(file)
+  coverUploadPreview.value = coverPreviewObjectUrl.value
+}
+
+function clearCoverFile() {
+  cleanupCoverObjectUrl()
+  coverUploadFile.value = null
+  coverUploadPreview.value = ''
+  venueManageModal.form.coverImageUrl = ''
+}
+
+async function uploadCoverIfNeeded() {
+  if (!coverUploadFile.value) return venueManageModal.form.coverImageUrl || ''
+  isCoverUploading.value = true
+  try {
+    const formData = new FormData()
+    formData.append('file', coverUploadFile.value)
+    formData.append('biz', 'venue')
+    const response = await api.post('/files/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+    if (response.code !== 200) {
+      throw new Error(response.message || '封面上传失败')
+    }
+    const uploadedPath = response.data?.urls?.[0]
+    if (!uploadedPath) {
+      throw new Error('封面上传失败：未返回文件路径')
+    }
+    return uploadedPath
+  } finally {
+    isCoverUploading.value = false
+  }
 }
 
 async function submitVenue() {
   venueManageModal.submitting = true
   try {
-    const payload = { ...venueManageModal.form }
+    const coverImageUrl = await uploadCoverIfNeeded()
+    const payload = {
+      ...venueManageModal.form,
+      coverImageUrl
+    }
     const response = venueManageModal.editingId
       ? await api.put(`/venues/${venueManageModal.editingId}`, payload)
       : await api.post('/venues', payload)
@@ -578,7 +689,7 @@ async function submitVenue() {
     closeVenueModal()
     queryClient.invalidateQueries({ queryKey: ['venues'] })
   } catch (error) {
-    pushToast('保存失败，请稍后再试', 'error')
+    pushToast(error?.message || '保存失败，请稍后再试', 'error')
   } finally {
     venueManageModal.submitting = false
   }
@@ -595,10 +706,31 @@ async function quickChangeVenueStatus(venue, status) {
       pushToast(response.message || '状态切换失败', 'error')
       return
     }
-    pushToast(`场地状态已切换为 ${status}`, 'success')
+    pushToast(`场地状态已切换为 ${getStatusText(status)}`, 'success')
     queryClient.invalidateQueries({ queryKey: ['venues'] })
   } catch (error) {
-    pushToast('状态切换失败，请稍后再试', 'error')
+    const backendMessage = error?.response?.data?.message
+    pushToast(backendMessage || '状态切换失败，请稍后再试', 'error')
+  }
+}
+
+async function openVenueDetail(venue) {
+  if (!venue?.id) return
+  venueDetailModal.show = true
+  venueDetailModal.loading = true
+  venueDetailModal.data = null
+  try {
+    const response = await api.get(`/venues/${venue.id}`)
+    if (response.code !== 200) {
+      pushToast(response.message || '加载场地详情失败', 'error')
+      return
+    }
+    venueDetailModal.data = response.data
+  } catch (error) {
+    const backendMessage = error?.response?.data?.message
+    pushToast(backendMessage || '加载场地详情失败', 'error')
+  } finally {
+    venueDetailModal.loading = false
   }
 }
 
@@ -626,7 +758,8 @@ async function runDeleteVenue() {
     closeDeleteVenue()
     queryClient.invalidateQueries({ queryKey: ['venues'] })
   } catch (error) {
-    pushToast('删除失败，请稍后再试', 'error')
+    const backendMessage = error?.response?.data?.message
+    pushToast(backendMessage || '删除失败，请稍后再试', 'error')
   } finally {
     deleteModal.submitting = false
   }
@@ -665,7 +798,8 @@ async function loadOccupiedSlots() {
     }
     bookingModal.occupied = response.data || []
   } catch (error) {
-    pushToast('无法连接后端服务', 'error')
+    const backendMessage = error?.response?.data?.message
+    pushToast(backendMessage || '无法连接后端服务', 'error')
   }
 }
 
@@ -673,7 +807,25 @@ function computeEndTimeOptions() {
   if (!bookingModal.startTime) return []
   const startIndex = timeSlots.value.findIndex((slot) => slot.value === bookingModal.startTime)
   if (startIndex === -1) return []
-  return timeSlots.value.slice(startIndex + 1)
+
+  const options = timeSlots.value
+    .slice(startIndex + 1)
+    .filter((slot) => !isPastStartSlot(slot.value))
+    .map((slot) => ({
+      label: slot.label,
+      value: slot.value
+    }))
+
+  const closeTime = bookingModal.venue?.closeTime
+  const [closeHour] = (closeTime || '').split(':').map(Number)
+  const closeTimeAllowed =
+    bookingModal.date !== getTodayDateString() || Number.isNaN(closeHour) || closeHour >= getEarliestStartHourForToday()
+
+  if (closeTime && closeTimeAllowed && !options.some((item) => item.value === closeTime)) {
+    options.push({ label: closeTime, value: closeTime })
+  }
+
+  return options
 }
 
 const endTimeOptions = computed(() => computeEndTimeOptions())
@@ -681,6 +833,10 @@ const endTimeOptions = computed(() => computeEndTimeOptions())
 async function submitBooking() {
   if (!bookingModal.venue || !bookingModal.date || !bookingModal.startTime || !bookingModal.endTime) {
     pushToast('请选择预约日期与时间', 'warning')
+    return
+  }
+  if (isPastStartSlot(bookingModal.startTime)) {
+    pushToast('开始时间不能早于当前时间后 1 小时', 'warning')
     return
   }
   bookingModal.submitting = true
@@ -698,7 +854,8 @@ async function submitBooking() {
     closeBookingModal()
     refreshMyBookings()
   } catch (error) {
-    pushToast('无法连接后端服务', 'error')
+    const backendMessage = error?.response?.data?.message
+    pushToast(backendMessage || '无法连接后端服务', 'error')
   } finally {
     bookingModal.submitting = false
   }
@@ -719,7 +876,8 @@ async function cancelBooking(item) {
     pushToast('预约已取消', 'success')
     queryClient.invalidateQueries({ queryKey: ['myBookings'] })
   } catch (error) {
-    pushToast('无法连接后端服务', 'error')
+    const backendMessage = error?.response?.data?.message
+    pushToast(backendMessage || '无法连接后端服务', 'error')
   } finally {
     cancelingIds.value.delete(item.id)
   }
@@ -817,7 +975,8 @@ function verifyBooking(item) {
         refreshOwnerBookings()
         refreshMyBookings()
       } catch (error) {
-        pushToast('核销失败，请稍后再试', 'error')
+        const backendMessage = error?.response?.data?.message
+        pushToast(backendMessage || '核销失败，请稍后再试', 'error')
       }
     }
   })
@@ -833,12 +992,18 @@ onMounted(() => {
   searchDisabled.value = false
   window.addEventListener('quick-booking', handleQuickBooking)
   handleRouteQuickBooking()
+  nowTimer.value = setInterval(() => {
+    currentTimeTick.value = Date.now()
+  }, 30000)
 })
 
 onUnmounted(() => {
   window.removeEventListener('quick-booking', handleQuickBooking)
   if (debouncedSearch.value) {
     clearTimeout(debouncedSearch.value)
+  }
+  if (nowTimer.value) {
+    clearInterval(nowTimer.value)
   }
 })
 </script>
@@ -889,7 +1054,7 @@ onUnmounted(() => {
       <article v-for="venue in venuesData" :key="venue.id" class="venue-card">
         <div class="venue-card__media">
           <div class="venue-card__badge" :class="venue.status?.toLowerCase()">
-            {{ venue.status || 'UNKNOWN' }}
+            {{ getStatusText(venue.status, '未知状态') }}
           </div>
           <img
             v-if="venueImageMap[venue.id]"
@@ -917,6 +1082,7 @@ onUnmounted(() => {
             </div>
           </div>
           <div class="venue-card__actions">
+            <NButton tertiary @click="openVenueDetail(venue)">查看详情</NButton>
             <NButton type="primary" @click="openBookingModal(venue)">预约时段</NButton>
             <NButton v-if="isOwner" tertiary @click="openEditVenue(venue)">编辑场地</NButton>
             <NButton v-if="isOwner" type="error" tertiary @click="openDeleteVenue(venue)">删除/停用</NButton>
@@ -1009,14 +1175,15 @@ onUnmounted(() => {
                 <p class="text-muted">场地 {{ item.venueId }} · 用户 {{ item.username || item.userId }}</p>
               </div>
               <NTag :type="item.status === 'APPLIED' ? 'info' : item.status === 'VERIFIED' ? 'success' : item.status === 'CANCELED' ? 'warning' : 'error'">
-                {{ item.status }}
+                {{ getStatusText(item.status) }}
               </NTag>
             </div>
           </template>
+
           <div class="booking-card__body">
-            <div><span>开始时间</span><strong>{{ item.startTime }}</strong></div>
-            <div><span>结束时间</span><strong>{{ item.endTime }}</strong></div>
-            <div><span>创建时间</span><strong>{{ item.createTime }}</strong></div>
+            <div><span>开始时间</span><strong>{{ formatDisplayDateTime(item.startTime) }}</strong></div>
+            <div><span>结束时间</span><strong>{{ formatDisplayDateTime(item.endTime) }}</strong></div>
+            <div><span>创建时间</span><strong>{{ formatDisplayDateTime(item.createTime) }}</strong></div>
           </div>
           <div class="booking-card__actions">
             <NButton size="small" type="primary" :disabled="item.status !== 'APPLIED'" @click="verifyBooking(item)">
@@ -1084,22 +1251,22 @@ onUnmounted(() => {
                 <p class="text-muted">{{ venueNameMap[item.venueId] || `场地 ${item.venueId}` }}</p>
               </div>
               <NTag :type="item.status === 'APPLIED' ? 'info' : item.status === 'VERIFIED' ? 'success' : item.status === 'CANCELED' ? 'warning' : 'error'">
-                {{ item.status }}
+                {{ getStatusText(item.status) }}
               </NTag>
             </div>
           </template>
           <div class="booking-card__body">
             <div>
               <span>开始时间</span>
-              <strong>{{ item.startTime }}</strong>
+              <strong>{{ formatDisplayDateTime(item.startTime) }}</strong>
             </div>
             <div>
               <span>结束时间</span>
-              <strong>{{ item.endTime }}</strong>
+              <strong>{{ formatDisplayDateTime(item.endTime) }}</strong>
             </div>
             <div>
               <span>创建时间</span>
-              <strong>{{ item.createTime }}</strong>
+              <strong>{{ formatDisplayDateTime(item.createTime) }}</strong>
             </div>
           </div>
           <div class="booking-card__actions">
@@ -1149,11 +1316,26 @@ onUnmounted(() => {
         <div><label>关闭时间</label><NInput v-model:value="venueManageModal.form.closeTime" placeholder="22:00" /></div>
       </div>
       <div class="booking-modal__section"><label>状态</label><NSelect v-model:value="venueManageModal.form.status" :options="venueStatusOptions" /></div>
-      <div class="booking-modal__section"><label>封面路径</label><NInput v-model:value="venueManageModal.form.coverImageUrl" /></div>
+      <div class="booking-modal__section">
+        <label>封面图片</label>
+        <div class="upload-control">
+          <label class="upload-trigger">
+            <input class="upload-input" type="file" accept="image/*" @change="handleCoverFileChange" />
+            <span>{{ coverUploadFile ? '重新选择图片' : '选择图片' }}</span>
+          </label>
+          <span v-if="coverUploadFile" class="upload-filename">{{ coverUploadFile.name }}</span>
+        </div>
+        <div v-if="coverUploadPreview" class="venue-cover-preview">
+          <img :src="coverUploadPreview" alt="cover preview" />
+          <div class="venue-cover-actions">
+            <NButton size="small" tertiary @click="clearCoverFile">移除图片</NButton>
+          </div>
+        </div>
+      </div>
       <div class="booking-modal__actions">
-        <NButton @click="closeVenueModal">取消</NButton>
-        <NButton type="primary" :loading="venueManageModal.submitting" @click="submitVenue">
-          {{ venueManageModal.editingId ? '保存修改' : '确认新增' }}
+        <NButton :disabled="venueManageModal.submitting || isCoverUploading" @click="closeVenueModal">取消</NButton>
+        <NButton type="primary" :loading="venueManageModal.submitting || isCoverUploading" :disabled="venueManageModal.submitting || isCoverUploading" @click="submitVenue">
+          {{ isCoverUploading ? '上传中...' : venueManageModal.editingId ? '保存修改' : '确认新增' }}
         </NButton>
       </div>
     </NModal>
@@ -1167,6 +1349,30 @@ onUnmounted(() => {
       <div class="booking-modal__actions">
         <NButton @click="closeDeleteVenue">取消</NButton>
         <NButton type="error" :loading="deleteModal.submitting" @click="confirmDeleteVenue">确认删除</NButton>
+      </div>
+    </NModal>
+
+    <NModal v-model:show="venueDetailModal.show" preset="card" class="booking-modal" title="场地详情">
+      <div v-if="venueDetailModal.loading" class="text-muted">加载中...</div>
+      <template v-else-if="venueDetailModal.data">
+        <div class="venue-detail-grid">
+          <div><span>场地ID</span><strong>{{ venueDetailModal.data.id }}</strong></div>
+          <div><span>场地名称</span><strong>{{ venueDetailModal.data.name || '—' }}</strong></div>
+          <div><span>场地类型</span><strong>{{ venueDetailModal.data.type || '—' }}</strong></div>
+          <div><span>状态</span><strong>{{ getStatusText(venueDetailModal.data.status, '未知状态') }}</strong></div>
+          <div><span>容量</span><strong>{{ venueDetailModal.data.capacity ?? '—' }}</strong></div>
+          <div><span>价格</span><strong>{{ venueDetailModal.data.price ? `¥${venueDetailModal.data.price}/小时` : '咨询' }}</strong></div>
+          <div><span>开放时间</span><strong>{{ venueDetailModal.data.openTime || '—' }}</strong></div>
+          <div><span>关闭时间</span><strong>{{ venueDetailModal.data.closeTime || '—' }}</strong></div>
+          <div class="full"><span>描述</span><strong>{{ venueDetailModal.data.description || '暂无描述' }}</strong></div>
+          <div class="full" v-if="venueImageMap[venueDetailModal.data.id]">
+            <span>封面</span>
+            <img class="venue-detail-image" :src="venueImageMap[venueDetailModal.data.id]" alt="venue detail cover" />
+          </div>
+        </div>
+      </template>
+      <div class="booking-modal__actions">
+        <NButton type="primary" @click="venueDetailModal.show = false">关闭</NButton>
       </div>
     </NModal>
 
@@ -1213,6 +1419,7 @@ onUnmounted(() => {
             <span class="legend available">可预约</span>
             <span class="legend selected">已选择</span>
             <span class="legend occupied">已占用</span>
+            <span class="legend disabled">不可用</span>
           </div>
         </div>
         <div class="booking-modal__table">
@@ -1225,7 +1432,15 @@ onUnmounted(() => {
           >
             <span>{{ slot.range }}</span>
             <span class="slot-status">
-              {{ slot.status === 'available' ? '可预约' : slot.status === 'selected' ? '已选择' : '已占用' }}
+              {{
+                slot.status === 'available'
+                  ? '可预约'
+                  : slot.status === 'selected'
+                    ? '已选择'
+                    : slot.status === 'occupied'
+                      ? '已占用'
+                      : '不可用'
+              }}
             </span>
           </div>
         </div>

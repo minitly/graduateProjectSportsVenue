@@ -726,7 +726,22 @@ body {
 
 .booking-panel__list {
   display: grid;
-  gap: 16px;
+  gap: 18px;
+  padding: 8px;
+  border-radius: 16px;
+  background: #eef4ff;
+  border: 1px solid #c7d7fe;
+}
+
+.booking-panel__list .n-card {
+  background: #ffffff;
+  border: 2px solid #bfd2ff;
+  border-radius: 14px;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.1);
+}
+
+.booking-panel__list .n-card + .n-card {
+  border-top: 4px solid #93c5fd;
 }
 
 .booking-card__header {
@@ -758,6 +773,45 @@ body {
 
 .booking-modal__occupied {
   margin-top: 16px;
+}
+
+.venue-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.venue-detail-grid > div {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.venue-detail-grid > div.full {
+  grid-column: 1 / -1;
+}
+
+.venue-detail-grid span {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.venue-detail-grid strong {
+  font-size: 14px;
+  color: #0f172a;
+  line-height: 1.5;
+}
+
+.venue-detail-image {
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid #dbe4f0;
+  margin-top: 6px;
 }
 
 .notice-editor-wrapper {
@@ -818,6 +872,70 @@ body {
   color: #64748b;
   display: grid;
   gap: 6px;
+}
+
+.upload-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.upload-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid #bfdbfe;
+  background: linear-gradient(135deg, #dbeafe, #eff6ff);
+  color: #1e40af;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.upload-trigger:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(59, 130, 246, 0.2);
+}
+
+.upload-input {
+  display: none;
+}
+
+.upload-filename {
+  font-size: 12px;
+  color: #64748b;
+  max-width: 260px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.venue-cover-preview {
+  margin-top: 10px;
+  border: 1px solid #dbe4f0;
+  border-radius: 12px;
+  padding: 10px;
+  background: #f8fafc;
+  display: grid;
+  gap: 8px;
+}
+
+.venue-cover-preview img {
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid #dbe4f0;
+}
+
+.venue-cover-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .booking-modal__slot-header {
@@ -924,6 +1042,11 @@ body {
   color: #b91c1c;
 }
 
+.legend.disabled {
+  background: #e5e7eb;
+  color: #475569;
+}
+
 .booking-modal__table {
   border: 1px solid #e2e8f0;
   border-radius: 12px;
@@ -956,6 +1079,12 @@ body {
   background: #fef2f2;
   color: #b91c1c;
   font-weight: 600;
+}
+
+.slot-row.disabled {
+  background: #f1f5f9;
+  color: #64748b;
+  cursor: not-allowed;
 }
 
 .home-page {
@@ -1296,6 +1425,13 @@ body {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+.brand-mark__logo {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  display: block;
+}
+
 .auth-hero .brand:hover .brand-mark {
   transform: scale(1.04);
   box-shadow: 0 10px 22px rgba(59, 130, 246, 0.3);
@@ -1348,10 +1484,9 @@ body {
   flex: 1;
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 0;
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
-  align-items: stretch;
-  transition: max-width 0.28s ease, grid-template-columns 0.28s ease;
+  align-items: start;
 }
 
 .auth-card.agreement-open {
@@ -1364,20 +1499,21 @@ body {
 }
 
 .agreement-side-card {
-  opacity: 0;
-  pointer-events: none;
-  transform: translateX(20px);
-  transition: opacity 0.26s ease, transform 0.26s ease;
   display: flex;
   flex-direction: column;
   min-width: 0;
-  overflow: hidden;
+  max-height: 100%;
 }
 
-.agreement-side-card.visible {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateX(0);
+.agreement-slide-enter-active,
+.agreement-slide-leave-active {
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.agreement-slide-enter-from,
+.agreement-slide-leave-to {
+  opacity: 0;
+  transform: translateX(20px);
 }
 
 .agreement-side-header {
@@ -1924,6 +2060,8 @@ body {
   color: #6b7280;
   font-size: 13px;
 }
+
+
 
 .toast-host {
   position: fixed;

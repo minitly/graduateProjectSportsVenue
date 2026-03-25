@@ -13,7 +13,7 @@ export const useAuthStore = defineStore('auth', {
   },
   actions: {
     hydrate() {
-      const raw = localStorage.getItem(STORAGE_KEY)
+      const raw = localStorage.getItem(STORAGE_KEY) || sessionStorage.getItem(STORAGE_KEY)
       if (!raw) return
       try {
         const payload = JSON.parse(raw)
@@ -21,20 +21,26 @@ export const useAuthStore = defineStore('auth', {
         this.user = payload.user || null
       } catch (error) {
         localStorage.removeItem(STORAGE_KEY)
+        sessionStorage.removeItem(STORAGE_KEY)
       }
     },
-    setSession(token, user) {
+    setSession(token, user, remember = true) {
       this.token = token
       this.user = user
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ token: this.token, user: this.user })
-      )
+      const serialized = JSON.stringify({ token: this.token, user: this.user })
+      if (remember) {
+        localStorage.setItem(STORAGE_KEY, serialized)
+        sessionStorage.removeItem(STORAGE_KEY)
+        return
+      }
+      sessionStorage.setItem(STORAGE_KEY, serialized)
+      localStorage.removeItem(STORAGE_KEY)
     },
     clear() {
       this.token = ''
       this.user = null
       localStorage.removeItem(STORAGE_KEY)
+      sessionStorage.removeItem(STORAGE_KEY)
     }
   }
 })

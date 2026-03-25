@@ -53,6 +53,10 @@
 
     const showPassword = ref(false);
     const showAdminPassword = ref(false);
+    const isPasswordConfirmMode = ref(false);
+    const passwordConfirmInline = ref("");
+    const passwordConfirmError = ref("");
+    const lastConfirmedPassword = ref("");
     const emailCooldown = ref(0);
     const emailTimer = ref(null);
 
@@ -78,6 +82,11 @@
         if (passwordStrength.value === "medium") return "中";
         return "弱";
     });
+    const isPasswordConfirmed = computed(
+        () =>
+            !!lastConfirmedPassword.value &&
+            lastConfirmedPassword.value === registerForm.password,
+    );
 
     watch(
         () => registerForm.role,
@@ -85,6 +94,19 @@
             if (role !== "OWNER") {
                 registerForm.adminPassword = "";
                 errors.adminPassword = "";
+            }
+        },
+    );
+
+    watch(
+        () => registerForm.password,
+        (newPassword) => {
+            if (newPassword !== lastConfirmedPassword.value) {
+                lastConfirmedPassword.value = "";
+                if (isPasswordConfirmMode.value) {
+                    passwordConfirmInline.value = "";
+                    passwordConfirmError.value = "";
+                }
             }
         },
     );
@@ -154,11 +176,56 @@
         touched.password = true;
         if (!registerForm.password.trim()) {
             setError("password", "请输入密码");
-        } else if (passwordStrength.value === "weak") {
-            setError("password", "密码强度太弱");
-        } else {
-            setError("password", "");
+            isPasswordConfirmMode.value = false;
+            return;
         }
+        if (passwordStrength.value === "weak") {
+            setError("password", "密码强度太弱");
+            isPasswordConfirmMode.value = false;
+            return;
+        }
+        setError("password", "");
+
+        if (lastConfirmedPassword.value !== registerForm.password) {
+            goConfirmPasswordStep();
+        }
+    }
+
+    function goPasswordInputStep() {
+        isPasswordConfirmMode.value = false;
+        passwordConfirmError.value = "";
+    }
+
+    function goConfirmPasswordStep() {
+        if (!registerForm.password.trim() || passwordStrength.value === "weak") {
+            return;
+        }
+        isPasswordConfirmMode.value = true;
+        passwordConfirmInline.value = "";
+        passwordConfirmError.value = "";
+    }
+
+    function handleInlinePasswordConfirmBlur() {
+        if (!isPasswordConfirmMode.value) return;
+        handleConfirmPasswordCheck();
+    }
+
+    function handleConfirmPasswordCheck() {
+        if (!isPasswordConfirmMode.value) return;
+        if (!passwordConfirmInline.value.trim()) {
+            passwordConfirmError.value = "请再次输入密码";
+            return;
+        }
+        if (passwordConfirmInline.value !== registerForm.password) {
+            passwordConfirmError.value = "两次密码不一致，请重新输入";
+            lastConfirmedPassword.value = "";
+            return;
+        }
+        passwordConfirmError.value = "";
+        lastConfirmedPassword.value = registerForm.password;
+        isPasswordConfirmMode.value = false;
+        passwordConfirmInline.value = "";
+        emit("toast", "success", "密码复核通过");
     }
 
     function getPasswordStrength(value) {
@@ -189,6 +256,11 @@
             valid = false;
         } else if (passwordStrength.value === "weak") {
             setError("password", "密码强度太弱");
+            valid = false;
+        } else if (lastConfirmedPassword.value !== registerForm.password) {
+            setError("password", "请先确认密码");
+            emit("toast", "warning", "请先确认密码");
+            isPasswordConfirmMode.value = true;
             valid = false;
         }
         if (!validateEmail(registerForm.email, true)) {
@@ -316,18 +388,46 @@
         </div>
 
         <div class="field">
-            <label for="register-password">
-                密码
-                <span
-                    v-if="touched.password"
-                    class="strength-pill inline"
-                    :class="passwordStrength"
-                >
-                    {{ passwordStrengthLabel }}
-                </span>
-            </label>
+            <div class="password-label-row">
+                <label :for="isPasswordConfirmMode ? 'register-password-confirm' : 'register-password'">
+                    {{ isPasswordConfirmMode ? '确认密码' : '密码' }}
+                    <span
+                        v-if="touched.password"
+                        class="strength-pill inline"
+                        :class="passwordStrength"
+                    >
+                        {{ passwordStrengthLabel }}
+                    </span>
+                </label>
+
+                <div class="password-stepper" aria-label="密码设置步骤">
+                    <button
+                        type="button"
+                        class="step-dot"
+                        :class="{
+                            active: !isPasswordConfirmMode && !isPasswordConfirmed,
+                            done: isPasswordConfirmed,
+                        }"
+                        aria-label="切换到输入密码"
+                        @click="goPasswordInputStep"
+                    ></button>
+                    <span class="step-line" :class="{ done: isPasswordConfirmed }"></span>
+                    <button
+                        type="button"
+                        class="step-dot"
+                        :class="{
+                            active: isPasswordConfirmMode && !isPasswordConfirmed,
+                            done: isPasswordConfirmed,
+                        }"
+                        aria-label="切换到确认密码"
+                        @click="goConfirmPasswordStep"
+                    ></button>
+                </div>
+            </div>
+
             <div class="password-field">
                 <input
+                    v-if="!isPasswordConfirmMode"
                     id="register-password"
                     v-model="registerForm.password"
                     :type="showPassword ? 'text' : 'password'"
@@ -338,6 +438,16 @@
                     }"
                     @blur="handlePasswordBlur"
                 />
+                <input
+                    v-else
+                    id="register-password-confirm"
+                    v-model="passwordConfirmInline"
+                    :type="showPassword ? 'text' : 'password'"
+                    placeholder="请再次输入密码"
+                    :class="{ error: passwordConfirmError }"
+                    @blur="handleInlinePasswordConfirmBlur"
+                    @keyup.enter="handleConfirmPasswordCheck"
+                />
                 <button
                     type="button"
                     class="ghost"
@@ -346,6 +456,7 @@
                     {{ showPassword ? "隐藏" : "显示" }}
                 </button>
             </div>
+            <span v-if="passwordConfirmError" class="error-text">{{ passwordConfirmError }}</span>
         </div>
 
         <div class="field">
@@ -514,6 +625,59 @@
 .inline-link:hover {
     color: #1d4ed8;
 }
+
+.password-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.password-stepper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 0;
+    flex-shrink: 0;
+}
+
+.step-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: none;
+    padding: 0;
+    background: #cbd5e1;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.step-dot:hover {
+    transform: scale(1.08);
+}
+
+.step-dot.active {
+    background: #facc15;
+    box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.26);
+}
+
+.step-dot.done {
+    background: #22c55e;
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
+}
+
+.step-line {
+    width: 28px;
+    height: 2px;
+    border-radius: 999px;
+    background: #cbd5e1;
+    transition: background 0.2s ease;
+}
+
+.step-line.done {
+    background: #22c55e;
+}
+
 </style>
 
 

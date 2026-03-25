@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { NConfigProvider, NDialogProvider } from 'naive-ui'
 import { useAuthStore } from '../stores/auth'
 import { useNaiveTheme } from '../composables/useNaiveTheme'
+import logo from '../assets/logo.png'
 
 const route = useRoute()
 const router = useRouter()
@@ -105,11 +106,6 @@ const roleLabel = computed(() => {
   return '普通用户'
 })
 
-const showQuickBooking = computed(() => {
-  if (authStore.role !== 'USER') return false
-  return route.path === '/app/venues' || route.path === '/app/borrow'
-})
-
 function handleNavigate(path) {
   if (path !== route.path) {
     router.push(path)
@@ -120,24 +116,15 @@ function handleLogout() {
   authStore.clear()
   router.replace('/auth')
 }
-
-function handleQuickBooking() {
-  if (route.path === '/app/venues') {
-    window.dispatchEvent(new CustomEvent('quick-booking'))
-    return
-  }
-  router.push({
-    path: '/app/venues',
-    query: { action: 'quick-booking' }
-  })
-}
 </script>
 
 <template>
   <div class="dashboard">
     <aside class="dashboard__aside">
       <div class="dashboard__brand">
-        <div class="brand-mark">SV</div>
+        <div class="brand-mark">
+          <img class="brand-mark__logo" :src="logo" alt="体育馆图标" />
+        </div>
         <div>
           <strong>体育馆管理中台</strong>
           <span>Sports Venue</span>
@@ -179,9 +166,6 @@ function handleQuickBooking() {
         </div>
         <div class="dashboard__actions">
           <button class="ghost" type="button">帮助中心</button>
-          <button v-if="showQuickBooking" class="primary" type="button" @click="handleQuickBooking">
-            立即预约
-          </button>
         </div>
       </header>
 

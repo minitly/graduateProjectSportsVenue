@@ -7,6 +7,8 @@ import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import api from '../services/api'
 import { useToast } from '../composables/useToast'
 import { useAuthStore } from '../stores/auth'
+import { getStatusText } from '../constants/statusMap'
+import { formatDisplayDateTime } from '../utils/dateFormat'
 
 const MAX_TITLE_LENGTH = 80
 const MAX_CONTENT_TEXT_LENGTH = 5000
@@ -138,12 +140,6 @@ function resetFilters() {
   handleSearch()
 }
 
-function formatDateTime(value) {
-  if (!value) return '—'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
-}
 
 function statusTagType(status) {
   if (status === 'PUBLISHED') return 'success'
@@ -220,8 +216,9 @@ async function submitNotice() {
     pushToast(editForm.id ? '公告更新成功' : '公告创建成功', 'success')
     pageMode.value = 'list'
     queryClient.invalidateQueries({ queryKey: ['noticesManage'] })
-  } catch {
-    pushToast('保存失败，请稍后重试', 'error')
+  } catch (error) {
+    const backendMessage = error?.response?.data?.message
+    pushToast(backendMessage || '保存失败，请稍后重试', 'error')
   } finally {
     saving.value = false
   }
@@ -240,8 +237,9 @@ function confirmSwitchStatus(item, status) {
         if (response.code !== 200) return pushToast(response.message || '状态切换失败', 'error')
         pushToast(status === 'PUBLISHED' ? '公告已发布' : '公告已下线', 'success')
         queryClient.invalidateQueries({ queryKey: ['noticesManage'] })
-      } catch {
-        pushToast('状态切换失败，请稍后重试', 'error')
+      } catch (error) {
+        const backendMessage = error?.response?.data?.message
+        pushToast(backendMessage || '状态切换失败，请稍后重试', 'error')
       }
     }
   })
@@ -259,8 +257,9 @@ function confirmRemoveNotice(item) {
         if (response.code !== 200) return pushToast(response.message || '删除公告失败', 'error')
         pushToast('公告已删除', 'success')
         queryClient.invalidateQueries({ queryKey: ['noticesManage'] })
-      } catch {
-        pushToast('删除失败，请稍后重试', 'error')
+      } catch (error) {
+        const backendMessage = error?.response?.data?.message
+        pushToast(backendMessage || '删除失败，请稍后重试', 'error')
       }
     }
   })
@@ -302,7 +301,7 @@ function prevPage() {
       <section class="borrow-panel__list">
         <NCard v-for="item in notices" :key="item.id" size="small" class="borrow-record">
           <template #header>
-            <div class="borrow-record__header"><div><strong>{{ item.title }}</strong><p class="text-muted">发布时间：{{ formatDateTime(item.publishTime) }}</p></div><NTag :type="statusTagType(item.status)">{{ item.status }}</NTag></div>
+            <div class="borrow-record__header"><div><strong>{{ item.title }}</strong><p class="text-muted">发布时间：{{ formatDisplayDateTime(item.publishTime) }}</p></div><NTag :type="statusTagType(item.status)">{{ getStatusText(item.status) }}</NTag></div>
           </template>
           <div class="borrow-record__body">
             <div><span>创建时间</span><strong>{{ formatDateTime(item.createTime) }}</strong></div>
@@ -366,7 +365,7 @@ function prevPage() {
       <div v-else-if="detailModal.data" class="detail-grid">
         <div><span>公告ID</span><strong>{{ detailModal.data.id }}</strong></div>
         <div><span>标题</span><strong>{{ detailModal.data.title }}</strong></div>
-        <div><span>状态</span><strong>{{ detailModal.data.status }}</strong></div>
+        <div><span>状态</span><strong>{{ getStatusText(detailModal.data.status) }}</strong></div>
         <div><span>发布时间</span><strong>{{ formatDateTime(detailModal.data.publishTime) }}</strong></div>
         <div><span>创建时间</span><strong>{{ formatDateTime(detailModal.data.createTime) }}</strong></div>
         <div><span>更新时间</span><strong>{{ formatDateTime(detailModal.data.updateTime) }}</strong></div>

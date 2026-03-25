@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { NButton, NCard, NDatePicker, NInput, NInputNumber, NModal, NSelect, NTag } from 'naive-ui'
 import api from '../../services/api'
 import { useToast } from '../../composables/useToast'
+import { getStatusText } from '../../constants/statusMap'
 
 const { pushToast } = useToast()
 const queryClient = useQueryClient()
@@ -89,7 +90,7 @@ const itemStats = computed(() => [
 
 const borrowStats = computed(() => [
   { label: '我的借用', value: borrowsTotal.value },
-  { label: '当前状态', value: borrowFilters.status || '全部' }
+  { label: '当前状态', value: borrowFilters.status ? getStatusText(borrowFilters.status) : '全部' }
 ])
 
 watch(() => [itemFilters.keyword, itemFilters.type, itemFilters.onlyAvailable], () => {
@@ -170,8 +171,9 @@ async function submitBorrow() {
     closeBorrowModal()
     queryClient.invalidateQueries({ queryKey: ['myBorrows'] })
     queryClient.invalidateQueries({ queryKey: ['items'] })
-  } catch {
-    pushToast('无法连接后端服务', 'error')
+  } catch (error) {
+    const backendMessage = error?.response?.data?.message
+    pushToast(backendMessage || '无法连接后端服务', 'error')
   } finally {
     borrowModal.submitting = false
   }
@@ -252,7 +254,7 @@ async function submitBorrow() {
         <template #header>
           <div class="borrow-record__header">
             <div><strong>借用单 #{{ record.id }}</strong><p class="text-muted">{{ itemNameMap[record.itemId] || `器材 ${record.itemId}` }}</p></div>
-            <NTag :type="record.status === 'REQUESTED' ? 'info' : record.status === 'USING' ? 'warning' : 'success'">{{ record.status }}</NTag>
+            <NTag :type="record.status === 'REQUESTED' ? 'info' : record.status === 'USING' ? 'warning' : 'success'">{{ getStatusText(record.status) }}</NTag>
           </div>
         </template>
         <div class="borrow-record__body">

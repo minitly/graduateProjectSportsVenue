@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { NButton, NCard, NDatePicker, NInput, NModal, NSelect, NTag } from 'naive-ui'
 import api from '../../services/api'
 import { useToast } from '../../composables/useToast'
+import { getStatusText } from '../../constants/statusMap'
 
 const { pushToast } = useToast()
 const queryClient = useQueryClient()
@@ -113,8 +114,9 @@ async function submitOwnerAction() {
     queryClient.invalidateQueries({ queryKey: ['ownerBorrows'] })
     queryClient.invalidateQueries({ queryKey: ['myBorrows'] })
     queryClient.invalidateQueries({ queryKey: ['items'] })
-  } catch {
-    pushToast('操作失败，请稍后再试', 'error')
+  } catch (error) {
+    const backendMessage = error?.response?.data?.message
+    pushToast(backendMessage || '操作失败，请稍后再试', 'error')
   } finally {
     ownerActionModal.submitting = false
   }
@@ -136,7 +138,7 @@ async function submitOwnerAction() {
         <template #header>
           <div class="borrow-record__header">
             <div><strong>借用单 #{{ record.id }}</strong><p class="text-muted">{{ itemNameMap[record.itemId] || `器材 ${record.itemId}` }}</p></div>
-            <NTag :type="record.status === 'REQUESTED' ? 'info' : 'warning'">{{ record.status }}</NTag>
+            <NTag :type="record.status === 'REQUESTED' ? 'info' : 'warning'">{{ getStatusText(record.status) }}</NTag>
           </div>
         </template>
         <div class="borrow-record__body">
