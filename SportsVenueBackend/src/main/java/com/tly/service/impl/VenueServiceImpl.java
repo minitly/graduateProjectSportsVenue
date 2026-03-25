@@ -42,6 +42,12 @@ public class VenueServiceImpl implements VenueService {
             return Result.fail(400, "场地名称、编号、类型和状态为必填项");
         }
 
+        // 场地编号唯一性校验（避免数据库 unique 约束异常导致返回 500）
+        Venue byCode = venueMapper.selectByCode(venue.getCode());
+        if (byCode != null) {
+            return Result.fail(400, "场地编号已存在");
+        }
+
         // imageUrls 转为 JSON 字符串存库
         normalizeImageUrlsForSave(venue);
 
@@ -67,6 +73,12 @@ public class VenueServiceImpl implements VenueService {
         if (!StringUtils.hasText(venue.getName()) || !StringUtils.hasText(venue.getCode())
                 || !StringUtils.hasText(venue.getType()) || !StringUtils.hasText(venue.getStatus())) {
             return Result.fail(400, "场地名称、编号、类型和状态为必填项");
+        }
+
+        // 场地编号唯一性校验（update 允许修改 code，但必须不与其他场地冲突）
+        Venue byCode = venueMapper.selectByCode(venue.getCode());
+        if (byCode != null && !byCode.getId().equals(id)) {
+            return Result.fail(400, "场地编号已存在");
         }
 
         String oldStatus = exists.getStatus();

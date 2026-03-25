@@ -17,6 +17,8 @@ public interface VenueMapper {
 
     Venue selectById(@Param("id") Long id);
 
+    Venue selectByCode(@Param("code") String code);
+
     long countByCondition(@Param("type") String type,
                           @Param("status") String status,
                           @Param("keyword") String keyword);
