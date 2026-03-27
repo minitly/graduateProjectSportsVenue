@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
-import { useDialog, NButton, NCard, NDatePicker, NDivider, NInput, NModal, NSelect, NTag } from 'naive-ui'
+import { useDialog, NButton, NCard, NDatePicker, NDivider, NInput, NInputNumber, NModal, NSelect, NTag } from 'naive-ui'
 import { useRoute } from 'vue-router'
 import { useToast } from '../composables/useToast'
 import api from '../services/api'
@@ -57,18 +57,14 @@ const venueImageMap = reactive({})
 const myBookings = reactive({
   pagination: {
     pageNo: 1,
-    pageSize: 5
+    pageSize: 12
   }
 })
 
 const cancelingIds = ref(new Set())
 
 const venueGridRef = ref(null)
-const bookingListRef = ref(null)
-const ownerBookingListRef = ref(null)
 const venueResizeObserver = ref(null)
-const bookingResizeObserver = ref(null)
-const ownerBookingResizeObserver = ref(null)
 
 const venueQueryKey = computed(() => [
   'venues',
@@ -468,7 +464,7 @@ const ownerBookingStatusOptions = [
 
 const ownerBookingPagination = reactive({
   pageNo: 1,
-  pageSize: 8
+  pageSize: 12
 })
 
 const ownerBookingDateRange = computed({
@@ -556,70 +552,20 @@ function calculateVenuePageSize() {
   })
 }
 
-function calculateBookingPageSize() {
-  const container = bookingListRef.value
-  if (!container) return
-  const containerRect = container.getBoundingClientRect()
-  const cardEl = container.querySelector('.booking-card') || container.querySelector('.n-card')
-  const cardHeight = Math.max(cardEl?.getBoundingClientRect?.().height || 190, 140)
-  const usableHeight = Math.max(window.innerHeight - containerRect.top - 170, cardHeight)
-  const rows = Math.max(1, Math.floor(usableHeight / cardHeight))
-
-  applyPageSizeUpdate(myBookings.pagination.pageSize, rows, (value, shouldReset) => {
-    myBookings.pagination.pageSize = value
-    if (shouldReset) myBookings.pagination.pageNo = 1
-  })
-}
-
-function calculateOwnerBookingPageSize() {
-  const container = ownerBookingListRef.value
-  if (!container) return
-  const containerRect = container.getBoundingClientRect()
-  const cardEl = container.querySelector('.booking-card') || container.querySelector('.n-card')
-  const cardHeight = Math.max(cardEl?.getBoundingClientRect?.().height || 190, 140)
-  const usableHeight = Math.max(window.innerHeight - containerRect.top - 170, cardHeight)
-  const rows = Math.max(1, Math.floor(usableHeight / cardHeight))
-
-  applyPageSizeUpdate(ownerBookingPagination.pageSize, rows, (value, shouldReset) => {
-    ownerBookingPagination.pageSize = value
-    if (shouldReset) ownerBookingPagination.pageNo = 1
-  })
-}
-
 function recalculateDynamicPageSizes() {
   if (activeModule.value === 'venue') {
     calculateVenuePageSize()
-    return
-  }
-  if (isOwner.value) {
-    calculateOwnerBookingPageSize()
-  } else {
-    calculateBookingPageSize()
   }
 }
 
 function setupResizeObservers() {
   venueResizeObserver.value?.disconnect?.()
-  bookingResizeObserver.value?.disconnect?.()
-  ownerBookingResizeObserver.value?.disconnect?.()
 
   if (venueGridRef.value) {
     venueResizeObserver.value = new ResizeObserver(() => {
       calculateVenuePageSize()
     })
     venueResizeObserver.value.observe(venueGridRef.value)
-  }
-  if (bookingListRef.value) {
-    bookingResizeObserver.value = new ResizeObserver(() => {
-      calculateBookingPageSize()
-    })
-    bookingResizeObserver.value.observe(bookingListRef.value)
-  }
-  if (ownerBookingListRef.value) {
-    ownerBookingResizeObserver.value = new ResizeObserver(() => {
-      calculateOwnerBookingPageSize()
-    })
-    ownerBookingResizeObserver.value.observe(ownerBookingListRef.value)
   }
 }
 
@@ -1126,8 +1072,17 @@ async function submitBooking() {
 }
 
 
-async function cancelBooking(item) {
-  if (!item?.id || cancelingIds.value.has(item.id)) return
+function getHoursUntilBookingStart(item) {
+  const startAt = new Date(item?.startTime).getTime()
+  if (!Number.isFinite(startAt)) return Infinity
+  return (startAt - Date.now()) / (1000 * 60 * 60)
+}
+
+function getViolationCountFromMyBookings() {
+  return myBookingsData.value.filter((booking) => booking?.status === 'VIOLATION').length
+}
+
+async function runCancelBooking(item) {
   cancelingIds.value.add(item.id)
   try {
     const response = await api.put(`/bookings/${item.id}/cancel`, {
@@ -1145,6 +1100,27 @@ async function cancelBooking(item) {
   } finally {
     cancelingIds.value.delete(item.id)
   }
+}
+
+async function cancelBooking(item) {
+  if (!item?.id || cancelingIds.value.has(item.id)) return
+
+  const hoursUntilStart = getHoursUntilBookingStart(item)
+  if (hoursUntilStart < 2) {
+    const currentViolationCount = getViolationCountFromMyBookings()
+    const nextViolationCount = currentViolationCount + 1
+    dialog.warning({
+      title: '临近开始时间取消确认',
+      content: `当前预约距离开始不足 2 小时，取消将计为违规。\n当前为第 ${nextViolationCount} 次违规；累计 3 次违规将无法再预约。`,
+      positiveText: '仍要取消',
+      negativeText: '返回',
+      type: nextViolationCount >= 3 ? 'error' : 'warning',
+      onPositiveClick: () => runCancelBooking(item)
+    })
+    return
+  }
+
+  runCancelBooking(item)
 }
 
 watch(
@@ -1270,12 +1246,31 @@ watch(venuesData, () => {
   }, 0)
 })
 
-watch(myBookingsData, () => {
-  if (activeModule.value !== 'booking' || isOwner.value) return
-  setTimeout(() => {
-    calculateBookingPageSize()
-  }, 0)
-})
+watch(
+  () => myBookings.pagination.pageSize,
+  (value, oldValue) => {
+    if (value === oldValue) return
+    if (!Number.isFinite(value) || value <= 0) {
+      myBookings.pagination.pageSize = oldValue || 12
+      return
+    }
+    myBookings.pagination.pageSize = Math.min(50, Math.max(1, Math.floor(value)))
+    myBookings.pagination.pageNo = 1
+  }
+)
+
+watch(
+  () => ownerBookingPagination.pageSize,
+  (value, oldValue) => {
+    if (value === oldValue) return
+    if (!Number.isFinite(value) || value <= 0) {
+      ownerBookingPagination.pageSize = oldValue || 12
+      return
+    }
+    ownerBookingPagination.pageSize = Math.min(50, Math.max(1, Math.floor(value)))
+    ownerBookingPagination.pageNo = 1
+  }
+)
 
 watch(ownerBookingsData, () => {
   if (activeModule.value !== 'booking' || !isOwner.value) return
@@ -1302,8 +1297,6 @@ onUnmounted(() => {
   window.removeEventListener('quick-booking', handleQuickBooking)
   window.removeEventListener('resize', recalculateDynamicPageSizes)
   venueResizeObserver.value?.disconnect?.()
-  bookingResizeObserver.value?.disconnect?.()
-  ownerBookingResizeObserver.value?.disconnect?.()
   if (debouncedSearch.value) {
     clearTimeout(debouncedSearch.value)
   }
@@ -1471,7 +1464,7 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div ref="ownerBookingListRef" class="booking-panel__list">
+      <div class="booking-panel__list">
         <NCard v-for="item in ownerBookingsData" :key="`owner-${item.id}`" size="small" class="booking-card">
           <template #header>
             <div class="booking-card__header">
@@ -1505,6 +1498,17 @@ onUnmounted(() => {
       <div class="pagination">
         <NButton tertiary :disabled="ownerBookingPagination.pageNo <= 1" @click="ownerBookingPagination.pageNo -= 1">上一页</NButton>
         <span>第 {{ ownerBookingPagination.pageNo }} 页 / 共 {{ Math.ceil(ownerBookingsTotal / ownerBookingPagination.pageSize) || 1 }} 页</span>
+        <span style="display: inline-flex; align-items: center; gap: 8px;">
+          <span>每页</span>
+          <NInputNumber
+            v-model:value="ownerBookingPagination.pageSize"
+            :min="1"
+            :max="50"
+            :step="1"
+            style="width: 100px;"
+          />
+          <span>条</span>
+        </span>
         <NButton tertiary :disabled="ownerBookingPagination.pageNo * ownerBookingPagination.pageSize >= ownerBookingsTotal" @click="ownerBookingPagination.pageNo += 1">下一页</NButton>
       </div>
     </section>
@@ -1542,7 +1546,7 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div ref="bookingListRef" class="booking-panel__list">
+      <div class="booking-panel__list">
         <NCard
           v-for="item in myBookingsData"
           :key="item.id"
@@ -1597,6 +1601,17 @@ onUnmounted(() => {
         <NButton tertiary @click="prevBookingPage" :disabled="myBookings.pagination.pageNo <= 1">上一页</NButton>
         <span>
           第 {{ myBookings.pagination.pageNo }} 页 / 共 {{ Math.ceil(myBookingsTotal / myBookings.pagination.pageSize) || 1 }} 页
+        </span>
+        <span style="display: inline-flex; align-items: center; gap: 8px;">
+          <span>每页</span>
+          <NInputNumber
+            v-model:value="myBookings.pagination.pageSize"
+            :min="1"
+            :max="50"
+            :step="1"
+            style="width: 100px;"
+          />
+          <span>条</span>
         </span>
         <NButton
           tertiary
