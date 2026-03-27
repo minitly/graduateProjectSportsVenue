@@ -636,7 +636,15 @@ body {
 
 .venue-card__meta {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* 场地卡片“开放时间/价格”改为上下两行展示 */
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.venue-card__meta > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
 }
 
@@ -647,6 +655,7 @@ body {
 
 .venue-card__meta strong {
   font-size: 14px;
+  text-align: right;
 }
 
 .venue-card__quick-status {
