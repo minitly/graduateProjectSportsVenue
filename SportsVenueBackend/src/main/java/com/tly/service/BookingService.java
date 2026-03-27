@@ -8,6 +8,7 @@ import com.tly.entity.BookingReservationSlot;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 public interface BookingService {
 
@@ -24,6 +25,8 @@ public interface BookingService {
                                                            long pageNo, long pageSize);
 
     Result<BookingReservation> verify(Long id);
+
+    Result<Map<String, Object>> myViolationStatus();
 
     /**
      * 场地变更为不可用时联动取消申请中的预约（供场地模块调用）

@@ -23,7 +23,9 @@ import org.springframework.util.StringUtils;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class BookingServiceImpl implements BookingService {
@@ -255,6 +257,27 @@ public class BookingServiceImpl implements BookingService {
         }
         BookingReservation db = reservationMapper.selectById(id);
         return Result.success("核销成功", db);
+    }
+
+    @Override
+    public Result<Map<String, Object>> myViolationStatus() {
+        UserContext.CurrentUser currentUser = UserContext.get();
+        if (currentUser == null) {
+            return Result.fail(401, "未登录");
+        }
+        SysUser user = sysUserMapper.findById(currentUser.getUserId());
+        if (user == null) {
+            return Result.fail(404, "用户不存在");
+        }
+        LocalDateTime bannedUntil = user.getBookingBannedUntil();
+        boolean isViolationUser = bannedUntil != null && bannedUntil.isAfter(LocalDateTime.now());
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("isViolationUser", isViolationUser);
+        data.put("violationCountMonth", user.getViolationCountMonth() == null ? 0 : user.getViolationCountMonth());
+        data.put("violationMonth", user.getViolationMonth());
+        data.put("bookingBannedUntil", bannedUntil);
+        return Result.success("查询成功", data);
     }
 
     @Override

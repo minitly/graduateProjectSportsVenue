@@ -478,6 +478,17 @@
             "url": "{{baseUrl}}/bookings/101/verify"
           },
           "response": []
+        },
+        {
+          "name": "31.1-预约-查询当前用户是否违规",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/bookings/my/violation-status"
+          },
+          "response": []
         }
       ]
     },

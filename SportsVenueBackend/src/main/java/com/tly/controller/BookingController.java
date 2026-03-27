@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 预约管理模块接口
@@ -89,6 +90,14 @@ public class BookingController {
     @PutMapping("/{id}/verify")
     public Result<BookingReservation> verify(@PathVariable("id") Long id) {
         return bookingService.verify(id);
+    }
+
+    /**
+     * 查询当前用户是否违规：GET /sportsVenue/bookings/my/violation-status
+     */
+    @GetMapping("/my/violation-status")
+    public Result<Map<String, Object>> myViolationStatus() {
+        return bookingService.myViolationStatus();
     }
 }
 
