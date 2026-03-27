@@ -33,9 +33,20 @@ const routes = [
         path: 'venues',
         name: 'venues',
         component: VenuesPage,
+        props: { module: 'venue' },
         meta: {
-          title: '场地预约',
-          subtitle: '选择场地与时段，在线完成预约申请'
+          title: '场地管理',
+          subtitle: '维护场地信息、状态与可预约资源'
+        }
+      },
+      {
+        path: 'bookings',
+        name: 'bookings',
+        component: VenuesPage,
+        props: { module: 'booking' },
+        meta: {
+          title: '预约管理',
+          subtitle: '查看预约记录并执行审核/核销操作'
         }
       },
       {

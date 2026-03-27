@@ -5,7 +5,7 @@ import LoginForm from '../components/auth/LoginForm.vue'
 import RegisterForm from '../components/auth/RegisterForm.vue'
 import { useAuthStore } from '../stores/auth'
 import { useToast } from '../composables/useToast'
-import logo from '../assets/logo.png'
+import logo from '../assets/logo.svg'
 
 const apiBase = 'http://localhost:9999/sportsVenue'
 const route = useRoute()

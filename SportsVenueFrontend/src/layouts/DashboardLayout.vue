@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { NConfigProvider, NDialogProvider } from 'naive-ui'
 import { useAuthStore } from '../stores/auth'
 import { useNaiveTheme } from '../composables/useNaiveTheme'
-import logo from '../assets/logo.png'
+import logo from '../assets/logo.svg'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,9 +13,14 @@ const { themeOverrides } = useNaiveTheme()
 
 const baseMenuItems = [
   {
-    label: '场地预约',
-    description: '发现可预约场地，管理我的预约',
+    label: '场地管理',
+    description: '维护场地信息与开放状态',
     path: '/app/venues'
+  },
+  {
+    label: '预约管理',
+    description: '查看预约记录与审核流程',
+    path: '/app/bookings'
   },
   {
     label: '器材借用',
@@ -36,12 +41,8 @@ const baseMenuItems = [
 
 const menuItems = computed(() => {
   if (authStore.role === 'ADMIN') {
-    const managedBaseItems = baseMenuItems.map((item) => ({
-      ...item,
-      label: `${item.label}管理`
-    }))
     return [
-      ...managedBaseItems,
+      ...baseMenuItems,
       {
         label: '用户管理',
         description: '查看用户状态并执行启用/禁用',
@@ -66,12 +67,8 @@ const menuItems = computed(() => {
   }
 
   if (authStore.role === 'OWNER') {
-    const managedBaseItems = baseMenuItems.map((item) => ({
-      ...item,
-      label: `${item.label}管理`
-    }))
     return [
-      ...managedBaseItems,
+      ...baseMenuItems,
       {
         label: '用户管理',
         description: '查看用户状态并执行启用/禁用',
