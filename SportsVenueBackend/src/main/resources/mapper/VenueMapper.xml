@@ -80,7 +80,7 @@
         FROM venue
         <where>
             <if test="type != null and type != ''">
-                AND type = #{type}
+                AND type LIKE CONCAT('%', #{type}, '%')
             </if>
             <if test="status != null and status != ''">
                 AND status = #{status}
@@ -99,7 +99,7 @@
         FROM venue
         <where>
             <if test="type != null and type != ''">
-                AND type = #{type}
+                AND type LIKE CONCAT('%', #{type}, '%')
             </if>
             <if test="status != null and status != ''">
                 AND status = #{status}

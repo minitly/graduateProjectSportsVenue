@@ -61,9 +61,6 @@ public class VenueServiceImpl implements VenueService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Result<Venue> update(Long id, Venue venue) {
-        if (id == null || venue.getId() == null || !id.equals(venue.getId())) {
-            return Result.fail(400, "路径ID与请求体ID不一致");
-        }
 
         Venue exists = venueMapper.selectById(id);
         if (exists == null) {
