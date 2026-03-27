@@ -177,7 +177,13 @@ const venueManageModal = reactive({
 })
 
 const venueFormErrors = reactive({
-  capacity: ''
+  name: '',
+  type: '',
+  capacity: '',
+  price: '',
+  openTime: '',
+  openTimeDesc: '',
+  remark: ''
 })
 
 const coverUploadFile = ref(null)
@@ -239,6 +245,34 @@ const bookingDateRange = computed({
 const debouncedSearch = ref(null)
 const currentTimeTick = ref(Date.now())
 const nowTimer = ref(null)
+
+function normalizeTimeInput(value) {
+  if (!value) return ''
+  const parts = String(value).split(':')
+  if (parts.length < 2) return ''
+  const hour = Number(parts[0])
+  const minute = Number(parts[1])
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return ''
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return ''
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+}
+
+function validateTimeRange() {
+  const openTime = normalizeTimeInput(venueManageModal.form.openTime)
+  const closeTime = normalizeTimeInput(venueManageModal.form.closeTime)
+  venueManageModal.form.openTime = openTime
+  venueManageModal.form.closeTime = closeTime
+  if (!openTime || !closeTime) {
+    venueFormErrors.openTime = '请选择开放时间与关闭时间'
+    return false
+  }
+  if (openTime >= closeTime) {
+    venueFormErrors.openTime = '关闭时间必须晚于开放时间'
+    return false
+  }
+  venueFormErrors.openTime = ''
+  return true
+}
 
 function getTodayDateString() {
   const now = new Date(currentTimeTick.value)
@@ -618,7 +652,17 @@ function resetVenueForm() {
     status: 'AVAILABLE',
     coverImageUrl: ''
   }
+  venueFormErrors.name = ''
+  venueFormErrors.type = ''
+  venueFormErrors.name = ''
+  venueFormErrors.type = ''
   venueFormErrors.capacity = ''
+  venueFormErrors.price = ''
+  venueFormErrors.openTime = ''
+  venueFormErrors.openTimeDesc = ''
+  venueFormErrors.remark = ''
+  venueFormErrors.openTimeDesc = ''
+  venueFormErrors.remark = ''
   cleanupCoverObjectUrl()
   coverUploadFile.value = null
   coverUploadPreview.value = ''
@@ -636,6 +680,8 @@ function openEditVenue(venue) {
   venueManageModal.show = true
   venueManageModal.editingId = venue.id
   venueFormErrors.capacity = ''
+  venueFormErrors.price = ''
+  venueFormErrors.openTime = ''
   venueManageModal.form = {
     name: venue.name || '',
     code: venue.code || '',
@@ -724,10 +770,23 @@ async function uploadCoverIfNeeded() {
 }
 
 async function submitVenue() {
+  const name = venueManageModal.form.name?.trim() || ''
+  const type = venueManageModal.form.type?.trim() || ''
+  const openTimeDesc = venueManageModal.form.openTimeDesc?.trim() || ''
+  const remark = venueManageModal.form.remark?.trim() || ''
   const capacity = Number(venueManageModal.form.capacity)
+  const price = Number(venueManageModal.form.price)
+
+  venueFormErrors.name = ''
+  venueFormErrors.type = ''
   venueFormErrors.capacity = ''
-  if (!venueManageModal.form.name?.trim()) {
-    pushToast('请填写场地名称', 'warning')
+  venueFormErrors.price = ''
+  venueFormErrors.openTime = ''
+  venueFormErrors.openTimeDesc = ''
+  venueFormErrors.remark = ''
+
+  if (!name) {
+    venueFormErrors.name = '场地名称不能为空'
     return
   }
   if (venueManageModal.editingId) {
@@ -739,14 +798,34 @@ async function submitVenue() {
     pushToast('场地编号生成失败，请关闭弹窗后重试', 'warning')
     return
   }
-  if (!venueManageModal.form.type?.trim()) {
-    pushToast('请填写场地类型', 'warning')
+  if (!type) {
+    venueFormErrors.type = '场地类型不能为空'
     return
   }
-  if (!Number.isFinite(capacity) || capacity <= 0) {
-    venueFormErrors.capacity = '容量（场地最多支持人数）必须大于 0'
+  if (!Number.isInteger(capacity) || capacity <= 0) {
+    venueFormErrors.capacity = '容量必须为正整数'
     return
   }
+  if (!Number.isFinite(price) || price <= 0) {
+    venueFormErrors.price = '价格必须为大于 0 的数字'
+    return
+  }
+  if (!validateTimeRange()) {
+    return
+  }
+  if (!openTimeDesc) {
+    venueFormErrors.openTimeDesc = '开放时间说明不能为空'
+    return
+  }
+  if (!remark) {
+    venueFormErrors.remark = '备注不能为空'
+    return
+  }
+
+  venueManageModal.form.name = name
+  venueManageModal.form.type = type
+  venueManageModal.form.openTimeDesc = openTimeDesc
+  venueManageModal.form.remark = remark
 
   venueManageModal.submitting = true
   try {
@@ -755,10 +834,11 @@ async function submitVenue() {
       ...venueManageModal.form,
       ...(venueManageModal.editingId ? { id: venueManageModal.editingId } : {}),
       capacity,
+      price,
       coverImageUrl,
-      openTimeDesc: venueManageModal.form.openTimeDesc?.trim() || `${venueManageModal.form.openTime || ''}-${venueManageModal.form.closeTime || ''}`,
+      openTimeDesc,
       imageUrls: coverImageUrl ? [coverImageUrl] : [],
-      remark: venueManageModal.form.remark?.trim() || venueManageModal.form.description || ''
+      remark
     }
     const response = venueManageModal.editingId
       ? await api.put(`/venues/${venueManageModal.editingId}`, payload)
@@ -1165,7 +1245,7 @@ onUnmounted(() => {
           </div>
           <div class="venue-card__actions">
             <NButton tertiary @click="openVenueDetail(venue)">查看详情</NButton>
-            <NButton type="primary" @click="openBookingModal(venue)">预约时段</NButton>
+            <NButton v-if="!isOwner" type="primary" @click="openBookingModal(venue)">预约时段</NButton>
             <NButton v-if="isOwner" tertiary @click="openEditVenue(venue)">编辑场地</NButton>
             <NButton v-if="isOwner" type="error" tertiary @click="openDeleteVenue(venue)">删除</NButton>
           </div>
@@ -1386,9 +1466,17 @@ onUnmounted(() => {
     </section>
 
     <NModal v-model:show="venueManageModal.show" preset="card" class="booking-modal" title="场地管理">
-      <div class="booking-modal__section"><label>场地名称</label><NInput v-model:value="venueManageModal.form.name" placeholder="请输入场地名称（例如：一号篮球馆）" /></div>
+      <div class="booking-modal__section">
+        <label>场地名称</label>
+        <NInput v-model:value="venueManageModal.form.name" placeholder="请输入场地名称（例如：一号篮球馆）" :status="venueFormErrors.name ? 'error' : undefined" />
+        <p v-if="venueFormErrors.name" class="error-text">{{ venueFormErrors.name }}</p>
+      </div>
       <div class="booking-modal__section"><label>场地编号</label><NInput v-model:value="venueManageModal.form.code" placeholder="系统自动生成" readonly :disabled="isCodeGenerating || !!venueManageModal.editingId" /></div>
-      <div class="booking-modal__section"><label>场地类型</label><NInput v-model:value="venueManageModal.form.type" placeholder="请输入场地类型（例如：篮球场）" /></div>
+      <div class="booking-modal__section">
+        <label>场地类型</label>
+        <NInput v-model:value="venueManageModal.form.type" placeholder="请输入场地类型（例如：篮球场）" :status="venueFormErrors.type ? 'error' : undefined" />
+        <p v-if="venueFormErrors.type" class="error-text">{{ venueFormErrors.type }}</p>
+      </div>
       <div class="booking-modal__section"><label>场地描述</label><NInput v-model:value="venueManageModal.form.description" type="textarea" placeholder="请输入场地描述（选填）" /></div>
       <div class="booking-modal__section two-col">
         <div>
@@ -1396,14 +1484,34 @@ onUnmounted(() => {
           <NInput v-model:value="venueManageModal.form.capacity" placeholder="请输入大于 0 的人数" :status="venueFormErrors.capacity ? 'error' : undefined" />
           <p v-if="venueFormErrors.capacity" class="error-text">{{ venueFormErrors.capacity }}</p>
         </div>
-        <div><label>价格（每小时）</label><NInput v-model:value="venueManageModal.form.price" placeholder="请输入每小时价格（元）" /></div>
+        <div>
+          <label>价格（每小时）</label>
+          <NInput v-model:value="venueManageModal.form.price" placeholder="请输入大于 0 的价格（元）" :status="venueFormErrors.price ? 'error' : undefined" />
+          <p v-if="venueFormErrors.price" class="error-text">{{ venueFormErrors.price }}</p>
+        </div>
       </div>
       <div class="booking-modal__section two-col">
-        <div><label>开放时间</label><NInput v-model:value="venueManageModal.form.openTime" placeholder="请输入开放时间（例如：08:00）" /></div>
-        <div><label>关闭时间</label><NInput v-model:value="venueManageModal.form.closeTime" placeholder="请输入关闭时间（例如：22:00）" /></div>
+        <div>
+          <label>开放时间</label>
+          <NInput v-model:value="venueManageModal.form.openTime" placeholder="例如：08:00" />
+        </div>
+        <div>
+          <label>关闭时间</label>
+          <NInput v-model:value="venueManageModal.form.closeTime" placeholder="例如：22:00" />
+        </div>
       </div>
-      <div class="booking-modal__section"><label>开放时间说明（openTimeDesc）</label><NInput v-model:value="venueManageModal.form.openTimeDesc" placeholder="例如：工作日 08:00-22:00，周末 09:00-21:00" /></div>
-      <div class="booking-modal__section"><label>备注（remark）</label><NInput v-model:value="venueManageModal.form.remark" type="textarea" placeholder="请输入备注信息（选填）" /></div>
+      <p class="hint">请输入当天时间，格式为 HH:mm，且关闭时间必须晚于开放时间</p>
+      <p v-if="venueFormErrors.openTime" class="error-text">{{ venueFormErrors.openTime }}</p>
+      <div class="booking-modal__section">
+        <label>开放时间说明（openTimeDesc）</label>
+        <NInput v-model:value="venueManageModal.form.openTimeDesc" placeholder="例如：工作日 08:00-22:00，周末 09:00-21:00" :status="venueFormErrors.openTimeDesc ? 'error' : undefined" />
+        <p v-if="venueFormErrors.openTimeDesc" class="error-text">{{ venueFormErrors.openTimeDesc }}</p>
+      </div>
+      <div class="booking-modal__section">
+        <label>备注（remark）</label>
+        <NInput v-model:value="venueManageModal.form.remark" type="textarea" placeholder="请输入备注信息" :status="venueFormErrors.remark ? 'error' : undefined" />
+        <p v-if="venueFormErrors.remark" class="error-text">{{ venueFormErrors.remark }}</p>
+      </div>
       <div class="booking-modal__section"><label>状态</label><NSelect v-model:value="venueManageModal.form.status" :options="venueStatusOptions" /></div>
       <div class="booking-modal__section">
         <label>封面图片</label>
