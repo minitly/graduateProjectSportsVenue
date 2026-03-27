@@ -63,6 +63,13 @@ const myBookings = reactive({
 
 const cancelingIds = ref(new Set())
 
+const venueGridRef = ref(null)
+const bookingListRef = ref(null)
+const ownerBookingListRef = ref(null)
+const venueResizeObserver = ref(null)
+const bookingResizeObserver = ref(null)
+const ownerBookingResizeObserver = ref(null)
+
 const venueQueryKey = computed(() => [
   'venues',
   searchFilters.keyword,
@@ -520,6 +527,101 @@ const ownerBookingsTotal = computed(() => ownerBookingsQuery.data?.total || owne
 const isOwnerBookingsFetching = computed(
   () => Boolean(ownerBookingsQuery.isFetching?.value ?? ownerBookingsQuery.isFetching)
 )
+
+function applyPageSizeUpdate(currentSize, nextSize, apply) {
+  if (currentSize === nextSize) return
+  apply(nextSize, Math.abs(currentSize - nextSize) > 1)
+}
+
+function calculateVenuePageSize() {
+  const container = venueGridRef.value
+  if (!container) return
+  const styles = window.getComputedStyle(container)
+  const columnTemplate = styles.gridTemplateColumns || ''
+  const columns = columnTemplate
+    .split(' ')
+    .map((token) => token.trim())
+    .filter(Boolean).length || 1
+
+  const containerRect = container.getBoundingClientRect()
+  const cardEl = container.querySelector('.venue-card')
+  const rowHeight = Math.max(cardEl?.getBoundingClientRect?.().height || 390, 320)
+  const usableHeight = Math.max(window.innerHeight - containerRect.top - 160, rowHeight)
+  const rows = Math.max(1, Math.floor(usableHeight / rowHeight))
+  const nextPageSize = Math.max(1, columns * rows)
+
+  applyPageSizeUpdate(pagination.pageSize, nextPageSize, (value, shouldReset) => {
+    pagination.pageSize = value
+    if (shouldReset) pagination.pageNo = 1
+  })
+}
+
+function calculateBookingPageSize() {
+  const container = bookingListRef.value
+  if (!container) return
+  const containerRect = container.getBoundingClientRect()
+  const cardEl = container.querySelector('.booking-card') || container.querySelector('.n-card')
+  const cardHeight = Math.max(cardEl?.getBoundingClientRect?.().height || 190, 140)
+  const usableHeight = Math.max(window.innerHeight - containerRect.top - 170, cardHeight)
+  const rows = Math.max(1, Math.floor(usableHeight / cardHeight))
+
+  applyPageSizeUpdate(myBookings.pagination.pageSize, rows, (value, shouldReset) => {
+    myBookings.pagination.pageSize = value
+    if (shouldReset) myBookings.pagination.pageNo = 1
+  })
+}
+
+function calculateOwnerBookingPageSize() {
+  const container = ownerBookingListRef.value
+  if (!container) return
+  const containerRect = container.getBoundingClientRect()
+  const cardEl = container.querySelector('.booking-card') || container.querySelector('.n-card')
+  const cardHeight = Math.max(cardEl?.getBoundingClientRect?.().height || 190, 140)
+  const usableHeight = Math.max(window.innerHeight - containerRect.top - 170, cardHeight)
+  const rows = Math.max(1, Math.floor(usableHeight / cardHeight))
+
+  applyPageSizeUpdate(ownerBookingPagination.pageSize, rows, (value, shouldReset) => {
+    ownerBookingPagination.pageSize = value
+    if (shouldReset) ownerBookingPagination.pageNo = 1
+  })
+}
+
+function recalculateDynamicPageSizes() {
+  if (activeModule.value === 'venue') {
+    calculateVenuePageSize()
+    return
+  }
+  if (isOwner.value) {
+    calculateOwnerBookingPageSize()
+  } else {
+    calculateBookingPageSize()
+  }
+}
+
+function setupResizeObservers() {
+  venueResizeObserver.value?.disconnect?.()
+  bookingResizeObserver.value?.disconnect?.()
+  ownerBookingResizeObserver.value?.disconnect?.()
+
+  if (venueGridRef.value) {
+    venueResizeObserver.value = new ResizeObserver(() => {
+      calculateVenuePageSize()
+    })
+    venueResizeObserver.value.observe(venueGridRef.value)
+  }
+  if (bookingListRef.value) {
+    bookingResizeObserver.value = new ResizeObserver(() => {
+      calculateBookingPageSize()
+    })
+    bookingResizeObserver.value.observe(bookingListRef.value)
+  }
+  if (ownerBookingListRef.value) {
+    ownerBookingResizeObserver.value = new ResizeObserver(() => {
+      calculateOwnerBookingPageSize()
+    })
+    ownerBookingResizeObserver.value.observe(ownerBookingListRef.value)
+  }
+}
 
 async function hydrateVenueNames(records) {
   const ids = [...new Set(records.map((item) => item.venueId).filter(Boolean))].filter(
@@ -1150,10 +1252,47 @@ function handleRouteQuickBooking() {
   }
 }
 
+watch(
+  () => [activeModule.value, isOwner.value],
+  () => {
+    setTimeout(() => {
+      setupResizeObservers()
+      recalculateDynamicPageSizes()
+    }, 0)
+  },
+  { immediate: true }
+)
+
+watch(venuesData, () => {
+  if (activeModule.value !== 'venue') return
+  setTimeout(() => {
+    calculateVenuePageSize()
+  }, 0)
+})
+
+watch(myBookingsData, () => {
+  if (activeModule.value !== 'booking' || isOwner.value) return
+  setTimeout(() => {
+    calculateBookingPageSize()
+  }, 0)
+})
+
+watch(ownerBookingsData, () => {
+  if (activeModule.value !== 'booking' || !isOwner.value) return
+  setTimeout(() => {
+    calculateOwnerBookingPageSize()
+  }, 0)
+})
+
 onMounted(() => {
   searchDisabled.value = false
   window.addEventListener('quick-booking', handleQuickBooking)
+  window.addEventListener('resize', recalculateDynamicPageSizes)
   handleRouteQuickBooking()
+  setTimeout(() => {
+    setupResizeObservers()
+    recalculateDynamicPageSizes()
+  }, 0)
   nowTimer.value = setInterval(() => {
     currentTimeTick.value = Date.now()
   }, 30000)
@@ -1161,6 +1300,10 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('quick-booking', handleQuickBooking)
+  window.removeEventListener('resize', recalculateDynamicPageSizes)
+  venueResizeObserver.value?.disconnect?.()
+  bookingResizeObserver.value?.disconnect?.()
+  ownerBookingResizeObserver.value?.disconnect?.()
   if (debouncedSearch.value) {
     clearTimeout(debouncedSearch.value)
   }
@@ -1212,7 +1355,7 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <section v-if="activeModule === 'venue'" class="venues-grid">
+    <section v-if="activeModule === 'venue'" ref="venueGridRef" class="venues-grid">
       <article v-for="venue in venuesData" :key="venue.id" class="venue-card">
         <div class="venue-card__media">
           <div class="venue-card__badge" :class="venue.status?.toLowerCase()">
@@ -1328,7 +1471,7 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="booking-panel__list">
+      <div ref="ownerBookingListRef" class="booking-panel__list">
         <NCard v-for="item in ownerBookingsData" :key="`owner-${item.id}`" size="small" class="booking-card">
           <template #header>
             <div class="booking-card__header">
@@ -1399,7 +1542,7 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="booking-panel__list">
+      <div ref="bookingListRef" class="booking-panel__list">
         <NCard
           v-for="item in myBookingsData"
           :key="item.id"
