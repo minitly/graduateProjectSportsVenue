@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useDialog, NButton, NCard, NDatePicker, NDivider, NInput, NModal, NSelect, NTag } from 'naive-ui'
+import { useRoute } from 'vue-router'
 import { useToast } from '../composables/useToast'
 import api from '../services/api'
 import { useAuthStore } from '../stores/auth'
@@ -15,6 +16,7 @@ const props = defineProps({
   }
 })
 
+const route = useRoute()
 const { pushToast } = useToast()
 const queryClient = useQueryClient()
 const dialog = useDialog()
@@ -167,6 +169,8 @@ const venueManageModal = reactive({
     price: 0,
     openTime: '08:00',
     closeTime: '22:00',
+    openTimeDesc: '',
+    remark: '',
     status: 'AVAILABLE',
     coverImageUrl: ''
   }
@@ -183,7 +187,11 @@ const isCoverUploading = ref(false)
 const isCodeGenerating = ref(false)
 const originalVenueCode = ref('')
 
-const activeModule = computed(() => (props.module === 'booking' ? 'booking' : 'venue'))
+const activeModule = computed(() => {
+  if (props.module === 'booking') return 'booking'
+  if (props.module === 'venue') return 'venue'
+  return route.path.includes('/app/bookings') ? 'booking' : 'venue'
+})
 
 const deleteModal = reactive({
   show: false,
@@ -605,6 +613,8 @@ function resetVenueForm() {
     price: 0,
     openTime: '08:00',
     closeTime: '22:00',
+    openTimeDesc: '',
+    remark: '',
     status: 'AVAILABLE',
     coverImageUrl: ''
   }
@@ -635,113 +645,79 @@ function openEditVenue(venue) {
     price: venue.price || 0,
     openTime: venue.openTime || '08:00',
     closeTime: venue.closeTime || '22:00',
+    openTimeDesc: venue.openTimeDesc || '',
+    remark: venue.remark || '',
     status: venue.status || 'AVAILABLE',
     coverImageUrl: venue.coverImageUrl || ''
   }
   originalVenueCode.value = venue.code || ''
-  cleanupCoverObjectUrls()
-  coverUploadFiles.value = []
-  coverUploadPreviews.value = []
-
-  const urlCandidates = [
-    ...(Array.isArray(venue.imageUrls) ? venue.imageUrls : []),
-    venue.coverImageUrl
-  ].filter(Boolean)
-  existingCoverImageUrls.value = [...new Set(urlCandidates)]
+  cleanupCoverObjectUrl()
+  coverUploadFile.value = null
+  coverUploadPreview.value = venueImageMap[venue.id] || ''
 }
 
-function cleanupCoverObjectUrls() {
-  if (!coverPreviewObjectUrls.value.length) return
-  coverPreviewObjectUrls.value.forEach((url) => {
-    URL.revokeObjectURL(url)
-  })
-  coverPreviewObjectUrls.value = []
+function cleanupCoverObjectUrl() {
+  if (coverPreviewObjectUrl.value) {
+    URL.revokeObjectURL(coverPreviewObjectUrl.value)
+    coverPreviewObjectUrl.value = ''
+  }
 }
 
 function closeVenueModal() {
   venueManageModal.show = false
-  cleanupCoverObjectUrls()
-  coverUploadFiles.value = []
-  coverUploadPreviews.value = []
-  existingCoverImageUrls.value = []
+  cleanupCoverObjectUrl()
+  coverUploadFile.value = null
+  coverUploadPreview.value = ''
 }
 
 function handleCoverFileChange(event) {
-  const files = Array.from(event?.target?.files || [])
-  if (!files.length) return
+  const file = event?.target?.files?.[0]
+  if (!file) return
+  if (!file.type?.startsWith('image/')) {
+    pushToast('请上传图片文件', 'warning')
+    event.target.value = ''
+    return
+  }
   const maxSize = 3 * 1024 * 1024
-  const validFiles = []
-
-  files.forEach((file) => {
-    if (!file.type?.startsWith('image/')) {
-      pushToast(`${file.name} 不是图片文件`, 'warning')
-      return
-    }
-    if (file.size > maxSize) {
-      pushToast(`${file.name} 超过 3MB`, 'warning')
-      return
-    }
-    validFiles.push(file)
-  })
-
-  if (!validFiles.length) {
+  if (file.size > maxSize) {
+    pushToast('图片大小不能超过 3MB', 'warning')
     event.target.value = ''
     return
   }
 
-  cleanupCoverObjectUrls()
-  coverUploadFiles.value = validFiles
-  coverPreviewObjectUrls.value = validFiles.map((file) => URL.createObjectURL(file))
-  coverUploadPreviews.value = [...coverPreviewObjectUrls.value]
+  cleanupCoverObjectUrl()
+  coverUploadFile.value = file
+  coverPreviewObjectUrl.value = URL.createObjectURL(file)
+  coverUploadPreview.value = coverPreviewObjectUrl.value
 }
 
-function removeCoverFile(index) {
-  if (index < 0 || index >= coverUploadFiles.value.length) return
-  const [removedUrl] = coverPreviewObjectUrls.value.splice(index, 1)
-  if (removedUrl) {
-    URL.revokeObjectURL(removedUrl)
-  }
-  coverUploadFiles.value.splice(index, 1)
-  coverUploadPreviews.value.splice(index, 1)
-}
-
-function removeExistingImage(index) {
-  if (index < 0 || index >= existingCoverImageUrls.value.length) return
-  existingCoverImageUrls.value.splice(index, 1)
-}
-
-function clearAllImages() {
-  cleanupCoverObjectUrls()
-  coverUploadFiles.value = []
-  coverUploadPreviews.value = []
-  existingCoverImageUrls.value = []
+function clearCoverFile() {
+  cleanupCoverObjectUrl()
+  coverUploadFile.value = null
+  coverUploadPreview.value = ''
   venueManageModal.form.coverImageUrl = ''
 }
 
 async function uploadCoverIfNeeded() {
-  if (!coverUploadFiles.value.length) return []
+  if (!coverUploadFile.value) return venueManageModal.form.coverImageUrl || ''
   isCoverUploading.value = true
   try {
-    const uploadedUrls = []
-    for (const file of coverUploadFiles.value) {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('biz', 'venue')
-      const response = await api.post('/files/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      })
-      if (response.code !== 200) {
-        throw new Error(response.message || '封面上传失败')
+    const formData = new FormData()
+    formData.append('file', coverUploadFile.value)
+    formData.append('biz', 'venue')
+    const response = await api.post('/files/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
       }
-      const uploadedPath = response.data?.urls?.[0]
-      if (!uploadedPath) {
-        throw new Error('封面上传失败：未返回文件路径')
-      }
-      uploadedUrls.push(uploadedPath)
+    })
+    if (response.code !== 200) {
+      throw new Error(response.message || '封面上传失败')
     }
-    return uploadedUrls
+    const uploadedPath = response.data?.urls?.[0]
+    if (!uploadedPath) {
+      throw new Error('封面上传失败：未返回文件路径')
+    }
+    return uploadedPath
   } finally {
     isCoverUploading.value = false
   }
@@ -774,16 +750,15 @@ async function submitVenue() {
 
   venueManageModal.submitting = true
   try {
-    const uploadedImageUrls = await uploadCoverIfNeeded()
-    const mergedImageUrls = [...new Set([...(existingCoverImageUrls.value || []), ...uploadedImageUrls])]
+    const coverImageUrl = await uploadCoverIfNeeded()
     const payload = {
       ...venueManageModal.form,
       ...(venueManageModal.editingId ? { id: venueManageModal.editingId } : {}),
       capacity,
-      coverImageUrl: mergedImageUrls[0] || '',
-      openTimeDesc: `${venueManageModal.form.openTime || ''}-${venueManageModal.form.closeTime || ''}`,
-      imageUrls: mergedImageUrls,
-      remark: venueManageModal.form.description || ''
+      coverImageUrl,
+      openTimeDesc: venueManageModal.form.openTimeDesc?.trim() || `${venueManageModal.form.openTime || ''}-${venueManageModal.form.closeTime || ''}`,
+      imageUrls: coverImageUrl ? [coverImageUrl] : [],
+      remark: venueManageModal.form.remark?.trim() || venueManageModal.form.description || ''
     }
     const response = venueManageModal.editingId
       ? await api.put(`/venues/${venueManageModal.editingId}`, payload)
@@ -875,8 +850,8 @@ async function runDeleteVenue() {
 function confirmDeleteVenue() {
   if (!deleteModal.venue?.id) return
   dialog.warning({
-    title: '确认删除/停用',
-    content: `确认删除/停用场地「${deleteModal.venue.name}」吗？`,
+    title: '确认删除',
+    content: `确认删除场地「${deleteModal.venue.name}」吗？`,
     positiveText: '确认',
     negativeText: '取消',
     onPositiveClick: () => {
@@ -1192,7 +1167,7 @@ onUnmounted(() => {
             <NButton tertiary @click="openVenueDetail(venue)">查看详情</NButton>
             <NButton type="primary" @click="openBookingModal(venue)">预约时段</NButton>
             <NButton v-if="isOwner" tertiary @click="openEditVenue(venue)">编辑场地</NButton>
-            <NButton v-if="isOwner" type="error" tertiary @click="openDeleteVenue(venue)">删除/停用</NButton>
+            <NButton v-if="isOwner" type="error" tertiary @click="openDeleteVenue(venue)">删除</NButton>
           </div>
           <div v-if="isOwner" class="venue-card__quick-status">
             <span>快速状态：</span>
@@ -1427,47 +1402,23 @@ onUnmounted(() => {
         <div><label>开放时间</label><NInput v-model:value="venueManageModal.form.openTime" placeholder="请输入开放时间（例如：08:00）" /></div>
         <div><label>关闭时间</label><NInput v-model:value="venueManageModal.form.closeTime" placeholder="请输入关闭时间（例如：22:00）" /></div>
       </div>
+      <div class="booking-modal__section"><label>开放时间说明（openTimeDesc）</label><NInput v-model:value="venueManageModal.form.openTimeDesc" placeholder="例如：工作日 08:00-22:00，周末 09:00-21:00" /></div>
+      <div class="booking-modal__section"><label>备注（remark）</label><NInput v-model:value="venueManageModal.form.remark" type="textarea" placeholder="请输入备注信息（选填）" /></div>
       <div class="booking-modal__section"><label>状态</label><NSelect v-model:value="venueManageModal.form.status" :options="venueStatusOptions" /></div>
       <div class="booking-modal__section">
         <label>封面图片</label>
         <div class="upload-control">
           <label class="upload-trigger">
-            <input class="upload-input" type="file" accept="image/*" multiple @change="handleCoverFileChange" />
-            <span>{{ coverUploadFiles.length ? '追加/重新选择图片' : '选择图片' }}</span>
+            <input class="upload-input" type="file" accept="image/*" @change="handleCoverFileChange" />
+            <span>{{ coverUploadFile ? '重新选择图片' : '选择图片' }}</span>
           </label>
-          <span v-if="coverUploadFiles.length" class="upload-filename">已选 {{ coverUploadFiles.length }} 张新图片</span>
+          <span v-if="coverUploadFile" class="upload-filename">{{ coverUploadFile.name }}</span>
         </div>
-
-        <div v-if="existingCoverImageUrls.length" class="venue-cover-preview">
-          <p class="text-muted">已存在图片</p>
+        <div v-if="coverUploadPreview" class="venue-cover-preview">
+          <img :src="coverUploadPreview" alt="cover preview" />
           <div class="venue-cover-actions">
-            <NTag
-              v-for="(imageUrl, index) in existingCoverImageUrls"
-              :key="`existing-${imageUrl}-${index}`"
-              closable
-              @close="removeExistingImage(index)"
-            >
-              图片 {{ index + 1 }}
-            </NTag>
+            <NButton size="small" tertiary @click="clearCoverFile">移除图片</NButton>
           </div>
-        </div>
-
-        <div v-if="coverUploadPreviews.length" class="venue-cover-preview">
-          <p class="text-muted">新上传预览</p>
-          <div class="venue-cover-actions">
-            <div
-              v-for="(preview, index) in coverUploadPreviews"
-              :key="`preview-${index}`"
-              style="display: inline-flex; flex-direction: column; gap: 8px; align-items: center;"
-            >
-              <img :src="preview" alt="cover preview" />
-              <NButton size="small" tertiary @click="removeCoverFile(index)">移除</NButton>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="existingCoverImageUrls.length || coverUploadPreviews.length" class="venue-cover-actions" style="margin-top: 8px;">
-          <NButton size="small" tertiary @click="clearAllImages">清空全部图片</NButton>
         </div>
       </div>
       <div class="booking-modal__actions">
@@ -1478,7 +1429,7 @@ onUnmounted(() => {
       </div>
     </NModal>
 
-    <NModal v-model:show="deleteModal.show" preset="card" class="booking-modal" title="删除/停用场地">
+    <NModal v-model:show="deleteModal.show" preset="card" class="booking-modal" title="删除场地">
       <p class="text-muted">确认删除场地：{{ deleteModal.venue?.name }}。如后端要求，可输入管理员密码。</p>
       <div class="booking-modal__section">
         <label>管理员密码（可选）</label>
@@ -1503,7 +1454,9 @@ onUnmounted(() => {
           <div><span>价格</span><strong>{{ venueDetailModal.data.price ? `¥${venueDetailModal.data.price}/小时` : '咨询' }}</strong></div>
           <div><span>开放时间</span><strong>{{ venueDetailModal.data.openTime || '—' }}</strong></div>
           <div><span>关闭时间</span><strong>{{ venueDetailModal.data.closeTime || '—' }}</strong></div>
+          <div><span>开放时间说明</span><strong>{{ venueDetailModal.data.openTimeDesc || '—' }}</strong></div>
           <div class="full"><span>描述</span><strong>{{ venueDetailModal.data.description || '暂无描述' }}</strong></div>
+          <div class="full"><span>备注</span><strong>{{ venueDetailModal.data.remark || '—' }}</strong></div>
           <div class="full" v-if="venueImageMap[venueDetailModal.data.id]">
             <span>封面</span>
             <img class="venue-detail-image" :src="venueImageMap[venueDetailModal.data.id]" alt="venue detail cover" />
