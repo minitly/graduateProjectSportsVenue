@@ -17,10 +17,10 @@ public interface BookingService {
 
     Result<BookingReservation> cancel(Long id, String remark);
 
-    Result<PageResult<BookingReservation>> my(Long venueId, String status, LocalDate startDate, LocalDate endDate,
+    Result<PageResult<BookingReservation>> my(String venueName, String status, LocalDate startDate, LocalDate endDate,
                                               long pageNo, long pageSize);
 
-    Result<PageResult<BookingAllReservationRecord>> query(Long venueId, String username, String status, LocalDate startDate, LocalDate endDate,
+    Result<PageResult<BookingAllReservationRecord>> query(String venueName, String username, String status, LocalDate startDate, LocalDate endDate,
                                                            long pageNo, long pageSize);
 
     Result<BookingReservation> verify(Long id);

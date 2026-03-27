@@ -39,26 +39,26 @@ public interface BookingReservationMapper {
                                         @Param("violationType") String violationType);
 
     long countMyByCondition(@Param("userId") Long userId,
-                            @Param("venueId") Long venueId,
+                            @Param("venueNameLike") String venueNameLike,
                             @Param("status") String status,
                             @Param("startTime") LocalDateTime startTime,
                             @Param("endTime") LocalDateTime endTime);
 
     List<BookingReservation> listMyByCondition(@Param("userId") Long userId,
-                                               @Param("venueId") Long venueId,
+                                               @Param("venueNameLike") String venueNameLike,
                                                @Param("status") String status,
                                                @Param("startTime") LocalDateTime startTime,
                                                @Param("endTime") LocalDateTime endTime,
                                                @Param("offset") long offset,
                                                @Param("pageSize") long pageSize);
 
-    long countAllByCondition(@Param("venueId") Long venueId,
+    long countAllByCondition(@Param("venueNameLike") String venueNameLike,
                              @Param("status") String status,
                              @Param("startTime") LocalDateTime startTime,
                              @Param("endTime") LocalDateTime endTime,
                              @Param("usernameLike") String usernameLike);
 
-    List<BookingAllReservationRecord> listAllByCondition(@Param("venueId") Long venueId,
+    List<BookingAllReservationRecord> listAllByCondition(@Param("venueNameLike") String venueNameLike,
                                                           @Param("status") String status,
                                                           @Param("startTime") LocalDateTime startTime,
                                                           @Param("endTime") LocalDateTime endTime,

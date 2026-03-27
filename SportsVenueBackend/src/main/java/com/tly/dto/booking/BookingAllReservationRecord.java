@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 public class BookingAllReservationRecord {
     private Long id;
     private String userName;
-    private Long venueId;
+    private String venueName;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private String status;

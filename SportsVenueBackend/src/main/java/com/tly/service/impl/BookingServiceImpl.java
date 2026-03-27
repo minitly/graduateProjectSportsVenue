@@ -163,7 +163,7 @@ public class BookingServiceImpl implements BookingService {
     }
 
     @Override
-    public Result<PageResult<BookingReservation>> my(Long venueId, String status, LocalDate startDate, LocalDate endDate,
+    public Result<PageResult<BookingReservation>> my(String venueName, String status, LocalDate startDate, LocalDate endDate,
                                                     long pageNo, long pageSize) {
         UserContext.CurrentUser currentUser = UserContext.get();
         if (currentUser == null) {
@@ -180,19 +180,19 @@ public class BookingServiceImpl implements BookingService {
         LocalDateTime startTime = startDate != null ? startDate.atStartOfDay() : null;
         LocalDateTime endTime = endDate != null ? endDate.plusDays(1).atStartOfDay() : null;
 
-        long total = reservationMapper.countMyByCondition(currentUser.getUserId(), venueId, status, startTime, endTime);
+        long total = reservationMapper.countMyByCondition(currentUser.getUserId(), venueName, status, startTime, endTime);
         List<BookingReservation> records;
         if (total == 0) {
             records = Collections.emptyList();
         } else {
-            records = reservationMapper.listMyByCondition(currentUser.getUserId(), venueId, status, startTime, endTime, offset, pageSize);
+            records = reservationMapper.listMyByCondition(currentUser.getUserId(), venueName, status, startTime, endTime, offset, pageSize);
         }
         PageResult<BookingReservation> pageResult = new PageResult<>(total, pageNo, pageSize, records);
         return Result.success("查询成功", pageResult);
     }
 
     @Override
-    public Result<PageResult<BookingAllReservationRecord>> query(Long venueId, String username, String status, LocalDate startDate, LocalDate endDate,
+    public Result<PageResult<BookingAllReservationRecord>> query(String venueName, String username, String status, LocalDate startDate, LocalDate endDate,
                                                                      long pageNo, long pageSize) {
         UserContext.CurrentUser currentUser = UserContext.get();
         if (currentUser == null) {
@@ -212,12 +212,12 @@ public class BookingServiceImpl implements BookingService {
         LocalDateTime startTime = startDate != null ? startDate.atStartOfDay() : null;
         LocalDateTime endTime = endDate != null ? endDate.plusDays(1).atStartOfDay() : null;
 
-        long total = reservationMapper.countAllByCondition(venueId, status, startTime, endTime, username);
+        long total = reservationMapper.countAllByCondition(venueName, status, startTime, endTime, username);
         List<BookingAllReservationRecord> records;
         if (total == 0) {
             records = Collections.emptyList();
         } else {
-            records = reservationMapper.listAllByCondition(venueId, status, startTime, endTime, username, offset, pageSize);
+            records = reservationMapper.listAllByCondition(venueName, status, startTime, endTime, username, offset, pageSize);
         }
         PageResult<BookingAllReservationRecord> pageResult = new PageResult<>(total, pageNo, pageSize, records);
         return Result.success("查询成功", pageResult);

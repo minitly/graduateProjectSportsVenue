@@ -56,7 +56,7 @@ public class BookingController {
      * 查询我的预约（分页 + 条件查询）：GET /sportsVenue/bookings/my
      */
     @GetMapping("/my")
-    public Result<PageResult<BookingReservation>> my(@RequestParam(value = "venueId", required = false) Long venueId,
+    public Result<PageResult<BookingReservation>> my(@RequestParam(value = "venueName", required = false) String venueName,
                                                      @RequestParam(value = "status", required = false) String status,
                                                      @RequestParam(value = "startDate", required = false)
                                                      @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -64,14 +64,14 @@ public class BookingController {
                                                      @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
                                                      @RequestParam(value = "pageNo", required = false, defaultValue = "1") long pageNo,
                                                      @RequestParam(value = "pageSize", required = false, defaultValue = "10") long pageSize) {
-        return bookingService.my(venueId, status, startDate, endDate, pageNo, pageSize);
+        return bookingService.my(venueName, status, startDate, endDate, pageNo, pageSize);
     }
 
     /**
      * OWNER 查询全部预约记录（分页 + 条件查询）：GET /sportsVenue/bookings
      */
     @GetMapping
-    public Result<PageResult<BookingAllReservationRecord>> query(@RequestParam(value = "venueId", required = false) Long venueId,
+    public Result<PageResult<BookingAllReservationRecord>> query(@RequestParam(value = "venueName", required = false) String venueName,
                                                                     @RequestParam(value = "username", required = false) String username,
                                                                     @RequestParam(value = "status", required = false) String status,
                                                                     @RequestParam(value = "startDate", required = false)
@@ -80,7 +80,7 @@ public class BookingController {
                                                                     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
                                                                     @RequestParam(value = "pageNo", required = false, defaultValue = "1") long pageNo,
                                                                     @RequestParam(value = "pageSize", required = false, defaultValue = "10") long pageSize) {
-        return bookingService.query(venueId, username, status, startDate, endDate, pageNo, pageSize);
+        return bookingService.query(venueName, username, status, startDate, endDate, pageNo, pageSize);
     }
 
     /**

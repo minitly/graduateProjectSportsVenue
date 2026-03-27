@@ -9,6 +9,7 @@ public class BookingReservation {
     private Long id;
     private Long userId;
     private Long venueId;
+    private String venueName;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     /**

@@ -8,6 +8,7 @@
         <id property="id" column="id"/>
         <result property="userId" column="user_id"/>
         <result property="venueId" column="venue_id"/>
+        <result property="venueName" column="venue_name"/>
         <result property="startTime" column="start_time"/>
         <result property="endTime" column="end_time"/>
         <result property="status" column="status"/>
@@ -123,65 +124,70 @@
 
     <select id="countMyByCondition" resultType="long">
         SELECT COUNT(1)
-        FROM booking_reservation
-        WHERE user_id = #{userId}
-        <if test="venueId != null">
-            AND venue_id = #{venueId}
+        FROM booking_reservation br
+                 LEFT JOIN venue v ON v.id = br.venue_id
+        WHERE br.user_id = #{userId}
+        <if test="venueNameLike != null and venueNameLike != ''">
+            AND v.name LIKE CONCAT('%', #{venueNameLike}, '%')
         </if>
         <if test="status != null and status != ''">
-            AND status = #{status}
+            AND br.status = #{status}
         </if>
         <if test="startTime != null">
-            AND start_time &gt;= #{startTime}
+            AND br.start_time &gt;= #{startTime}
         </if>
         <if test="endTime != null">
-            AND start_time &lt; #{endTime}
+            AND br.start_time &lt; #{endTime}
         </if>
     </select>
 
     <select id="listMyByCondition" resultMap="BookingReservationResultMap">
         SELECT
-            id, user_id, venue_id, start_time, end_time, status,
-            cancel_time, cancel_reason, cancel_remark,
-            verify_time,
-            violation_time, violation_type,
-            create_time, update_time
-        FROM booking_reservation
-        WHERE user_id = #{userId}
-        <if test="venueId != null">
-            AND venue_id = #{venueId}
+            br.id, br.user_id, br.venue_id,
+            v.name AS venue_name,
+            br.start_time, br.end_time, br.status,
+            br.cancel_time, br.cancel_reason, br.cancel_remark,
+            br.verify_time,
+            br.violation_time, br.violation_type,
+            br.create_time, br.update_time
+        FROM booking_reservation br
+                 LEFT JOIN venue v ON v.id = br.venue_id
+        WHERE br.user_id = #{userId}
+        <if test="venueNameLike != null and venueNameLike != ''">
+            AND v.name LIKE CONCAT('%', #{venueNameLike}, '%')
         </if>
         <if test="status != null and status != ''">
-            AND status = #{status}
+            AND br.status = #{status}
         </if>
         <if test="startTime != null">
-            AND start_time &gt;= #{startTime}
+            AND br.start_time &gt;= #{startTime}
         </if>
         <if test="endTime != null">
-            AND start_time &lt; #{endTime}
+            AND br.start_time &lt; #{endTime}
         </if>
-        ORDER BY start_time DESC
+        ORDER BY br.start_time DESC
         LIMIT #{offset}, #{pageSize}
     </select>
 
     <select id="countAllByCondition" resultType="long">
         SELECT COUNT(1)
-        FROM booking_reservation
+        FROM booking_reservation br
+                 LEFT JOIN venue v ON v.id = br.venue_id
         WHERE 1 = 1
-        <if test="venueId != null">
-            AND venue_id = #{venueId}
+        <if test="venueNameLike != null and venueNameLike != ''">
+            AND v.name LIKE CONCAT('%', #{venueNameLike}, '%')
         </if>
         <if test="status != null and status != ''">
-            AND status = #{status}
+            AND br.status = #{status}
         </if>
         <if test="startTime != null">
-            AND start_time &gt;= #{startTime}
+            AND br.start_time &gt;= #{startTime}
         </if>
         <if test="endTime != null">
-            AND start_time &lt; #{endTime}
+            AND br.start_time &lt; #{endTime}
         </if>
         <if test="usernameLike != null and usernameLike != ''">
-            AND user_id IN (
+            AND br.user_id IN (
                 SELECT id FROM sys_user WHERE username LIKE CONCAT('%', #{usernameLike}, '%')
             )
         </if>
@@ -191,17 +197,18 @@
         SELECT
             br.id,
             u.username AS user_name,
-            br.venue_id,
+            v.name AS venue_name,
             br.start_time, br.end_time, br.status,
-            cancel_time, cancel_reason, cancel_remark,
-            verify_time,
-            violation_time, violation_type,
+            br.cancel_time, br.cancel_reason, br.cancel_remark,
+            br.verify_time,
+            br.violation_time, br.violation_type,
             br.create_time AS create_time, br.update_time AS update_time
         FROM booking_reservation br
                  JOIN sys_user u ON u.id = br.user_id
+                 LEFT JOIN venue v ON v.id = br.venue_id
         WHERE 1 = 1
-        <if test="venueId != null">
-            AND br.venue_id = #{venueId}
+        <if test="venueNameLike != null and venueNameLike != ''">
+            AND v.name LIKE CONCAT('%', #{venueNameLike}, '%')
         </if>
         <if test="status != null and status != ''">
             AND br.status = #{status}
@@ -217,7 +224,7 @@
                 SELECT su.id FROM sys_user su WHERE su.username LIKE CONCAT('%', #{usernameLike}, '%')
             )
         </if>
-        ORDER BY start_time DESC
+        ORDER BY br.start_time DESC
         LIMIT #{offset}, #{pageSize}
     </select>
 
