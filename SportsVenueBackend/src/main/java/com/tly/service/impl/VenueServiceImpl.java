@@ -18,11 +18,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 public class VenueServiceImpl implements VenueService {
+    private static final DateTimeFormatter CODE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
     @Autowired
     private VenueMapper venueMapper;
@@ -176,6 +182,23 @@ public class VenueServiceImpl implements VenueService {
 
         PageResult<Venue> pageResult = new PageResult<>(total, pageNo, pageSize, records);
         return Result.success("查询成功", pageResult);
+    }
+
+    @Override
+    public Result<Map<String, String>> generateCode() {
+        // 编号规则：V + yyyyMMddHHmmss + 3位随机数（不足补0）
+        // 再通过数据库查重兜底，确保返回可用编号。
+        for (int i = 0; i < 20; i++) {
+            String timePart = LocalDateTime.now().format(CODE_TIME_FORMATTER);
+            int random = ThreadLocalRandom.current().nextInt(0, 1000);
+            String candidate = "V" + timePart + String.format("%03d", random);
+            if (venueMapper.selectByCode(candidate) == null) {
+                Map<String, String> data = new HashMap<>();
+                data.put("code", candidate);
+                return Result.success("生成场地编号成功", data);
+            }
+        }
+        return Result.fail(500, "生成场地编号失败，请重试");
     }
 
     /**

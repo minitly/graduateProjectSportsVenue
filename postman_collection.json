@@ -118,6 +118,17 @@
       "name": "场地管理",
       "item": [
         {
+          "name": "07.1-场地-生成编号",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": "{{baseUrl}}/venues/code/generate"
+          },
+          "response": []
+        },
+        {
           "name": "08-场地-新增",
           "request": {
             "method": "POST",

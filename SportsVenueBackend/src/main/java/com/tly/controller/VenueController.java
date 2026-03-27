@@ -9,6 +9,8 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/venues")
 public class VenueController {
@@ -60,6 +62,14 @@ public class VenueController {
                                            @RequestParam(value = "pageNo", required = false, defaultValue = "1") long pageNo,
                                            @RequestParam(value = "pageSize", required = false, defaultValue = "10") long pageSize) {
         return venueService.query(type, status, keyword, pageNo, pageSize);
+    }
+
+    /**
+     * 生成场地编号：GET /sportsVenue/venues/code/generate
+     */
+    @GetMapping("/code/generate")
+    public Result<Map<String, String>> generateCode() {
+        return venueService.generateCode();
     }
 }
 

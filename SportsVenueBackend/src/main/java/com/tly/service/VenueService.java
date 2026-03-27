@@ -4,6 +4,8 @@ import com.tly.common.PageResult;
 import com.tly.common.Result;
 import com.tly.entity.Venue;
 
+import java.util.Map;
+
 public interface VenueService {
 
     Result<Venue> create(Venue venue);
@@ -15,5 +17,7 @@ public interface VenueService {
     Result<Venue> getById(Long id);
 
     Result<PageResult<Venue>> query(String type, String status, String keyword, long pageNo, long pageSize);
+
+    Result<Map<String, String>> generateCode();
 }
 
