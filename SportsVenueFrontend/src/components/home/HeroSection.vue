@@ -1,13 +1,16 @@
 <script setup>
 import { RouterLink } from 'vue-router'
 import LottieHero from './LottieHero.vue'
+import logo from '../../assets/logo.svg'
 </script>
 
 <template>
   <section class="home-hero">
     <div class="home-hero__content">
       <div class="brand">
-        <div class="brand-mark">SV</div>
+        <div class="brand-mark" aria-hidden="true">
+          <img class="brand-mark__logo" :src="logo" alt="体育馆图标" />
+        </div>
         <div>
           <h1>体育馆预约与仓库管理系统</h1>
           <p>一体化预约、审批与仓储管理平台，支持多角色权限与统一认证。</p>

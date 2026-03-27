@@ -1,6 +1,6 @@
 export const STATUS_TEXT_MAP = {
   // 场地状态
-  AVAILABLE: '可用',
+  AVAILABLE: '可预约',
   MAINTAIN: '维护中',
   SUSPEND: '暂停预约',
   DISABLED: '已停用',
@@ -11,13 +11,13 @@ export const STATUS_TEXT_MAP = {
   OFFLINE: '已下线',
 
   // 场地预约状态
-  APPLIED: '申请中',
+  APPLIED: '预约成功',
   CANCELED: '已取消',
   VERIFIED: '已核销',
   VIOLATION: '违规',
 
   // 器材借用状态
-  REQUESTED: '申请中',
+  REQUESTED: '已申请',
   USING: '使用中',
   RETURNED: '已归还',
 
