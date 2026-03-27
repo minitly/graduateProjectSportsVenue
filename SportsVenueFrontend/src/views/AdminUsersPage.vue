@@ -102,6 +102,7 @@ const usersQuery = useQuery({
   staleTime: 30000
 })
 
+const isUsersFetching = computed(() => Boolean(usersQuery.isFetching?.value ?? usersQuery.isFetching))
 const users = computed(() => usersQuery.data?.records || usersQuery.data?.value?.records || [])
 const total = computed(() => usersQuery.data?.total || usersQuery.data?.value?.total || 0)
 
@@ -356,7 +357,7 @@ function formatDateTime(value) {
         <NSelect v-model:value="filters.status" :options="statusOptions" />
       </div>
       <div class="borrow-filters__actions">
-        <NButton type="primary" :loading="usersQuery.isFetching" @click="handleSearch">查询</NButton>
+        <NButton type="primary" :loading="isUsersFetching" @click="handleSearch">查询</NButton>
         <NButton tertiary @click="resetFilters">重置</NButton>
         <NButton type="info" @click="openCreateModal">创建用户</NButton>
       </div>
@@ -406,7 +407,7 @@ function formatDateTime(value) {
         </div>
       </NCard>
 
-      <div v-if="!users.length && !usersQuery.isFetching" class="empty-state">
+      <div v-if="!users.length && !isUsersFetching" class="empty-state">
         <h3>暂无用户数据</h3>
         <p>请调整筛选条件后重试。</p>
       </div>

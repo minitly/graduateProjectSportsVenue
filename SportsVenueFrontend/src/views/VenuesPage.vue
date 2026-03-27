@@ -164,6 +164,10 @@ const venueManageModal = reactive({
   }
 })
 
+const venueFormErrors = reactive({
+  capacity: ''
+})
+
 const coverUploadFile = ref(null)
 const coverUploadPreview = ref('')
 const coverPreviewObjectUrl = ref('')
@@ -575,6 +579,7 @@ function resetVenueForm() {
     status: 'AVAILABLE',
     coverImageUrl: ''
   }
+  venueFormErrors.capacity = ''
   cleanupCoverObjectUrl()
   coverUploadFile.value = null
   coverUploadPreview.value = ''
@@ -589,6 +594,7 @@ function openCreateVenue() {
 function openEditVenue(venue) {
   venueManageModal.show = true
   venueManageModal.editingId = venue.id
+  venueFormErrors.capacity = ''
   venueManageModal.form = {
     name: venue.name || '',
     type: venue.type || '',
@@ -600,6 +606,7 @@ function openEditVenue(venue) {
     status: venue.status || 'AVAILABLE',
     coverImageUrl: venue.coverImageUrl || ''
   }
+  cleanupCoverObjectUrl()
   coverUploadFile.value = null
   coverUploadPreview.value = venueImageMap[venue.id] || ''
 }
@@ -671,11 +678,19 @@ async function uploadCoverIfNeeded() {
 }
 
 async function submitVenue() {
+  const capacity = Number(venueManageModal.form.capacity)
+  venueFormErrors.capacity = ''
+  if (!Number.isFinite(capacity) || capacity <= 0) {
+    venueFormErrors.capacity = '容量（场地最多支持人数）必须大于 0'
+    return
+  }
+
   venueManageModal.submitting = true
   try {
     const coverImageUrl = await uploadCoverIfNeeded()
     const payload = {
       ...venueManageModal.form,
+      capacity,
       coverImageUrl
     }
     const response = venueManageModal.editingId
@@ -1304,16 +1319,20 @@ onUnmounted(() => {
     </section>
 
     <NModal v-model:show="venueManageModal.show" preset="card" class="booking-modal" title="场地管理">
-      <div class="booking-modal__section"><label>场地名称</label><NInput v-model:value="venueManageModal.form.name" /></div>
-      <div class="booking-modal__section"><label>场地类型</label><NInput v-model:value="venueManageModal.form.type" /></div>
-      <div class="booking-modal__section"><label>场地描述</label><NInput v-model:value="venueManageModal.form.description" type="textarea" /></div>
+      <div class="booking-modal__section"><label>场地名称</label><NInput v-model:value="venueManageModal.form.name" placeholder="请输入场地名称（例如：一号篮球馆）" /></div>
+      <div class="booking-modal__section"><label>场地类型</label><NInput v-model:value="venueManageModal.form.type" placeholder="请输入场地类型（例如：篮球场）" /></div>
+      <div class="booking-modal__section"><label>场地描述</label><NInput v-model:value="venueManageModal.form.description" type="textarea" placeholder="请输入场地描述（选填）" /></div>
       <div class="booking-modal__section two-col">
-        <div><label>容量</label><NInput v-model:value="venueManageModal.form.capacity" /></div>
-        <div><label>价格（每小时）</label><NInput v-model:value="venueManageModal.form.price" /></div>
+        <div>
+          <label>容量（场地最多支持人数）</label>
+          <NInput v-model:value="venueManageModal.form.capacity" placeholder="请输入大于 0 的人数" :status="venueFormErrors.capacity ? 'error' : undefined" />
+          <p v-if="venueFormErrors.capacity" class="error-text">{{ venueFormErrors.capacity }}</p>
+        </div>
+        <div><label>价格（每小时）</label><NInput v-model:value="venueManageModal.form.price" placeholder="请输入每小时价格（元）" /></div>
       </div>
       <div class="booking-modal__section two-col">
-        <div><label>开放时间</label><NInput v-model:value="venueManageModal.form.openTime" placeholder="08:00" /></div>
-        <div><label>关闭时间</label><NInput v-model:value="venueManageModal.form.closeTime" placeholder="22:00" /></div>
+        <div><label>开放时间</label><NInput v-model:value="venueManageModal.form.openTime" placeholder="请输入开放时间（例如：08:00）" /></div>
+        <div><label>关闭时间</label><NInput v-model:value="venueManageModal.form.closeTime" placeholder="请输入关闭时间（例如：22:00）" /></div>
       </div>
       <div class="booking-modal__section"><label>状态</label><NSelect v-model:value="venueManageModal.form.status" :options="venueStatusOptions" /></div>
       <div class="booking-modal__section">

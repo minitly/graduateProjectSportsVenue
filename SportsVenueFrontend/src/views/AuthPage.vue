@@ -29,7 +29,7 @@ function handleLoginSuccess(data) {
   authStore.setSession(data.token || '', {
     userId: data.userId,
     username: data.username || '',
-    realName: data.realName || '',
+    realName: data.realName || data.username || '',
     role: data.role || data.selectedRole || 'USER',
     permissions: data.permissions || []
   }, rememberMe.value)

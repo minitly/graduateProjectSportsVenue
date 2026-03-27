@@ -60,10 +60,13 @@ const manageQuery = useQuery({
     return response.data || { records: [], total: 0 }
   },
   keepPreviousData: true,
-  staleTime: 30000
+  staleTime: 30000,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+  retry: false
 })
 
-const isQueryLoading = computed(() => Boolean(manageQuery.isFetching?.value))
+const isQueryLoading = computed(() => Boolean(manageQuery.isFetching?.value ?? manageQuery.isFetching))
 const notices = computed(() => manageQuery.data?.records || manageQuery.data?.value?.records || [])
 const total = computed(() => manageQuery.data?.total || manageQuery.data?.value?.total || 0)
 
