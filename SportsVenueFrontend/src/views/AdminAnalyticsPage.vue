@@ -1,5 +1,5 @@
 <script setup>
-import { computed, reactive } from 'vue'
+import { computed, reactive, ref, unref } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import { NButton, NCard, NDatePicker, NSelect, NTag } from 'naive-ui'
 import { use } from 'echarts/core'
@@ -19,6 +19,19 @@ const filters = reactive({
   borrowStatus: ''
 })
 
+const trendSort = reactive({
+  key: 'date',
+  order: 'desc'
+})
+
+const venueTopN = ref(8)
+const venueTopNOptions = [
+  { label: 'Top 5', value: 5 },
+  { label: 'Top 8', value: 8 },
+  { label: 'Top 10', value: 10 },
+  { label: 'Top 20', value: 20 }
+]
+
 const bookingStatusOptions = [
   { label: '全部预约状态', value: '' },
   { label: '申请中', value: 'APPLIED' },
@@ -36,6 +49,32 @@ const borrowStatusOptions = [
 
 function formatDate(date) {
   return date.toISOString().slice(0, 10)
+}
+
+function toYYYYMMDD(value) {
+  if (!value) return ''
+  if (typeof value === 'string') return value.slice(0, 10)
+  return formatDate(new Date(value))
+}
+
+function toNumber(value) {
+  return Number(value || 0)
+}
+
+function percentage(part, total) {
+  if (!total) return '0.0'
+  return ((part / total) * 100).toFixed(1)
+}
+
+function rateNumber(part, total) {
+  if (!total) return 0
+  return Number(((part / total) * 100).toFixed(1))
+}
+
+function getRiskTag(rate) {
+  if (rate >= 20) return { type: 'error', label: '异常偏高' }
+  if (rate >= 10) return { type: 'warning', label: '重点关注' }
+  return { type: 'success', label: '正常' }
 }
 
 const defaultRange = (() => {
@@ -61,54 +100,51 @@ function handleRangeChange(value) {
   filters.endDate = formatDate(new Date(value[1]))
 }
 
-function percentage(part, total) {
-  if (!total) return '0.0'
-  return ((part / total) * 100).toFixed(1)
+function toggleTrendSort(key) {
+  if (trendSort.key === key) {
+    trendSort.order = trendSort.order === 'asc' ? 'desc' : 'asc'
+    return
+  }
+  trendSort.key = key
+  trendSort.order = key === 'date' ? 'desc' : 'asc'
 }
 
 const bookingStatsQuery = useQuery({
-  queryKey: computed(() => ['analyticsBookings', filters.startDate, filters.endDate, filters.bookingStatus]),
+  queryKey: computed(() => ['analyticsReportsBooking', filters.startDate, filters.endDate]),
+  enabled: computed(() => Boolean(filters.startDate && filters.endDate)),
   queryFn: async () => {
-    const [totalRes, appliedRes, verifiedRes, canceledRes, violationRes] = await Promise.all([
-      api.get('/bookings', {
+    const [dashboardRes, trendRes] = await Promise.all([
+      api.get('/reports/dashboard', {
         params: {
-          startDate: filters.startDate || undefined,
-          endDate: filters.endDate || undefined,
-          status: filters.bookingStatus || undefined,
-          pageNo: 1,
-          pageSize: 1
+          startDate: filters.startDate,
+          endDate: filters.endDate
         }
       }),
-      api.get('/bookings', { params: { startDate: filters.startDate || undefined, endDate: filters.endDate || undefined, status: 'APPLIED', pageNo: 1, pageSize: 1 } }),
-      api.get('/bookings', { params: { startDate: filters.startDate || undefined, endDate: filters.endDate || undefined, status: 'VERIFIED', pageNo: 1, pageSize: 1 } }),
-      api.get('/bookings', { params: { startDate: filters.startDate || undefined, endDate: filters.endDate || undefined, status: 'CANCELED', pageNo: 1, pageSize: 1 } }),
-      api.get('/bookings', { params: { startDate: filters.startDate || undefined, endDate: filters.endDate || undefined, status: 'VIOLATION', pageNo: 1, pageSize: 1 } })
+      api.get('/reports/bookings/trend', {
+        params: {
+          startDate: filters.startDate,
+          endDate: filters.endDate
+        }
+      })
     ])
 
-    const total = totalRes?.data?.total || 0
-    const applied = appliedRes?.data?.total || 0
-    const verified = verifiedRes?.data?.total || 0
-    const canceled = canceledRes?.data?.total || 0
-    const violation = violationRes?.data?.total || 0
+    const dashboard = dashboardRes?.data || {}
+    const trendRows = Array.isArray(trendRes?.data) ? trendRes.data : []
 
-    const end = new Date(filters.endDate || formatDate(new Date()))
-    const daily = []
-    for (let i = 6; i >= 0; i -= 1) {
-      const current = new Date(end)
-      current.setDate(end.getDate() - i)
-      const day = formatDate(current)
-      const [allDay, verifiedDay, violationDay] = await Promise.all([
-        api.get('/bookings', { params: { startDate: day, endDate: day, pageNo: 1, pageSize: 1 } }),
-        api.get('/bookings', { params: { startDate: day, endDate: day, status: 'VERIFIED', pageNo: 1, pageSize: 1 } }),
-        api.get('/bookings', { params: { startDate: day, endDate: day, status: 'VIOLATION', pageNo: 1, pageSize: 1 } })
-      ])
-      daily.push({
-        date: day,
-        total: allDay?.data?.total || 0,
-        verified: verifiedDay?.data?.total || 0,
-        violation: violationDay?.data?.total || 0
-      })
-    }
+    const total = toNumber(dashboard.bookingTotal)
+    const verified = toNumber(dashboard.bookingVerifiedTotal)
+    const canceled = toNumber(dashboard.bookingCanceledTotal)
+    const violation = toNumber(dashboard.bookingViolationTotal)
+    const applied = Math.max(total - verified - canceled - violation, 0)
+
+    const daily = trendRows.map((row) => ({
+      date: toYYYYMMDD(row.date),
+      total: toNumber(row.bookingTotal),
+      verified: toNumber(row.verifiedTotal),
+      canceled: toNumber(row.canceledTotal),
+      violation: toNumber(row.violationTotal),
+      violationRate: rateNumber(row.violationTotal, row.bookingTotal)
+    }))
 
     return {
       total,
@@ -125,27 +161,58 @@ const bookingStatsQuery = useQuery({
   keepPreviousData: true
 })
 
-const borrowStatsQuery = useQuery({
-  queryKey: computed(() => ['analyticsBorrows', filters.borrowStatus]),
+const venueRankQuery = useQuery({
+  queryKey: computed(() => ['analyticsReportsVenueRank', filters.startDate, filters.endDate, venueTopN.value]),
+  enabled: computed(() => Boolean(filters.startDate && filters.endDate)),
   queryFn: async () => {
-    const [totalRes, requestedRes, usingRes, returnedRes] = await Promise.all([
-      api.get('/borrows', { params: { status: filters.borrowStatus || undefined, pageNo: 1, pageSize: 1 } }),
-      api.get('/borrows', { params: { status: 'REQUESTED', pageNo: 1, pageSize: 1 } }),
-      api.get('/borrows', { params: { status: 'USING', pageNo: 1, pageSize: 1 } }),
-      api.get('/borrows', { params: { status: 'RETURNED', pageNo: 1, pageSize: 1 } })
-    ])
+    const response = await api.get('/reports/bookings/venue-rank', {
+      params: {
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        topN: venueTopN.value
+      }
+    })
 
-    const total = totalRes?.data?.total || 0
-    const requested = requestedRes?.data?.total || 0
-    const using = usingRes?.data?.total || 0
-    const returned = returnedRes?.data?.total || 0
+    const rows = Array.isArray(response?.data) ? response.data : []
+    return rows.map((row, index) => {
+      const bookingTotal = toNumber(row.bookingTotal)
+      const verifiedTotal = toNumber(row.verifiedTotal)
+      const violationTotal = toNumber(row.violationTotal)
+      const violationRate = rateNumber(violationTotal, bookingTotal)
+
+      return {
+        rank: index + 1,
+        venueId: row.venueId,
+        venueName: row.venueName,
+        bookingTotal,
+        verifiedTotal,
+        violationTotal,
+        verifyRate: rateNumber(verifiedTotal, bookingTotal),
+        violationRate,
+        riskTag: getRiskTag(violationRate)
+      }
+    })
+  },
+  staleTime: 30000,
+  keepPreviousData: true
+})
+
+const borrowStatsQuery = useQuery({
+  queryKey: ['analyticsBorrowsSnapshot'],
+  queryFn: async () => {
+    const response = await api.get('/borrows', { params: { pageNo: 1, pageSize: 1000 } })
+    const rows = response?.data?.records || []
+
+    const all = {
+      total: rows.length,
+      requested: rows.filter((item) => item.status === 'REQUESTED').length,
+      using: rows.filter((item) => item.status === 'USING').length,
+      returned: rows.filter((item) => item.status === 'RETURNED').length
+    }
 
     return {
-      total,
-      requested,
-      using,
-      returned,
-      turnoverRate: percentage(returned, total)
+      ...all,
+      turnoverRate: percentage(all.returned, all.total)
     }
   },
   staleTime: 30000,
@@ -165,19 +232,93 @@ const userRiskQuery = useQuery({
   staleTime: 60000
 })
 
-const bookingStats = computed(() => bookingStatsQuery.data || bookingStatsQuery.data?.value || {})
-const borrowStats = computed(() => borrowStatsQuery.data || borrowStatsQuery.data?.value || {})
-const riskUsers = computed(() => userRiskQuery.data || userRiskQuery.data?.value || [])
+const bookingStats = computed(() => unref(bookingStatsQuery.data) || {})
+const bookingStatsByStatus = computed(() => {
+  if (!filters.bookingStatus) {
+    return bookingStats.value
+  }
+  const current = {
+    APPLIED: bookingStats.value.applied || 0,
+    VERIFIED: bookingStats.value.verified || 0,
+    CANCELED: bookingStats.value.canceled || 0,
+    VIOLATION: bookingStats.value.violation || 0
+  }[filters.bookingStatus] || 0
+
+  return {
+    ...bookingStats.value,
+    total: current
+  }
+})
+
+const borrowStatsRaw = computed(() => unref(borrowStatsQuery.data) || {})
+const borrowStats = computed(() => {
+  if (!filters.borrowStatus) {
+    return borrowStatsRaw.value
+  }
+  const selected = {
+    REQUESTED: borrowStatsRaw.value.requested || 0,
+    USING: borrowStatsRaw.value.using || 0,
+    RETURNED: borrowStatsRaw.value.returned || 0
+  }[filters.borrowStatus] || 0
+
+  return {
+    ...borrowStatsRaw.value,
+    total: selected,
+    turnoverRate: percentage(borrowStatsRaw.value.returned || 0, selected)
+  }
+})
+
+const riskUsers = computed(() => unref(userRiskQuery.data) || [])
+const venueRankList = computed(() => unref(venueRankQuery.data) || [])
+
+const sortedTrendRows = computed(() => {
+  const rows = [...(bookingStats.value.daily || [])]
+  const key = trendSort.key
+  const factor = trendSort.order === 'asc' ? 1 : -1
+
+  return rows.sort((a, b) => {
+    if (key === 'date') {
+      return a.date > b.date ? factor : -factor
+    }
+    return (toNumber(a[key]) - toNumber(b[key])) * factor
+  })
+})
+
+const trendSummaryRow = computed(() => {
+  const rows = bookingStats.value.daily || []
+  const total = rows.reduce((sum, row) => sum + (row.total || 0), 0)
+  const verified = rows.reduce((sum, row) => sum + (row.verified || 0), 0)
+  const violation = rows.reduce((sum, row) => sum + (row.violation || 0), 0)
+  const avgTotal = rows.length ? (total / rows.length).toFixed(1) : '0.0'
+
+  return {
+    total,
+    verified,
+    violation,
+    avgTotal,
+    verifyRate: percentage(verified, total),
+    violationRate: percentage(violation, total)
+  }
+})
 
 const isAnalyticsFetching = computed(
   () =>
     Boolean(bookingStatsQuery.isFetching?.value ?? bookingStatsQuery.isFetching) ||
+    Boolean(venueRankQuery.isFetching?.value ?? venueRankQuery.isFetching) ||
     Boolean(borrowStatsQuery.isFetching?.value ?? borrowStatsQuery.isFetching) ||
     Boolean(userRiskQuery.isFetching?.value ?? userRiskQuery.isFetching)
 )
 
+const reportsErrorMessage = computed(() => {
+  const bookingErr = bookingStatsQuery.error?.value ?? bookingStatsQuery.error
+  const trendErr = venueRankQuery.error?.value ?? venueRankQuery.error
+  const responseData = bookingErr?.response?.data || trendErr?.response?.data
+  if (!responseData) return ''
+  return responseData.message || '报表数据加载失败'
+})
+
 const kpis = computed(() => [
-  { label: '预约总量', value: bookingStats.value.total || 0, tip: '选定日期范围内' },
+  { label: '预约总量', value: bookingStatsByStatus.value.total || 0, tip: '选定日期范围内' },
   { label: '违规率', value: `${bookingStats.value.violationRate || '0.0'}%`, tip: 'VIOLATION / 总预约' },
   { label: '核销率', value: `${bookingStats.value.verifyRate || '0.0'}%`, tip: 'VERIFIED / 总预约' },
   { label: '借用周转率', value: `${borrowStats.value.turnoverRate || '0.0'}%`, tip: 'RETURNED / 总借用' }
@@ -234,18 +375,10 @@ const bookingStackChartOption = computed(() => ({
   ]
 }))
 
-const bookingBars = computed(() => {
-  const total = bookingStats.value.total || 0
-  return [
-    { label: '申请中', value: bookingStats.value.applied || 0 },
-    { label: '已核销', value: bookingStats.value.verified || 0 },
-    { label: '已取消', value: bookingStats.value.canceled || 0 },
-    { label: '违规', value: bookingStats.value.violation || 0 }
-  ].map((item) => ({
-    ...item,
-    pct: Number(percentage(item.value, total))
-  }))
-})
+function sortArrow(key) {
+  if (trendSort.key !== key) return '↕'
+  return trendSort.order === 'asc' ? '↑' : '↓'
+}
 
 function exportCsv() {
   const daily = bookingStats.value.daily || []
@@ -263,6 +396,7 @@ function exportCsv() {
 
 function refreshAll() {
   bookingStatsQuery.refetch()
+  venueRankQuery.refetch()
   borrowStatsQuery.refetch()
   userRiskQuery.refetch()
 }
@@ -283,6 +417,11 @@ function refreshAll() {
           <small>{{ kpi.tip }}</small>
         </div>
       </div>
+    </section>
+
+    <section v-if="reportsErrorMessage" class="card error-banner">
+      <strong>报表接口不可用：</strong>
+      <span>{{ reportsErrorMessage }}</span>
     </section>
 
     <section class="card analytics-compare">
@@ -312,6 +451,10 @@ function refreshAll() {
       <div class="field">
         <label>借用主筛选</label>
         <NSelect v-model:value="filters.borrowStatus" :options="borrowStatusOptions" />
+      </div>
+      <div class="field">
+        <label>场馆排行</label>
+        <NSelect v-model:value="venueTopN" :options="venueTopNOptions" />
       </div>
       <div class="borrow-filters__actions">
         <NButton type="primary" :loading="isAnalyticsFetching" @click="refreshAll">
@@ -348,24 +491,87 @@ function refreshAll() {
       </NCard>
     </section>
 
-    <section class="analytics-grid">
-      <NCard title="近7日预约趋势" class="analytics-card">
-        <div class="trend-table">
-          <div class="trend-row trend-head">
-            <span>日期</span>
-            <span>总预约</span>
-            <span>已核销</span>
-            <span>违规</span>
-          </div>
-          <div v-for="row in bookingStats.daily || []" :key="row.date" class="trend-row">
-            <span>{{ row.date }}</span>
-            <strong>{{ row.total }}</strong>
-            <span>{{ row.verified }}</span>
-            <span>{{ row.violation }}</span>
-          </div>
+    <section class="analytics-grid advanced-grid">
+      <NCard title="高级趋势表（可排序）" class="analytics-card">
+        <div class="table-wrap">
+          <table class="pro-table">
+            <thead>
+              <tr>
+                <th @click="toggleTrendSort('date')">日期 {{ sortArrow('date') }}</th>
+                <th @click="toggleTrendSort('total')">总预约 {{ sortArrow('total') }}</th>
+                <th @click="toggleTrendSort('verified')">已核销 {{ sortArrow('verified') }}</th>
+                <th @click="toggleTrendSort('violation')">违规 {{ sortArrow('violation') }}</th>
+                <th @click="toggleTrendSort('violationRate')">违规率 {{ sortArrow('violationRate') }}</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="row in sortedTrendRows"
+                :key="row.date"
+                :class="{ 'row-alert': Number(row.violationRate) >= 20 }"
+              >
+                <td>{{ row.date }}</td>
+                <td>{{ row.total }}</td>
+                <td>{{ row.verified }}</td>
+                <td>{{ row.violation }}</td>
+                <td>{{ row.violationRate }}%</td>
+                <td>
+                  <NTag :type="getRiskTag(row.violationRate).type">{{ getRiskTag(row.violationRate).label }}</NTag>
+                </td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr class="summary-row">
+                <td>统计行</td>
+                <td>总计 {{ trendSummaryRow.total }} / 日均 {{ trendSummaryRow.avgTotal }}</td>
+                <td>{{ trendSummaryRow.verified }}</td>
+                <td>{{ trendSummaryRow.violation }}</td>
+                <td>{{ trendSummaryRow.violationRate }}%</td>
+                <td>核销率 {{ trendSummaryRow.verifyRate }}%</td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
       </NCard>
 
+      <NCard title="TopN 场馆预约排行" class="analytics-card">
+        <div class="table-wrap">
+          <table class="pro-table">
+            <thead>
+              <tr>
+                <th>排名</th>
+                <th>场馆</th>
+                <th>预约总量</th>
+                <th>核销率</th>
+                <th>违规率</th>
+                <th>风险标记</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="venue in venueRankList"
+                :key="venue.venueId"
+                :class="{ 'row-alert': venue.violationRate >= 20 }"
+              >
+                <td>
+                  <span class="rank-pill" :class="`rank-${venue.rank}`">#{{ venue.rank }}</span>
+                </td>
+                <td>{{ venue.venueName }}</td>
+                <td>{{ venue.bookingTotal }}</td>
+                <td>{{ venue.verifyRate }}%</td>
+                <td>{{ venue.violationRate }}%</td>
+                <td>
+                  <NTag :type="venue.riskTag.type">{{ venue.riskTag.label }}</NTag>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </NCard>
+    </section>
+
+    <section class="analytics-grid">
       <NCard title="高风险用户（本月违规）" class="analytics-card">
         <div v-if="riskUsers.length" class="risk-list">
           <div v-for="user in riskUsers" :key="user.id" class="risk-item">
@@ -384,3 +590,237 @@ function refreshAll() {
     </section>
   </div>
 </template>
+
+<style scoped>
+.admin-analytics-page {
+  display: grid;
+  gap: 16px;
+  color: #1f2937;
+  background: #f5f7fb;
+}
+
+.card {
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+  padding: 18px;
+}
+
+.profile-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.section-kicker {
+  color: #6b7280;
+  letter-spacing: 0.08em;
+  margin: 0 0 8px;
+  font-size: 12px;
+}
+
+.text-muted {
+  color: #6b7280;
+}
+
+.hero-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(130px, 1fr));
+  gap: 12px;
+  min-width: 320px;
+}
+
+.hero-metrics > div {
+  border: 1px solid #eef2f7;
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.hero-metrics strong {
+  font-size: 20px;
+  color: #111827;
+}
+
+.analytics-compare .compare-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.compare-tags {
+  display: flex;
+  gap: 8px;
+}
+
+.chart {
+  height: 280px;
+}
+
+.borrow-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(170px, 1fr)) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+}
+
+.field label {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.borrow-filters__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.advanced-grid {
+  align-items: start;
+}
+
+.analytics-card {
+  min-height: 220px;
+}
+
+.mini-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.mini-stats > div {
+  border: 1px solid #eef2f7;
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 12px;
+  display: grid;
+  gap: 5px;
+}
+
+.mini-stats strong {
+  font-size: 20px;
+}
+
+.table-wrap {
+  overflow: auto;
+}
+
+.pro-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+  color: #111827;
+}
+
+.pro-table thead th {
+  position: sticky;
+  top: 0;
+  background: #f3f4f6;
+  color: #374151;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.pro-table tbody td,
+.pro-table tfoot td {
+  padding: 10px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.pro-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.row-alert {
+  background: #fff1f2;
+}
+
+.summary-row {
+  background: #f3f4f6;
+  color: #111827;
+  font-weight: 600;
+}
+
+.rank-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  background: #e5e7eb;
+  color: #111827;
+  font-weight: 700;
+}
+
+.rank-1,
+.rank-2,
+.rank-3 {
+  background: #fde68a;
+  color: #7c2d12;
+}
+
+.error-banner {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.risk-list {
+  display: grid;
+  gap: 10px;
+}
+
+.risk-item {
+  border: 1px solid #eef2f7;
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 16px;
+  color: #6b7280;
+}
+
+@media (max-width: 1200px) {
+  .analytics-grid,
+  .borrow-filters,
+  .profile-hero {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .hero-metrics {
+    min-width: 100%;
+  }
+}
+</style>
