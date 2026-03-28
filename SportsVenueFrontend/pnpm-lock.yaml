@@ -26,6 +26,9 @@ importers:
       echarts:
         specifier: ^6.0.0
         version: 6.0.0
+      lucide-vue-next:
+        specifier: ^1.0.0
+        version: 1.0.0(vue@3.5.30)
       naive-ui:
         specifier: ^2.41.0
         version: 2.44.1(vue@3.5.30)
@@ -747,6 +750,11 @@ packages:
 
   lottie-web@5.12.2:
     resolution: {integrity: sha512-uvhvYPC8kGPjXT3MyKMrL3JitEAmDMp30lVkuq/590Mw9ok6pWcFCwXJveo0t5uqYw1UREQHofD+jVpdjBv8wg==}
+
+  lucide-vue-next@1.0.0:
+    resolution: {integrity: sha512-V6SPvx1IHTj/UY+FrIYWV5faISsPSb8BnWSFDxAtezWKvWc9ZZ40PDrdu1/Qb5vg4lHWr1hs1BAMGVGm6V1Xdg==}
+    peerDependencies:
+      vue: '>=3.0.1'
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
@@ -1703,6 +1711,10 @@ snapshots:
   lodash@4.17.23: {}
 
   lottie-web@5.12.2: {}
+
+  lucide-vue-next@1.0.0(vue@3.5.30):
+    dependencies:
+      vue: 3.5.30
 
   magic-string@0.30.21:
     dependencies:
