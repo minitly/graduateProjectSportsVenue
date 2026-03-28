@@ -224,7 +224,6 @@ const bookingStatusOptions = [
 ]
 
 const bookingFilters = reactive({
-  venueName: '',
   status: '',
   startDate: null,
   endDate: null
@@ -341,8 +340,11 @@ const slotStatusList = computed(() => {
       }
     } else if (bookingModal.startTime && bookingModal.endTime) {
       const startIndex = timeSlots.value.findIndex((item) => item.value === bookingModal.startTime)
-      const endIndex = timeSlots.value.findIndex((item) => item.value === bookingModal.endTime)
+      let endIndex = timeSlots.value.findIndex((item) => item.value === bookingModal.endTime)
       const currentIndex = timeSlots.value.findIndex((item) => item.value === slot.value)
+      if (endIndex === -1 && bookingModal.endTime === bookingModal.venue?.closeTime) {
+        endIndex = timeSlots.value.length
+      }
       if (currentIndex >= startIndex && currentIndex < endIndex) {
         status = 'selected'
       }
@@ -375,30 +377,49 @@ function formatDate(timestamp) {
 }
 
 
+function getSlotEndBoundary(slotIndex) {
+  return timeSlots.value[slotIndex + 1]?.value || bookingModal.venue?.closeTime || timeSlots.value[slotIndex]?.value
+}
+
 function handleSlotSelect(slot) {
   if (slot.status === 'occupied' || isPastStartSlot(slot.value)) return
+
+  const clickedIndex = timeSlots.value.findIndex((item) => item.value === slot.value)
+  if (clickedIndex === -1) return
+
+  // 第一次点击：设置开始时段；如果已有完整区间，则重新开始选择
   if (!bookingModal.startTime || bookingModal.endTime) {
     bookingModal.startTime = slot.value
     bookingModal.endTime = null
     return
   }
+
+  // 第二次点击：设置结束时段（包含点击的这个时段）
   const startIndex = timeSlots.value.findIndex((item) => item.value === bookingModal.startTime)
-  const endIndex = timeSlots.value.findIndex((item) => item.value === slot.value)
-  if (endIndex <= startIndex) {
+  if (startIndex === -1) {
     bookingModal.startTime = slot.value
     bookingModal.endTime = null
     return
   }
+
+  if (clickedIndex < startIndex) {
+    bookingModal.startTime = slot.value
+    bookingModal.endTime = null
+    return
+  }
+
   const hasOccupiedBetween = timeSlots.value
-    .slice(startIndex, endIndex)
+    .slice(startIndex, clickedIndex + 1)
     .some((item) => unavailableSlots.value.includes(item.value))
+
   if (hasOccupiedBetween) {
     pushToast('选中区间包含已占用时段，请重新选择', 'warning')
     bookingModal.startTime = slot.value
     bookingModal.endTime = null
     return
   }
-  bookingModal.endTime = slot.value
+
+  bookingModal.endTime = getSlotEndBoundary(clickedIndex)
 }
 
 function clearSlotSelection() {
@@ -409,7 +430,6 @@ function clearSlotSelection() {
 
 const bookingsQueryKey = computed(() => [
   'myBookings',
-  bookingFilters.venueName,
   bookingFilters.status,
   bookingFilters.startDate,
   bookingFilters.endDate,
@@ -422,7 +442,6 @@ const bookingsQuery = useQuery({
   queryFn: async () => {
     const response = await api.get('/bookings/my', {
       params: {
-        venueName: bookingFilters.venueName || undefined,
         status: bookingFilters.status || undefined,
         startDate: bookingFilters.startDate || undefined,
         endDate: bookingFilters.endDate || undefined,
@@ -434,6 +453,7 @@ const bookingsQuery = useQuery({
       throw new Error(response.message || '预约记录加载失败')
     }
     const data = response.data || {}
+    await hydrateVenueNames(data.records || [])
     return {
       records: data.records || [],
       total: data.total || 0
@@ -449,7 +469,7 @@ const myBookingsTotal = computed(() => bookingsQuery.data?.total || bookingsQuer
 const isBookingsFetching = computed(() => Boolean(bookingsQuery.isFetching?.value ?? bookingsQuery.isFetching))
 
 const ownerBookingFilters = reactive({
-  venueName: '',
+  venueId: '',
   username: '',
   status: '',
   startDate: null,
@@ -488,7 +508,7 @@ const ownerBookingDateRange = computed({
 const ownerBookingsQuery = useQuery({
   queryKey: computed(() => [
     'ownerBookings',
-    ownerBookingFilters.venueName,
+    ownerBookingFilters.venueId,
     ownerBookingFilters.username,
     ownerBookingFilters.status,
     ownerBookingFilters.startDate,
@@ -499,7 +519,7 @@ const ownerBookingsQuery = useQuery({
   queryFn: async () => {
     const response = await api.get('/bookings', {
       params: {
-        venueName: ownerBookingFilters.venueName || undefined,
+        venueId: ownerBookingFilters.venueId || undefined,
         username: ownerBookingFilters.username || undefined,
         status: ownerBookingFilters.status || undefined,
         startDate: ownerBookingFilters.startDate || undefined,
@@ -512,6 +532,7 @@ const ownerBookingsQuery = useQuery({
       throw new Error(response.message || '预约审核列表加载失败')
     }
     const data = response.data || {}
+    await hydrateVenueNames(data.records || [])
     return { records: data.records || [], total: data.total || 0 }
   },
   enabled: isOwner,
@@ -654,7 +675,6 @@ async function prevBookingPage() {
 }
 
 function resetBookingFilters() {
-  bookingFilters.venueName = ''
   bookingFilters.status = ''
   bookingFilters.startDate = null
   bookingFilters.endDate = null
@@ -662,48 +682,7 @@ function resetBookingFilters() {
   queryClient.invalidateQueries({ queryKey: ['myBookings'] })
 }
 
-function showViolationBlockedDialog(violationData = {}, fallbackMessage = '') {
-  const isViolationUser = Boolean(violationData?.isViolationUser)
-  if (!isViolationUser && !fallbackMessage) return false
-
-  const violationCountMonth = Number(violationData?.violationCountMonth || 0)
-  const violationMonth = violationData?.violationMonth || '当月'
-  const bookingBannedUntil = violationData?.bookingBannedUntil
-  const bannedUntilText = bookingBannedUntil ? formatDisplayDateTime(bookingBannedUntil) : '请联系管理员'
-
-  dialog.warning({
-    title: '当前账号已违规，暂不可预约',
-    content: `${fallbackMessage || '你当前处于违规限制状态，暂时无法发起预约。'}\n违规月份：${violationMonth}\n当月违规次数：${violationCountMonth}\n限制截止：${bannedUntilText}`,
-    positiveText: '我知道了',
-    type: 'warning'
-  })
-  return true
-}
-
-async function checkBookingEligibility() {
-  try {
-    const response = await api.get('/bookings/my/violation-status')
-    if (response.code !== 200) {
-      pushToast(response.message || '校验预约资格失败', 'error')
-      return false
-    }
-    if (response.data?.isViolationUser) {
-      showViolationBlockedDialog(response.data, '你已违规，无法预约场地。')
-      return false
-    }
-    return true
-  } catch (error) {
-    const backendMessage = error?.response?.data?.message
-    pushToast(backendMessage || '无法连接后端服务', 'error')
-    return false
-  }
-}
-
-async function openBookingModal(venue) {
-  if (!venue?.id) return
-  const canBook = await checkBookingEligibility()
-  if (!canBook) return
-
+function openBookingModal(venue) {
   bookingModal.show = true
   bookingModal.venue = venue
   bookingModal.date = bookingDates.value[0]?.value || null
@@ -1100,9 +1079,6 @@ async function submitBooking() {
       endTime: `${bookingModal.date}T${bookingModal.endTime}:00`
     })
     if (response.code !== 200) {
-      if (showViolationBlockedDialog(response.data, response.message || '你已违规，无法预约场地。')) {
-        return
-      }
       pushToast(response.message || '预约失败', 'error')
       return
     }
@@ -1110,11 +1086,6 @@ async function submitBooking() {
     closeBookingModal()
     refreshMyBookings()
   } catch (error) {
-    const violationData = error?.response?.data?.data
-    const violationMessage = error?.response?.data?.message
-    if (showViolationBlockedDialog(violationData, violationMessage)) {
-      return
-    }
     const backendMessage = error?.response?.data?.message
     pushToast(backendMessage || '无法连接后端服务', 'error')
   } finally {
@@ -1239,7 +1210,7 @@ async function refreshOwnerBookings() {
 }
 
 function resetOwnerBookingFilters() {
-  ownerBookingFilters.venueName = ''
+  ownerBookingFilters.venueId = ''
   ownerBookingFilters.username = ''
   ownerBookingFilters.status = ''
   ownerBookingFilters.startDate = null
@@ -1322,6 +1293,13 @@ watch(
     ownerBookingPagination.pageNo = 1
   }
 )
+
+watch(ownerBookingsData, () => {
+  if (activeModule.value !== 'booking' || !isOwner.value) return
+  setTimeout(() => {
+    calculateOwnerBookingPageSize()
+  }, 0)
+})
 
 onMounted(() => {
   searchDisabled.value = false
@@ -1425,13 +1403,7 @@ onUnmounted(() => {
           </div>
           <div class="venue-card__actions">
             <NButton tertiary @click="openVenueDetail(venue)">查看详情</NButton>
-            <NButton
-              v-if="!isOwner && venue.status === 'AVAILABLE'"
-              type="primary"
-              @click="openBookingModal(venue)"
-            >
-              预约时段
-            </NButton>
+            <NButton v-if="!isOwner" type="primary" @click="openBookingModal(venue)">预约时段</NButton>
             <NButton v-if="isOwner" tertiary @click="openEditVenue(venue)">编辑场地</NButton>
             <NButton v-if="isOwner" type="error" tertiary @click="openDeleteVenue(venue)">删除</NButton>
           </div>
@@ -1452,7 +1424,7 @@ onUnmounted(() => {
             <NButton
               size="tiny"
               tertiary
-              :type="venue.status === 'SUSPEND' ? 'info' : 'default'"
+              :type="venue.status === 'SUSPEND' ? 'default' : 'default'"
               @click="quickChangeVenueStatus(venue, 'SUSPEND')"
             >暂停</NButton>
             <NButton
@@ -1493,8 +1465,8 @@ onUnmounted(() => {
 
       <div class="booking-panel__filters">
         <div>
-          <label>场地名称</label>
-          <NInput v-model:value="ownerBookingFilters.venueName" placeholder="按场地名称过滤（模糊）" />
+          <label>场地ID</label>
+          <NInput v-model:value="ownerBookingFilters.venueId" placeholder="按场地ID过滤" />
         </div>
         <div>
           <label>用户名</label>
@@ -1520,16 +1492,7 @@ onUnmounted(() => {
             <div class="booking-card__header">
               <div>
                 <strong>预约编号 #{{ item.id }}</strong>
-                <p class="text-muted owner-booking-meta">
-                  <span class="owner-booking-meta__item">
-                    <span class="owner-booking-meta__label">场地：</span>
-                    <span>{{ item.venueName || `场地 ${item.venueId || '-'}` }}</span>
-                  </span>
-                  <span class="owner-booking-meta__item">
-                    <span class="owner-booking-meta__label">用户：</span>
-                    <span>{{ item.userName || item.username || '-' }}</span>
-                  </span>
-                </p>
+                <p class="text-muted">场地 {{ item.venueId }} · 用户 {{ item.username || item.userId }}</p>
               </div>
               <NTag :type="item.status === 'APPLIED' ? 'info' : item.status === 'VERIFIED' ? 'success' : item.status === 'CANCELED' ? 'warning' : 'error'">
                 {{ getStatusText(item.status) }}
@@ -1590,10 +1553,6 @@ onUnmounted(() => {
 
       <div class="booking-panel__filters">
         <div>
-          <label>场地名称</label>
-          <NInput v-model:value="bookingFilters.venueName" placeholder="按场地名称过滤（模糊）" />
-        </div>
-        <div>
           <label>状态</label>
           <NSelect v-model:value="bookingFilters.status" :options="bookingStatusOptions" />
         </div>
@@ -1620,7 +1579,7 @@ onUnmounted(() => {
             <div class="booking-card__header">
               <div>
                 <strong>预约编号 #{{ item.id }}</strong>
-                <p class="text-muted">{{ item.venueName || venueNameMap[item.venueId] || `场地 ${item.venueId}` }}</p>
+                <p class="text-muted">{{ venueNameMap[item.venueId] || `场地 ${item.venueId}` }}</p>
               </div>
               <NTag :type="item.status === 'APPLIED' ? 'info' : item.status === 'VERIFIED' ? 'success' : item.status === 'CANCELED' ? 'warning' : 'error'">
                 {{ getStatusText(item.status) }}
