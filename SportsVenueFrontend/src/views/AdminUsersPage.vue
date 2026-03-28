@@ -5,6 +5,7 @@ import {
   NButton,
   NCard,
   NInput,
+  NInputNumber,
   NModal,
   NSelect,
   NTag
@@ -24,6 +25,19 @@ const pagination = reactive({
   pageNo: 1,
   pageSize: 10
 })
+
+watch(
+  () => pagination.pageSize,
+  (value, oldValue) => {
+    if (value === oldValue) return
+    if (!Number.isFinite(value) || value <= 0) {
+      pagination.pageSize = oldValue || 10
+      return
+    }
+    pagination.pageSize = Math.min(50, Math.max(1, Math.floor(value)))
+    pagination.pageNo = 1
+  }
+)
 
 const statusOptions = [
   { label: '全部', value: '' },
@@ -506,6 +520,17 @@ function formatDateTime(value) {
     <section class="pagination">
       <NButton tertiary @click="prevPage" :disabled="pagination.pageNo <= 1">上一页</NButton>
       <span>第 {{ pagination.pageNo }} 页 / 共 {{ Math.ceil(total / pagination.pageSize) || 1 }} 页</span>
+      <span style="display: inline-flex; align-items: center; gap: 8px;">
+        <span>每页</span>
+        <NInputNumber
+          v-model:value="pagination.pageSize"
+          :min="1"
+          :max="50"
+          :step="1"
+          style="width: 100px;"
+        />
+        <span>条</span>
+      </span>
       <NButton tertiary @click="nextPage" :disabled="pagination.pageNo * pagination.pageSize >= total">下一页</NButton>
     </section>
 

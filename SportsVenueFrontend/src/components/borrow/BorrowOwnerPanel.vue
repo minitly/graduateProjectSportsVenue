@@ -1,5 +1,5 @@
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { NButton, NCard, NDatePicker, NInput, NInputNumber, NModal, NSelect, NTag } from 'naive-ui'
 import api from '../../services/api'
@@ -22,17 +22,24 @@ const ownerStatusOptions = [
   { label: '已归还', value: 'RETURNED' }
 ]
 
-const pageSizeOptions = [
-  { label: '6条/页', value: 6 },
-  { label: '10条/页', value: 10 },
-  { label: '20条/页', value: 20 }
-]
-
 const conditionOptions = [
   { label: '完好', value: 'GOOD' },
   { label: '损坏', value: 'DAMAGED' },
   { label: '丢失', value: 'LOST' }
 ]
+
+watch(
+  () => ownerPagination.pageSize,
+  (value, oldValue) => {
+    if (value === oldValue) return
+    if (!Number.isFinite(value) || value <= 0) {
+      ownerPagination.pageSize = oldValue || 6
+      return
+    }
+    ownerPagination.pageSize = Math.min(50, Math.max(1, Math.floor(value)))
+    ownerPagination.pageNo = 1
+  }
+)
 
 const ownerBorrowsQuery = useQuery({
   queryKey: computed(() => ['ownerBorrows', ownerFilters.status, ownerFilters.startTime, ownerFilters.endTime, ownerFilters.userId, ownerFilters.keyword, ownerPagination.pageNo, ownerPagination.pageSize]),
@@ -106,24 +113,48 @@ const usingCountQuery = useQuery({
   staleTime: 30000
 })
 
-const todayReturnedCountQuery = useQuery({
-  queryKey: ['ownerStatBorrows', 'RETURNED', 'today'],
-  queryFn: async () => {
-    const now = new Date()
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
+/** 不改后端时：分页拉取 status=RETURNED，用 returnedTime 在本地判断是否「今日」 */
+function isReturnedLocalToday(value) {
+  if (value == null || value === '') return false
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return false
+  const now = new Date()
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  )
+}
+
+async function countReturnedTodayClientSide() {
+  const pageSize = 200
+  let pageNo = 1
+  let count = 0
+  let apiTotal = 0
+  while (pageNo <= 500) {
     const response = await api.get('/borrows', {
-      params: {
-        status: 'RETURNED',
-        startTime: start.toISOString().slice(0, 19),
-        endTime: end.toISOString().slice(0, 19),
-        pageNo: 1,
-        pageSize: 1
-      }
+      params: { status: 'RETURNED', pageNo, pageSize }
     })
     if (response.code !== 200) return 0
-    return response.data?.total || 0
-  },
+    const data = response.data || {}
+    const records = data.records || []
+    apiTotal = data.total ?? 0
+    for (const r of records) {
+      const rt = r.returnedTime ?? r.returned_time
+      if (isReturnedLocalToday(rt)) count++
+    }
+    if (records.length === 0 || pageNo * pageSize >= apiTotal) break
+    pageNo++
+  }
+  return count
+}
+
+const todayReturnedCountQuery = useQuery({
+  queryKey: computed(() => {
+    const n = new Date()
+    return ['ownerStatBorrows', 'RETURNED', 'today', n.getFullYear(), n.getMonth(), n.getDate()]
+  }),
+  queryFn: () => countReturnedTodayClientSide(),
   staleTime: 30000
 })
 
@@ -175,6 +206,9 @@ function handleOwnerRangeChange(value) {
 function applyFilters() {
   ownerPagination.pageNo = 1
   ownerBorrowsQuery.refetch()
+  pendingCountQuery.refetch()
+  usingCountQuery.refetch()
+  todayReturnedCountQuery.refetch()
 }
 
 function resetFilters() {
@@ -186,6 +220,9 @@ function resetFilters() {
   ownerFilters.endTime = null
   ownerPagination.pageNo = 1
   ownerBorrowsQuery.refetch()
+  pendingCountQuery.refetch()
+  usingCountQuery.refetch()
+  todayReturnedCountQuery.refetch()
 }
 
 function toggleRecordExpand(id) {
@@ -246,7 +283,7 @@ async function submitOwnerAction() {
       <div><p class="section-kicker">借用管理</p><h3>审批借用与归还确认</h3></div>
     </div>
 
-    <div class="borrow-panel__summary">
+    <div class="borrow-panel__summary borrow-panel__summary--three">
       <div v-for="stat in summaryCards" :key="stat.label" class="summary-card"><span>{{ stat.label }}</span><strong>{{ stat.value }}</strong></div>
     </div>
 
@@ -273,9 +310,12 @@ async function submitOwnerAction() {
           <div><span>用户ID</span><strong>{{ record.userId }}</strong></div>
           <div><span>数量</span><strong>{{ record.quantity }}</strong></div>
           <div><span>申请时间</span><strong>{{ formatDateTime(record.requestedTime || record.createTime) }}</strong></div>
+          <div><span>备注</span><strong>{{ record.remark || '—' }}</strong></div>
         </div>
         <div class="borrow-record__actions">
-          <NButton text type="primary" @click="toggleRecordExpand(record.id)">{{ expandedRecordIds.includes(record.id) ? '收起详情' : '展开详情' }}</NButton>
+          <NButton size="small" tertiary type="primary" @click="toggleRecordExpand(record.id)">
+            {{ expandedRecordIds.includes(record.id) ? '收起详情' : '展开详情' }}
+          </NButton>
           <NButton v-if="record.status === 'REQUESTED'" size="small" type="primary" @click="openOwnerAction('approve', record)">确认借出</NButton>
           <NButton v-if="record.status === 'USING'" size="small" type="warning" @click="openOwnerAction('return', record)">确认归还</NButton>
         </div>
@@ -292,8 +332,18 @@ async function submitOwnerAction() {
     <section class="pagination">
       <NButton tertiary @click="ownerPagination.pageNo = Math.max(1, ownerPagination.pageNo - 1); ownerBorrowsQuery.refetch()" :disabled="ownerPagination.pageNo <= 1">上一页</NButton>
       <span>第 {{ ownerPagination.pageNo }} 页 / 共 {{ ownerTotalPages }} 页（共 {{ ownerBorrowsTotal }} 条）</span>
+      <span style="display: inline-flex; align-items: center; gap: 8px;">
+        <span>每页</span>
+        <NInputNumber
+          v-model:value="ownerPagination.pageSize"
+          :min="1"
+          :max="50"
+          :step="1"
+          style="width: 100px;"
+        />
+        <span>条</span>
+      </span>
       <NButton tertiary @click="ownerPagination.pageNo += 1; ownerBorrowsQuery.refetch()" :disabled="ownerPagination.pageNo >= ownerTotalPages">下一页</NButton>
-      <NSelect v-model:value="ownerPagination.pageSize" :options="pageSizeOptions" style="width: 120px" @update:value="() => { ownerPagination.pageNo = 1; ownerBorrowsQuery.refetch() }" />
     </section>
   </section>
 

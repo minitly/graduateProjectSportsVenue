@@ -381,8 +381,9 @@ body {
 
 .borrow-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 340px));
   gap: 20px;
+  justify-content: center;
 }
 
 .borrow-card {
@@ -392,6 +393,27 @@ body {
   box-shadow: 0 18px 35px rgba(15, 23, 42, 0.08);
   display: grid;
   gap: 12px;
+  width: 100%;
+  max-width: 340px;
+  overflow: hidden;
+}
+
+.borrow-card__title-wrap {
+  min-width: 0;
+}
+
+.borrow-card__title-wrap h3 {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.borrow-card__title-wrap p {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .borrow-card__header {
@@ -401,34 +423,56 @@ body {
   align-items: center;
 }
 
+.borrow-card__header .borrow-card__title-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
 .borrow-card__meta {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  column-gap: 20px;
+  row-gap: 8px;
+  align-items: center;
+}
+
+.borrow-card__meta > div {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: 4px;
 }
 
 .borrow-card__meta span {
   font-size: 12px;
   color: #94a3b8;
+  flex-shrink: 0;
 }
 
 .borrow-card__meta strong {
   font-size: 14px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .borrow-card__desc {
   color: #64748b;
   min-height: 40px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .borrow-card__actions {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-}
-
-.borrow-record__actions {
-  margin-top: 10px;
 }
 
 .borrow-record__details {
@@ -465,6 +509,11 @@ body {
   gap: 12px;
 }
 
+/* 管理端借用审批：待审批 / 使用中 / 今日归还 同一行三列 */
+.borrow-panel__summary--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .borrow-panel__filters {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -481,6 +530,19 @@ body {
 .borrow-panel__list {
   display: grid;
   gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .borrow-panel__header,
+  .booking-panel__header {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .borrow-panel__summary,
+  .booking-panel__summary {
+    grid-template-columns: 1fr;
+  }
 }
 
 .notice-list-item--user-clickable {
@@ -519,9 +581,12 @@ body {
 }
 
 .borrow-record__actions {
-  margin-top: 8px;
+  margin-top: 10px;
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .borrow-record__details {
@@ -544,6 +609,11 @@ body {
 .borrow-record__details strong {
   font-size: 13px;
   color: #334155;
+}
+
+/* 用户端「我的借用」：列表间距（卡片紧凑样式见 BorrowUserPanel.vue scoped） */
+.borrow-panel--standalone .borrow-panel__list {
+  gap: 10px;
 }
 
 .venues-hero {
@@ -2231,5 +2301,11 @@ body {
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
+  }
+
+  .pagination {
+    flex-wrap: wrap;
+    row-gap: 12px;
+    justify-content: center;
   }
 }

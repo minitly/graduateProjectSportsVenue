@@ -1376,12 +1376,12 @@ onUnmounted(() => {
 
 <template>
   <div class="venues-page">
-    <section class="card venues-hero">
+    <section v-if="!isOwner && activeModule === 'venue'" class="card venues-hero">
       <div>
         <p class="section-kicker">场地预约</p>
         <h2>找到最合适的场地，在线预约并管理你的计划</h2>
         <p class="text-muted">
-          根据开放时间与状态筛选，系统会实时校验 7 天游预约规则。
+          根据开放时间与状态筛选，系统会实时校验 7 天内预约规则。
         </p>
       </div>
       <div class="hero-metrics">
@@ -1533,8 +1533,8 @@ onUnmounted(() => {
           <NDatePicker v-model:value="ownerBookingDateRange" type="daterange" clearable />
         </div>
         <div class="booking-panel__actions">
-          <NButton type="primary" :loading="isOwnerBookingsFetching" @click="refreshOwnerBookings">刷新审核列表</NButton>
-          <NButton tertiary @click="resetOwnerBookingFilters">快速重置筛选</NButton>
+          <NButton type="primary" :loading="isOwnerBookingsFetching" @click="refreshOwnerBookings">查询</NButton>
+          <NButton tertiary @click="resetOwnerBookingFilters">重置</NButton>
         </div>
       </div>
 
@@ -1627,9 +1627,9 @@ onUnmounted(() => {
         </div>
         <div class="booking-panel__actions">
           <NButton type="primary" @click="refreshMyBookings" :loading="false">
-            刷新
+            查询
           </NButton>
-          <NButton tertiary @click="resetBookingFilters">清空筛选</NButton>
+          <NButton tertiary @click="resetBookingFilters">重置</NButton>
         </div>
       </div>
 

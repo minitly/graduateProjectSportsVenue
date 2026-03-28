@@ -17,7 +17,7 @@ export const STATUS_TEXT_MAP = {
   VIOLATION: '违规',
 
   // 器材借用状态
-  REQUESTED: '已申请',
+  REQUESTED: '申请中',
   USING: '使用中',
   RETURNED: '已归还',
 

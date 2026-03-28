@@ -1,5 +1,5 @@
 <script setup>
-    import { computed, reactive } from "vue";
+    import { computed, reactive, watch } from "vue";
     import { useQuery, useQueryClient } from "@tanstack/vue-query";
     import { NButton, NInput, NInputNumber, NModal, NTag } from "naive-ui";
     import api from "../../services/api";
@@ -30,6 +30,19 @@
     });
 
     const adminPagination = reactive({ pageNo: 1, pageSize: 10 });
+
+    watch(
+        () => adminPagination.pageSize,
+        (value, oldValue) => {
+            if (value === oldValue) return;
+            if (!Number.isFinite(value) || value <= 0) {
+                adminPagination.pageSize = oldValue || 10;
+                return;
+            }
+            adminPagination.pageSize = Math.min(50, Math.max(1, Math.floor(value)));
+            adminPagination.pageNo = 1;
+        },
+    );
 
     const adminItemsQuery = useQuery({
         queryKey: computed(() => [
@@ -242,6 +255,23 @@
                 }}
                 页</span
             >
+            <span
+                style="
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 8px;
+                "
+            >
+                <span>每页</span>
+                <NInputNumber
+                    v-model:value="adminPagination.pageSize"
+                    :min="1"
+                    :max="50"
+                    :step="1"
+                    style="width: 100px"
+                />
+                <span>条</span>
+            </span>
             <NButton
                 tertiary
                 @click="
@@ -359,59 +389,6 @@
 </template>
 
 <style scoped>
-    .borrow-panel {
-        --admin-columns: 5;
-        --admin-card-width: 280px;
-        --admin-card-height: 300px;
-        --admin-grid-gap: 20px;
-    }
-
-    .borrow-grid {
-        display: grid;
-        grid-template-columns: repeat(
-            var(--admin-columns),
-            var(--admin-card-width)
-        );
-        grid-auto-rows: var(--admin-card-height);
-        justify-content: space-between;
-        gap: var(--admin-grid-gap);
-    }
-
-    .borrow-card {
-        width: var(--admin-card-width);
-        min-width: var(--admin-card-width);
-        max-width: var(--admin-card-width);
-        height: var(--admin-card-height);
-        min-height: var(--admin-card-height);
-        max-height: var(--admin-card-height);
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-    }
-
-    .borrow-card__title-wrap h3,
-    .borrow-card__title-wrap p,
-    .borrow-card__meta span,
-    .borrow-card__meta strong {
-        max-width: 100%;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .borrow-card__desc {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        line-clamp: 2;
-        -webkit-box-orient: vertical;
-    }
-
-    .borrow-card__actions {
-        margin-top: auto;
-    }
-
     .borrow-detail {
         display: flex;
         flex-direction: column;
@@ -454,32 +431,5 @@
         color: #1c2a44;
         line-height: 1.6;
         word-break: break-word;
-    }
-
-    @media (max-width: 1500px) {
-        .borrow-panel {
-            --admin-columns: 4;
-        }
-        .borrow-grid {
-            justify-content: center;
-        }
-    }
-
-    @media (max-width: 1200px) {
-        .borrow-panel {
-            --admin-columns: 3;
-        }
-    }
-
-    @media (max-width: 900px) {
-        .borrow-panel {
-            --admin-columns: 2;
-        }
-    }
-
-    @media (max-width: 640px) {
-        .borrow-panel {
-            --admin-columns: 1;
-        }
     }
 </style>

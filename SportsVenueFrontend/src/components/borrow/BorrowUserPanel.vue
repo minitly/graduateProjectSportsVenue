@@ -1,10 +1,19 @@
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, nextTick, reactive, ref, unref, watch } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { NButton, NCard, NDatePicker, NInput, NInputNumber, NModal, NSelect, NTag } from 'naive-ui'
 import api from '../../services/api'
 import { useToast } from '../../composables/useToast'
 import { getStatusText } from '../../constants/statusMap'
+
+const props = defineProps({
+  /** browse：可借器材列表；my：我的借用记录 */
+  section: {
+    type: String,
+    default: 'browse',
+    validator: (v) => ['browse', 'my'].includes(v)
+  }
+})
 
 const { pushToast } = useToast()
 const queryClient = useQueryClient()
@@ -16,6 +25,8 @@ const borrowPagination = reactive({ pageNo: 1, pageSize: 5 })
 const itemNameMap = reactive({})
 const expandedRecordIds = ref([])
 const debouncedSearch = ref(null)
+/** 重置筛选时跳过 watch，避免与手动 refetch 重复请求 */
+const suppressItemFiltersWatch = ref(false)
 
 const borrowModal = reactive({ show: false, item: null, quantity: 1, remark: '', submitting: false })
 
@@ -35,6 +46,7 @@ const itemTypeOptions = [
 
 const itemsQuery = useQuery({
   queryKey: computed(() => ['items', itemFilters.keyword, itemFilters.type, itemFilters.onlyAvailable, itemPagination.pageNo, itemPagination.pageSize]),
+  enabled: computed(() => props.section === 'browse'),
   queryFn: async () => {
     const response = await api.get('/items', {
       params: {
@@ -54,6 +66,7 @@ const itemsQuery = useQuery({
 
 const borrowsQuery = useQuery({
   queryKey: computed(() => ['myBorrows', borrowFilters.status, borrowFilters.keyword, borrowFilters.startTime, borrowFilters.endTime, borrowPagination.pageNo, borrowPagination.pageSize]),
+  enabled: computed(() => props.section === 'my'),
   queryFn: async () => {
     const response = await api.get('/borrows/my', {
       params: {
@@ -93,11 +106,42 @@ const borrowStats = computed(() => [
   { label: '当前状态', value: borrowFilters.status ? getStatusText(borrowFilters.status) : '全部' }
 ])
 
+/** useQuery 的 isFetching 为 Ref，直接传给 NButton :loading 会恒为真，需解包 */
+const isItemsFetching = computed(() => unref(itemsQuery.isFetching))
+const isBorrowsFetching = computed(() => unref(borrowsQuery.isFetching))
+
 watch(() => [itemFilters.keyword, itemFilters.type, itemFilters.onlyAvailable], () => {
+  if (suppressItemFiltersWatch.value) return
   itemPagination.pageNo = 1
   if (debouncedSearch.value) clearTimeout(debouncedSearch.value)
   debouncedSearch.value = setTimeout(() => itemsQuery.refetch(), 400)
 })
+
+watch(
+  () => itemPagination.pageSize,
+  (value, oldValue) => {
+    if (value === oldValue) return
+    if (!Number.isFinite(value) || value <= 0) {
+      itemPagination.pageSize = oldValue || 6
+      return
+    }
+    itemPagination.pageSize = Math.min(50, Math.max(1, Math.floor(value)))
+    itemPagination.pageNo = 1
+  }
+)
+
+watch(
+  () => borrowPagination.pageSize,
+  (value, oldValue) => {
+    if (value === oldValue) return
+    if (!Number.isFinite(value) || value <= 0) {
+      borrowPagination.pageSize = oldValue || 5
+      return
+    }
+    borrowPagination.pageSize = Math.min(50, Math.max(1, Math.floor(value)))
+    borrowPagination.pageNo = 1
+  }
+)
 
 async function hydrateItemNames(records) {
   const ids = [...new Set(records.map((record) => record.itemId).filter(Boolean))].filter((id) => !itemNameMap[id])
@@ -135,8 +179,32 @@ function toggleRecordExpand(id) {
   else expandedRecordIds.value = [...expandedRecordIds.value, id]
 }
 
-function refreshBorrows() {
+function queryBorrows() {
   queryClient.invalidateQueries({ queryKey: ['myBorrows'] })
+}
+
+function resetItemFilters() {
+  suppressItemFiltersWatch.value = true
+  if (debouncedSearch.value) clearTimeout(debouncedSearch.value)
+  debouncedSearch.value = null
+  itemFilters.keyword = ''
+  itemFilters.type = ''
+  itemFilters.onlyAvailable = false
+  itemPagination.pageNo = 1
+  itemsQuery.refetch()
+  nextTick(() => {
+    suppressItemFiltersWatch.value = false
+  })
+}
+
+function resetBorrowFilters() {
+  borrowFilters.status = ''
+  borrowFilters.keyword = ''
+  borrowFilters.range = null
+  borrowFilters.startTime = null
+  borrowFilters.endTime = null
+  borrowPagination.pageNo = 1
+  borrowsQuery.refetch()
 }
 
 function openBorrowModal(item) {
@@ -181,6 +249,7 @@ async function submitBorrow() {
 </script>
 
 <template>
+  <template v-if="section === 'browse'">
   <section class="card borrow-hero">
     <div>
       <p class="section-kicker">器材借用</p>
@@ -202,13 +271,16 @@ async function submitBorrow() {
       <label>只看可借</label>
       <NSelect v-model:value="itemFilters.onlyAvailable" :options="[{ label: '全部', value: false }, { label: '仅可借', value: true }]" />
     </div>
-    <div class="borrow-filters__actions"><NButton type="primary" :loading="itemsQuery.isFetching" @click="itemsQuery.refetch()">查询</NButton></div>
+    <div class="borrow-filters__actions">
+      <NButton type="primary" :loading="isItemsFetching" @click="itemsQuery.refetch()">查询</NButton>
+      <NButton tertiary @click="resetItemFilters">重置</NButton>
+    </div>
   </section>
 
   <section class="borrow-grid">
     <article v-for="item in itemsData" :key="item.id" class="borrow-card">
       <div class="borrow-card__header">
-        <div>
+        <div class="borrow-card__title-wrap">
           <h3>{{ item.name }}</h3>
           <p class="text-muted">{{ item.type || '未分类' }} · {{ item.model || '无型号' }}</p>
         </div>
@@ -225,7 +297,7 @@ async function submitBorrow() {
       </div>
     </article>
 
-    <div v-if="!itemsData.length && !itemsQuery.isFetching" class="empty-state">
+    <div v-if="!itemsData.length && !isItemsFetching" class="empty-state">
       <h3>暂无器材</h3><p>尝试调整筛选条件或稍后再来。</p>
     </div>
   </section>
@@ -233,10 +305,22 @@ async function submitBorrow() {
   <section class="pagination">
     <NButton tertiary @click="itemPagination.pageNo = Math.max(1, itemPagination.pageNo - 1); itemsQuery.refetch()" :disabled="itemPagination.pageNo <= 1">上一页</NButton>
     <span>第 {{ itemPagination.pageNo }} 页 / 共 {{ Math.ceil(itemsTotal / itemPagination.pageSize) || 1 }} 页</span>
+    <span style="display: inline-flex; align-items: center; gap: 8px;">
+      <span>每页</span>
+      <NInputNumber
+        v-model:value="itemPagination.pageSize"
+        :min="1"
+        :max="50"
+        :step="1"
+        style="width: 100px;"
+      />
+      <span>条</span>
+    </span>
     <NButton tertiary @click="itemPagination.pageNo += 1; itemsQuery.refetch()" :disabled="itemPagination.pageNo * itemPagination.pageSize >= itemsTotal">下一页</NButton>
   </section>
+  </template>
 
-  <section class="card borrow-panel">
+  <section v-if="section === 'my'" class="card borrow-panel borrow-panel--standalone">
     <div class="borrow-panel__header">
       <div><p class="section-kicker">我的借用</p><h3>借用记录与状态追踪</h3></div>
       <div class="borrow-panel__summary"><div v-for="stat in borrowStats" :key="stat.label" class="summary-card"><span>{{ stat.label }}</span><strong>{{ stat.value }}</strong></div></div>
@@ -246,34 +330,74 @@ async function submitBorrow() {
       <div><label>状态</label><NSelect v-model:value="borrowFilters.status" :options="statusOptions" /></div>
       <div><label>器材名称</label><NInput v-model:value="borrowFilters.keyword" placeholder="按器材名称筛选" /></div>
       <div><label>申请时间范围</label><NDatePicker v-model:value="borrowFilters.range" type="datetimerange" clearable @update:value="handleRangeChange" /></div>
-      <div class="borrow-panel__actions"><NButton type="primary" :loading="borrowsQuery.isFetching" @click="refreshBorrows">刷新</NButton></div>
+      <div class="borrow-panel__actions">
+        <NButton type="primary" :loading="isBorrowsFetching" @click="queryBorrows">查询</NButton>
+        <NButton tertiary @click="resetBorrowFilters">重置</NButton>
+      </div>
     </div>
 
-    <div class="borrow-panel__list">
-      <NCard v-for="record in borrowsData" :key="record.id" size="small" class="borrow-record" :bordered="true">
+    <div class="borrow-panel__list borrow-my-records">
+      <NCard v-for="record in borrowsData" :key="record.id" size="small" class="borrow-record borrow-record--user-my" :bordered="true">
         <template #header>
           <div class="borrow-record__header">
             <div><strong>借用单 #{{ record.id }}</strong><p class="text-muted">{{ itemNameMap[record.itemId] || `器材 ${record.itemId}` }}</p></div>
             <NTag :type="record.status === 'REQUESTED' ? 'info' : record.status === 'USING' ? 'warning' : 'success'">{{ getStatusText(record.status) }}</NTag>
           </div>
         </template>
-        <div class="borrow-record__body">
+        <div class="borrow-record__body borrow-record__body--compact">
           <div><span>数量</span><strong>{{ record.quantity }}</strong></div>
           <div><span>申请时间</span><strong>{{ formatDateTime(record.requestedTime || record.createTime) }}</strong></div>
           <div><span>备注</span><strong>{{ record.remark || '—' }}</strong></div>
         </div>
-        <div class="borrow-record__actions"><NButton text type="primary" @click="toggleRecordExpand(record.id)">{{ expandedRecordIds.includes(record.id) ? '收起详情' : '展开详情' }}</NButton></div>
+        <div class="borrow-record__actions">
+          <NButton size="small" tertiary type="primary" @click="toggleRecordExpand(record.id)">
+            {{ expandedRecordIds.includes(record.id) ? '收起详情' : '展开详情' }}
+          </NButton>
+        </div>
         <div v-if="expandedRecordIds.includes(record.id)" class="borrow-record__details">
           <div><span>借出确认时间</span><strong>{{ formatDateTime(record.approvedTime) || '—' }}</strong></div>
           <div><span>归还确认时间</span><strong>{{ formatDateTime(record.returnedTime) || '—' }}</strong></div>
-          <div><span>借出时器材状态</span><strong>{{ record.conditionOnBorrow || '—' }}</strong></div>
-          <div><span>归还时器材状态</span><strong>{{ record.conditionOnReturn || '—' }}</strong></div>
+          <div><span>借出时器材状态</span><strong>{{ getStatusText(record.conditionOnBorrow, '—') }}</strong></div>
+          <div><span>归还时器材状态</span><strong>{{ getStatusText(record.conditionOnReturn, '—') }}</strong></div>
         </div>
       </NCard>
+      <div v-if="!borrowsData.length && !isBorrowsFetching" class="empty-state">
+        <h3>暂无借用记录</h3>
+        <p>申请借用后会展示在这里。</p>
+      </div>
     </div>
+
+    <section class="pagination">
+      <NButton
+        tertiary
+        @click="borrowPagination.pageNo = Math.max(1, borrowPagination.pageNo - 1); borrowsQuery.refetch()"
+        :disabled="borrowPagination.pageNo <= 1"
+      >
+        上一页
+      </NButton>
+      <span>第 {{ borrowPagination.pageNo }} 页 / 共 {{ Math.ceil(borrowsTotal / borrowPagination.pageSize) || 1 }} 页</span>
+      <span style="display: inline-flex; align-items: center; gap: 8px;">
+        <span>每页</span>
+        <NInputNumber
+          v-model:value="borrowPagination.pageSize"
+          :min="1"
+          :max="50"
+          :step="1"
+          style="width: 100px;"
+        />
+        <span>条</span>
+      </span>
+      <NButton
+        tertiary
+        @click="borrowPagination.pageNo += 1; borrowsQuery.refetch()"
+        :disabled="borrowPagination.pageNo * borrowPagination.pageSize >= borrowsTotal"
+      >
+        下一页
+      </NButton>
+    </section>
   </section>
 
-  <NModal v-model:show="borrowModal.show" preset="card" class="booking-modal" title="提交借用申请">
+  <NModal v-if="section === 'browse'" v-model:show="borrowModal.show" preset="card" class="booking-modal" title="提交借用申请">
     <div class="booking-modal__header">
       <div><h3>{{ borrowModal.item?.name }}</h3><p class="text-muted">可借数量：{{ borrowModal.item?.availableQuantity }}</p></div>
       <NTag type="info">{{ borrowModal.item?.type || '未分类' }}</NTag>
@@ -283,3 +407,84 @@ async function submitBorrow() {
     <div class="booking-modal__actions"><NButton @click="closeBorrowModal">取消</NButton><NButton type="primary" :loading="borrowModal.submitting" @click="submitBorrow">提交申请</NButton></div>
   </NModal>
 </template>
+
+<style scoped>
+/* 列表内卡片按内容高度，避免 Grid 同行拉伸 / n-card-content flex:1 在底部留白 */
+.borrow-my-records {
+  align-items: start;
+}
+
+.borrow-my-records :deep(.borrow-record--user-my.n-card) {
+  --n-padding-top: 10px;
+  --n-padding-bottom: 10px;
+  --n-padding-left: 14px;
+  width: 100%;
+  max-width: 100%;
+  height: fit-content;
+  align-self: start;
+}
+
+/* Naive Card 默认 .n-card-content { flex: 1 } 会撑满卡片剩余高度，产生「展开详情」下方的空白带 */
+.borrow-my-records :deep(.borrow-record--user-my .n-card-content) {
+  flex: 0 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* 与主题左右留白一致，略补上下使主信息与操作区节奏均匀 */
+  padding: 4px var(--n-padding-left) 4px var(--n-padding-left);
+}
+
+.borrow-my-records :deep(.borrow-record--user-my .n-card-header) {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.borrow-my-records :deep(.borrow-record__body--compact) {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px 12px;
+  align-items: start;
+  justify-items: stretch;
+  font-size: 13px;
+}
+
+.borrow-my-records :deep(.borrow-record__body--compact > div) {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+}
+
+.borrow-my-records :deep(.borrow-record__body--compact span) {
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.borrow-my-records :deep(.borrow-record__body--compact strong) {
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.borrow-my-records :deep(.borrow-record__header .text-muted) {
+  margin-top: 2px;
+  margin-bottom: 0;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.borrow-my-records :deep(.borrow-record__actions) {
+  margin-top: 0;
+  padding-top: 2px;
+}
+
+.borrow-my-records :deep(.borrow-record__details) {
+  margin-top: 0;
+}
+
+@media (max-width: 520px) {
+  .borrow-my-records :deep(.borrow-record__body--compact) {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+}
+</style>

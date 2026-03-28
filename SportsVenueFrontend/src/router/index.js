@@ -60,6 +60,15 @@ const routes = [
                 },
             },
             {
+                path: "my-borrows",
+                name: "my-borrows",
+                component: BorrowPage,
+                meta: {
+                    title: "我的借用",
+                    subtitle: "查看借用记录与状态",
+                },
+            },
+            {
                 path: "borrow-approval",
                 name: "borrow-approval",
                 component: BorrowApprovalPage,

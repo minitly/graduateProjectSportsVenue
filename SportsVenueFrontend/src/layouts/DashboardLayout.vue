@@ -6,6 +6,7 @@ import {
   MapPinned,
   CalendarCheck2,
   Package,
+  ClipboardList,
   ClipboardCheck,
   UserCircle2,
   Bell,
@@ -206,13 +207,32 @@ const userMenuItems = (() => {
     }
     return item
   })
-  const notices = withUserLabels.find((item) => item.path === '/app/notices')
-  const rest = withUserLabels.filter((item) => item.path !== '/app/notices')
-  return notices ? [notices, ...rest] : [...withUserLabels]
+  const expanded = []
+  for (const item of withUserLabels) {
+    if (item.path === '/app/borrow') {
+      expanded.push(
+        {
+          label: '器材借用',
+          description: '查看可借器材并提交借用申请',
+          path: '/app/borrow'
+        },
+        {
+          label: '我的借用',
+          description: '查看借用记录与状态',
+          path: '/app/my-borrows'
+        }
+      )
+    } else {
+      expanded.push(item)
+    }
+  }
+  const notices = expanded.find((item) => item.path === '/app/notices')
+  const rest = expanded.filter((item) => item.path !== '/app/notices')
+  return notices ? [notices, ...rest] : [...expanded]
 })()
 
 const adminMenuBase = baseMenuItems
-  .filter((item) => item.path !== '/app/profile')
+  .filter((item) => item.path !== '/app/profile' && item.path !== '/app/notices')
   .map((item) =>
     item.path === '/app/borrow'
       ? {
@@ -222,6 +242,12 @@ const adminMenuBase = baseMenuItems
         }
       : item
   )
+
+const noticesMenuItem = {
+  label: '公告中心',
+  description: '查看平台公告与运营通知',
+  path: '/app/notices'
+}
 
 const menuItems = computed(() => {
   if (authStore.role === 'ADMIN' || authStore.role === 'OWNER') {
@@ -233,9 +259,10 @@ const menuItems = computed(() => {
               label: '借用审批',
               description: '审批借用申请并确认归还',
               path: '/app/borrow-approval'
-            }
+            },
+            noticesMenuItem
           ]
-        : []),
+        : [noticesMenuItem]),
       {
         label: '用户管理',
         description: '查看用户状态并执行启用/禁用',
@@ -266,6 +293,7 @@ const pathIconMap = {
   '/app/venues': MapPinned,
   '/app/bookings': CalendarCheck2,
   '/app/borrow': Package,
+  '/app/my-borrows': ClipboardList,
   '/app/borrow-approval': ClipboardCheck,
   '/app/profile': UserCircle2,
   '/app/notices': Bell,
@@ -299,6 +327,18 @@ const pageHeader = computed(() => {
       return {
         title: '我的预约',
         subtitle: '查看预约记录与状态'
+      }
+    }
+    if (path === '/app/borrow') {
+      return {
+        title: '器材借用',
+        subtitle: '查看可借器材并提交借用申请'
+      }
+    }
+    if (path === '/app/my-borrows') {
+      return {
+        title: '我的借用',
+        subtitle: '查看借用记录与状态'
       }
     }
   }
