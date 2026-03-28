@@ -169,6 +169,11 @@ async function openDetail(item) {
   }
 }
 
+function onUserNoticeCardActivate(item) {
+  if (isOwner.value) return
+  openDetail(item)
+}
+
 function openCreatePage() {
   editForm.id = null
   editForm.title = ''
@@ -306,26 +311,56 @@ function formatDateTime(value) {
       </section>
 
       <section class="borrow-panel__list">
-        <NCard v-for="item in notices" :key="item.id" size="small" class="borrow-record">
-          <template #header>
-            <div class="borrow-record__header"><div><strong>{{ item.title }}</strong><p class="text-muted">发布时间：{{ formatDisplayDateTime(item.publishTime) }}</p></div><NTag :type="statusTagType(item.status)">{{ getStatusText(item.status) }}</NTag></div>
-          </template>
-          <div class="borrow-record__body">
-            <div><span>创建时间</span><strong>{{ formatDateTime(item.createTime) }}</strong></div>
-            <div><span>更新时间</span><strong>{{ formatDateTime(item.updateTime) }}</strong></div>
-            <div v-if="isOwner"><span>创建人</span><strong>{{ item.createBy ?? '—' }}</strong></div>
-            <div v-if="isOwner"><span>更新人</span><strong>{{ item.updateBy ?? '—' }}</strong></div>
-          </div>
-          <div class="borrow-record__actions" style="gap: 8px; justify-content: flex-end; flex-wrap: wrap;">
-            <NButton size="small" tertiary @click="openDetail(item)">查看详情</NButton>
-            <template v-if="isOwner">
-              <NButton size="small" type="primary" tertiary @click="openEditPage(item)">编辑</NButton>
-              <NButton size="small" type="success" tertiary :disabled="item.status === 'PUBLISHED'" @click="confirmSwitchStatus(item, 'PUBLISHED')">发布</NButton>
-              <NButton size="small" tertiary :disabled="item.status === 'OFFLINE'" @click="confirmSwitchStatus(item, 'OFFLINE')">下线</NButton>
-              <NButton size="small" type="error" tertiary @click="confirmRemoveNotice(item)">删除</NButton>
+        <div
+          v-for="item in notices"
+          :key="item.id"
+          class="notice-list-item"
+          :class="{ 'notice-list-item--user-clickable': !isOwner }"
+          :role="isOwner ? undefined : 'button'"
+          :tabindex="isOwner ? undefined : 0"
+          @click="onUserNoticeCardActivate(item)"
+          @keyup.enter="onUserNoticeCardActivate(item)"
+        >
+          <NCard size="small" class="borrow-record">
+            <template #header>
+              <div class="borrow-record__header">
+                <div>
+                  <strong>{{ item.title }}</strong>
+                  <p class="text-muted">发布时间：{{ formatDisplayDateTime(item.publishTime) }}</p>
+                </div>
+                <NTag v-if="isOwner" :type="statusTagType(item.status)">{{ getStatusText(item.status) }}</NTag>
+              </div>
             </template>
-          </div>
-        </NCard>
+            <div v-if="isOwner" class="borrow-record__body">
+              <div><span>创建时间</span><strong>{{ formatDateTime(item.createTime) }}</strong></div>
+              <div><span>更新时间</span><strong>{{ formatDateTime(item.updateTime) }}</strong></div>
+              <div><span>创建人</span><strong>{{ item.createByUsername ?? '—' }}</strong></div>
+              <div><span>更新人</span><strong>{{ item.updateByUsername ?? '—' }}</strong></div>
+            </div>
+            <div v-if="isOwner" class="borrow-record__actions" style="gap: 8px; justify-content: flex-end; flex-wrap: wrap;">
+              <NButton size="small" tertiary @click.stop="openDetail(item)">查看详情</NButton>
+              <NButton size="small" type="primary" tertiary @click.stop="openEditPage(item)">编辑</NButton>
+              <NButton
+                size="small"
+                type="success"
+                tertiary
+                :disabled="item.status === 'PUBLISHED'"
+                @click.stop="confirmSwitchStatus(item, 'PUBLISHED')"
+              >
+                发布
+              </NButton>
+              <NButton
+                size="small"
+                tertiary
+                :disabled="item.status === 'OFFLINE'"
+                @click.stop="confirmSwitchStatus(item, 'OFFLINE')"
+              >
+                下线
+              </NButton>
+              <NButton size="small" type="error" tertiary @click.stop="confirmRemoveNotice(item)">删除</NButton>
+            </div>
+          </NCard>
+        </div>
         <div v-if="!notices.length && !isQueryLoading" class="empty-state"><h3>暂无公告数据</h3><p>请调整筛选条件后重试。</p></div>
       </section>
 
@@ -367,17 +402,54 @@ function formatDateTime(value) {
       </section>
     </template>
 
-    <NModal v-model:show="detailModal.show" preset="card" title="公告详情" class="booking-modal">
+    <NModal v-model:show="detailModal.show" preset="card" title="公告详情" class="booking-modal notice-detail-modal-host">
       <div v-if="detailModal.loading" class="text-muted">加载中...</div>
-      <div v-else-if="detailModal.data" class="detail-grid">
-        <div><span>公告ID</span><strong>{{ detailModal.data.id }}</strong></div>
-        <div><span>标题</span><strong>{{ detailModal.data.title }}</strong></div>
-        <div><span>状态</span><strong>{{ getStatusText(detailModal.data.status) }}</strong></div>
-        <div><span>发布时间</span><strong>{{ formatDateTime(detailModal.data.publishTime) }}</strong></div>
-        <div><span>创建时间</span><strong>{{ formatDateTime(detailModal.data.createTime) }}</strong></div>
-        <div><span>更新时间</span><strong>{{ formatDateTime(detailModal.data.updateTime) }}</strong></div>
+      <div v-else-if="detailModal.data" class="notice-detail-modal">
+        <h2 class="notice-detail-modal__title">{{ detailModal.data.title }}</h2>
+
+        <div class="notice-detail-modal__body">
+          <div class="notice-detail-modal__body-label">正文</div>
+          <div class="notice-detail-modal__content notice-html-preview" v-html="safeDetailHtml"></div>
+        </div>
+
+        <div
+          class="notice-detail-modal__meta"
+          :class="{ 'notice-detail-modal__meta--owner': isOwner }"
+        >
+          <template v-if="isOwner">
+            <div class="notice-detail-meta-row">
+              <span>状态</span>
+              <strong>{{ getStatusText(detailModal.data.status) }}</strong>
+            </div>
+            <div class="notice-detail-meta-row">
+              <span>发布时间</span>
+              <strong>{{ formatDateTime(detailModal.data.publishTime) || '—' }}</strong>
+            </div>
+            <div class="notice-detail-meta-row">
+              <span>创建时间</span>
+              <strong>{{ formatDateTime(detailModal.data.createTime) || '—' }}</strong>
+            </div>
+            <div class="notice-detail-meta-row">
+              <span>更新时间</span>
+              <strong>{{ formatDateTime(detailModal.data.updateTime) || '—' }}</strong>
+            </div>
+            <div class="notice-detail-meta-row">
+              <span>创建人</span>
+              <strong>{{ detailModal.data.createByUsername ?? '—' }}</strong>
+            </div>
+            <div class="notice-detail-meta-row">
+              <span>更新人</span>
+              <strong>{{ detailModal.data.updateByUsername ?? '—' }}</strong>
+            </div>
+          </template>
+          <template v-else>
+            <div class="notice-detail-meta-row">
+              <span>发布时间</span>
+              <strong>{{ formatDateTime(detailModal.data.publishTime) || '—' }}</strong>
+            </div>
+          </template>
+        </div>
       </div>
-      <div v-if="detailModal.data" class="booking-modal__section"><label>正文（HTML渲染）</label><div class="notice-html-preview" v-html="safeDetailHtml"></div></div>
       <div class="booking-modal__actions"><NButton type="primary" @click="detailModal.show = false">关闭</NButton></div>
     </NModal>
   </div>
