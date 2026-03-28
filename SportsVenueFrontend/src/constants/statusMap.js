@@ -23,8 +23,8 @@ export const STATUS_TEXT_MAP = {
 
   // 器材状态（如有展示）
   GOOD: '完好',
-  WORN: '轻微磨损',
-  DAMAGED: '损坏'
+  DAMAGED: '损坏',
+  LOST: '丢失'
 }
 
 export function getStatusText(status, fallback = '未知状态') {

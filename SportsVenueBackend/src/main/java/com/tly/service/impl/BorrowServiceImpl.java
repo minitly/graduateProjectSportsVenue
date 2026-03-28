@@ -137,14 +137,16 @@ public class BorrowServiceImpl implements BorrowService {
 
         // 根据归还状况调整库存
         int quantity = exists.getQuantity() == null ? 0 : exists.getQuantity();
+        int availableQuantity = item.getAvailableQuantity() == null ? 0 : item.getAvailableQuantity();
+        int damagedQuantity = item.getDamagedQuantity() == null ? 0 : item.getDamagedQuantity();
         if ("GOOD".equalsIgnoreCase(conditionOnReturn)) {
-            item.setAvailableQuantity(item.getAvailableQuantity() + quantity);
+            item.setAvailableQuantity(availableQuantity + quantity);
         } else if ("DAMAGED".equalsIgnoreCase(conditionOnReturn)) {
-            item.setDamagedQuantity(item.getDamagedQuantity() + quantity);
+            item.setDamagedQuantity(damagedQuantity + quantity);
             // 损坏不恢复可借数量
         } else if ("LOST".equalsIgnoreCase(conditionOnReturn)) {
             // 丢失：总数和可借数均不恢复，只作为损失记入 damagedQuantity
-            item.setDamagedQuantity(item.getDamagedQuantity() + quantity);
+            item.setDamagedQuantity(damagedQuantity + quantity);
         }
 
         warehouseItemMapper.update(item);

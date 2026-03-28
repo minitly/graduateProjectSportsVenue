@@ -4,6 +4,7 @@ import AuthPage from "../views/AuthPage.vue";
 import DashboardLayout from "../layouts/DashboardLayout.vue";
 import VenuesPage from "../views/VenuesPage.vue";
 import BorrowPage from "../views/BorrowPage.vue";
+import BorrowApprovalPage from "../views/BorrowApprovalPage.vue";
 import ProfilePage from "../views/ProfilePage.vue";
 import AdminUsersPage from "../views/AdminUsersPage.vue";
 import AdminAnalyticsPage from "../views/AdminAnalyticsPage.vue";
@@ -56,6 +57,16 @@ const routes = [
                 meta: {
                     title: "器材借用",
                     subtitle: "查看可借器材并发起借用流程",
+                },
+            },
+            {
+                path: "borrow-approval",
+                name: "borrow-approval",
+                component: BorrowApprovalPage,
+                meta: {
+                    title: "借用审批",
+                    subtitle: "审批借用申请并确认归还",
+                    roles: ["OWNER"],
                 },
             },
             {

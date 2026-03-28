@@ -10,6 +10,7 @@ const adminPanelRef = ref(null)
 
 const isOwner = computed(() => authStore.role === 'OWNER')
 const isAdmin = computed(() => authStore.role === 'ADMIN')
+const isOwnerOrAdmin = computed(() => isOwner.value || isAdmin.value)
 
 onMounted(() => {
   authStore.hydrate()
@@ -22,8 +23,13 @@ function handleEditFromUser(item) {
 
 <template>
   <div class="borrow-page">
-    <BorrowAdminPanel v-if="isAdmin" ref="adminPanelRef" />
+    <BorrowAdminPanel v-if="isOwnerOrAdmin" ref="adminPanelRef" />
     <BorrowUserPanel v-if="!isOwner && !isAdmin" @edit-item="handleEditFromUser" />
-    <BorrowOwnerPanel v-if="isOwner" />
   </div>
 </template>
+
+<style scoped>
+.borrow-page {
+  min-height: 860px;
+}
+</style>

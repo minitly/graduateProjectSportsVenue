@@ -6,6 +6,7 @@ import {
   MapPinned,
   CalendarCheck2,
   Package,
+  ClipboardCheck,
   UserCircle2,
   Bell,
   Users,
@@ -217,7 +218,7 @@ const adminMenuBase = baseMenuItems
       ? {
           ...item,
           label: '器材管理',
-          description: '查看器材库存与借用审批'
+          description: '维护器材台账与库存'
         }
       : item
   )
@@ -226,6 +227,15 @@ const menuItems = computed(() => {
   if (authStore.role === 'ADMIN' || authStore.role === 'OWNER') {
     return [
       ...adminMenuBase,
+      ...(authStore.role === 'OWNER'
+        ? [
+            {
+              label: '借用审批',
+              description: '审批借用申请并确认归还',
+              path: '/app/borrow-approval'
+            }
+          ]
+        : []),
       {
         label: '用户管理',
         description: '查看用户状态并执行启用/禁用',
@@ -256,6 +266,7 @@ const pathIconMap = {
   '/app/venues': MapPinned,
   '/app/bookings': CalendarCheck2,
   '/app/borrow': Package,
+  '/app/borrow-approval': ClipboardCheck,
   '/app/profile': UserCircle2,
   '/app/notices': Bell,
   '/app/admin-users': Users,
@@ -294,7 +305,13 @@ const pageHeader = computed(() => {
   if ((role === 'ADMIN' || role === 'OWNER') && path === '/app/borrow') {
     return {
       title: '器材管理',
-      subtitle: '查看器材库存与借用审批'
+      subtitle: '维护器材台账与库存'
+    }
+  }
+  if (role === 'OWNER' && path === '/app/borrow-approval') {
+    return {
+      title: '借用审批',
+      subtitle: '审批借用申请并确认归还'
     }
   }
   return {
