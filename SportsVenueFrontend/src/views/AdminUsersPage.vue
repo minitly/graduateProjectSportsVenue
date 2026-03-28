@@ -1,5 +1,5 @@
 <script setup>
-import { computed, reactive } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import {
   NButton,
@@ -42,12 +42,22 @@ const createModal = reactive({
   form: {
     username: '',
     password: '',
+    confirmPassword: '',
+    adminPassword: '',
     realName: '',
     role: 'USER',
     status: 1,
     phone: '',
     email: ''
   }
+})
+
+const createFormErrors = reactive({
+  username: '',
+  password: '',
+  confirmPassword: '',
+  realName: '',
+  adminPassword: ''
 })
 
 const detailModal = reactive({
@@ -132,12 +142,19 @@ function resetCreateForm() {
   createModal.form = {
     username: '',
     password: '',
+    confirmPassword: '',
+    adminPassword: '',
     realName: '',
     role: 'USER',
     status: 1,
     phone: '',
     email: ''
   }
+  createFormErrors.username = ''
+  createFormErrors.password = ''
+  createFormErrors.confirmPassword = ''
+  createFormErrors.realName = ''
+  createFormErrors.adminPassword = ''
 }
 
 function openCreateModal() {
@@ -150,19 +167,45 @@ function closeCreateModal() {
 }
 
 function validateCreateForm() {
-  if (!createModal.form.username.trim()) {
-    pushToast('请输入用户名', 'warning')
-    return false
+  createFormErrors.username = ''
+  createFormErrors.password = ''
+  createFormErrors.confirmPassword = ''
+  createFormErrors.realName = ''
+  createFormErrors.adminPassword = ''
+
+  const username = createModal.form.username?.trim() || ''
+  const password = createModal.form.password || ''
+  const confirmPassword = createModal.form.confirmPassword || ''
+  const realName = createModal.form.realName?.trim() || ''
+  const adminPassword = createModal.form.adminPassword?.trim() || ''
+
+  let valid = true
+
+  if (!username) {
+    createFormErrors.username = '请输入用户名'
+    valid = false
   }
-  if (!createModal.form.password.trim()) {
-    pushToast('请输入初始密码', 'warning')
-    return false
+  if (!password) {
+    createFormErrors.password = '请输入初始密码'
+    valid = false
   }
-  if (!createModal.form.realName.trim()) {
-    pushToast('请输入真实姓名', 'warning')
-    return false
+  if (!confirmPassword) {
+    createFormErrors.confirmPassword = '请再次输入初始密码'
+    valid = false
+  } else if (password && password !== confirmPassword) {
+    createFormErrors.confirmPassword = '两次输入的初始密码不一致'
+    valid = false
   }
-  return true
+  if (!realName) {
+    createFormErrors.realName = '请输入真实姓名'
+    valid = false
+  }
+  if (createModal.form.role === 'OWNER' && !adminPassword) {
+    createFormErrors.adminPassword = '创建场馆管理员时请填写管理员密码'
+    valid = false
+  }
+
+  return valid
 }
 
 async function submitCreateUser() {
@@ -174,6 +217,7 @@ async function submitCreateUser() {
       password: createModal.form.password,
       realName: createModal.form.realName.trim(),
       role: createModal.form.role,
+      adminPassword: createModal.form.role === 'OWNER' ? createModal.form.adminPassword.trim() : undefined,
       status: createModal.form.status,
       phone: createModal.form.phone?.trim() || undefined,
       email: createModal.form.email?.trim() || undefined
@@ -323,6 +367,52 @@ function prevPage() {
   pagination.pageNo -= 1
 }
 
+watch(
+  () => createModal.form.username,
+  () => {
+    if (createFormErrors.username) createFormErrors.username = ''
+  }
+)
+
+watch(
+  () => createModal.form.password,
+  () => {
+    if (createFormErrors.password) createFormErrors.password = ''
+    if (createFormErrors.confirmPassword) createFormErrors.confirmPassword = ''
+  }
+)
+
+watch(
+  () => createModal.form.confirmPassword,
+  () => {
+    if (createFormErrors.confirmPassword) createFormErrors.confirmPassword = ''
+  }
+)
+
+watch(
+  () => createModal.form.realName,
+  () => {
+    if (createFormErrors.realName) createFormErrors.realName = ''
+  }
+)
+
+watch(
+  () => createModal.form.adminPassword,
+  () => {
+    if (createFormErrors.adminPassword) createFormErrors.adminPassword = ''
+  }
+)
+
+watch(
+  () => createModal.form.role,
+  (role) => {
+    if (role !== 'OWNER') {
+      createModal.form.adminPassword = ''
+      createFormErrors.adminPassword = ''
+    }
+  }
+)
+
 function formatDateTime(value) {
   if (!value) return '—'
   const date = new Date(value)
@@ -420,12 +510,39 @@ function formatDateTime(value) {
     </section>
 
     <NModal v-model:show="createModal.show" preset="card" title="创建用户" class="booking-modal">
-      <div class="booking-modal__section"><label>用户名 *</label><NInput v-model:value="createModal.form.username" /></div>
-      <div class="booking-modal__section"><label>初始密码 *</label><NInput v-model:value="createModal.form.password" type="password" /></div>
-      <div class="booking-modal__section"><label>真实姓名 *</label><NInput v-model:value="createModal.form.realName" /></div>
+      <div class="booking-modal__section">
+        <label>用户名 *</label>
+        <NInput v-model:value="createModal.form.username" :status="createFormErrors.username ? 'error' : undefined" />
+        <p v-if="createFormErrors.username" class="error-text">{{ createFormErrors.username }}</p>
+      </div>
+      <div class="booking-modal__section">
+        <label>初始密码 *</label>
+        <NInput v-model:value="createModal.form.password" type="password" :status="createFormErrors.password ? 'error' : undefined" />
+        <p v-if="createFormErrors.password" class="error-text">{{ createFormErrors.password }}</p>
+      </div>
+      <div class="booking-modal__section">
+        <label>确认初始密码 *</label>
+        <NInput v-model:value="createModal.form.confirmPassword" type="password" :status="createFormErrors.confirmPassword ? 'error' : undefined" />
+        <p v-if="createFormErrors.confirmPassword" class="error-text">{{ createFormErrors.confirmPassword }}</p>
+      </div>
+      <div class="booking-modal__section">
+        <label>真实姓名 *</label>
+        <NInput v-model:value="createModal.form.realName" :status="createFormErrors.realName ? 'error' : undefined" />
+        <p v-if="createFormErrors.realName" class="error-text">{{ createFormErrors.realName }}</p>
+      </div>
       <div class="booking-modal__section two-col">
         <div><label>角色</label><NSelect v-model:value="createModal.form.role" :options="roleOptions" /></div>
         <div><label>状态</label><NSelect v-model:value="createModal.form.status" :options="statusOptions.filter((item) => item.value !== '')" /></div>
+      </div>
+      <div v-if="createModal.form.role === 'OWNER'" class="booking-modal__section">
+        <label>创建管理人员密码 *</label>
+        <NInput
+          v-model:value="createModal.form.adminPassword"
+          type="password"
+          placeholder="请输入系统管理员密码"
+          :status="createFormErrors.adminPassword ? 'error' : undefined"
+        />
+        <p v-if="createFormErrors.adminPassword" class="error-text">{{ createFormErrors.adminPassword }}</p>
       </div>
       <div class="booking-modal__section two-col">
         <div><label>手机号</label><NInput v-model:value="createModal.form.phone" /></div>
