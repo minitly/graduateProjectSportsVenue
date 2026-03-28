@@ -39,6 +39,19 @@ public class UserServiceImpl implements UserService {
             return Result.fail(400, "用户名已存在");
         }
 
+        if ("OWNER".equals(role)) {
+            if (!StringUtils.hasText(request.getAdminPassword())) {
+                return Result.fail(400, "创建场地管理员时必须提供 ADMIN 密码");
+            }
+            SysUser admin = sysUserMapper.findByUsername("admin");
+            if (admin == null || !"ADMIN".equalsIgnoreCase(admin.getRole())) {
+                return Result.fail(400, "系统 ADMIN 账号不存在，请先初始化管理员");
+            }
+            if (!PasswordUtil.matches(request.getAdminPassword(), admin.getPassword())) {
+                return Result.fail(403, "ADMIN 密码错误，禁止创建场地管理员");
+            }
+        }
+
         SysUser user = new SysUser();
         user.setUsername(request.getUsername());
         user.setPassword(PasswordUtil.encode(request.getPassword()));

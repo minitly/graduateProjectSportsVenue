@@ -1,5 +1,6 @@
 package com.tly.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -34,5 +35,11 @@ public class SysUser {
     private String email;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
+
+    /**
+     * 管理端创建 OWNER 时请求体携带，与系统 ADMIN 登录密码比对；不落库、不序列化到响应。
+     */
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private String adminPassword;
 }
 
