@@ -124,11 +124,11 @@ const venuesTotal = computed(() => venuesQuery.data?.total || venuesQuery.data?.
 const isVenuesFetching = computed(() => Boolean(venuesQuery.isFetching?.value ?? venuesQuery.isFetching))
 
 watch(
-  venuesData,
-  (records) => {
-    hydrateVenueImages(records)
-  },
-  { immediate: true }
+    venuesData,
+    (records) => {
+      hydrateVenueImages(records)
+    },
+    { immediate: true }
 )
 
 const stats = computed(() => [
@@ -224,6 +224,7 @@ const bookingStatusOptions = [
 ]
 
 const bookingFilters = reactive({
+  venueName: '',
   status: '',
   startDate: null,
   endDate: null
@@ -311,17 +312,17 @@ const unavailableSlots = computed(() => {
 })
 
 const timeSlotOptions = computed(() =>
-  timeSlots.value.map((slot) => ({
-    ...slot,
-    disabled: unavailableSlots.value.includes(slot.value) || isPastStartSlot(slot.value)
-  }))
+    timeSlots.value.map((slot) => ({
+      ...slot,
+      disabled: unavailableSlots.value.includes(slot.value) || isPastStartSlot(slot.value)
+    }))
 )
 
 const occupiedRanges = computed(() =>
-  bookingModal.occupied.map((slot) => ({
-    start: slot.slotStartTime,
-    end: slot.slotEndTime
-  }))
+    bookingModal.occupied.map((slot) => ({
+      start: slot.slotStartTime,
+      end: slot.slotEndTime
+    }))
 )
 
 const slotStatusList = computed(() => {
@@ -376,7 +377,6 @@ function formatDate(timestamp) {
   return new Date(timestamp).toISOString().slice(0, 10)
 }
 
-
 function getSlotEndBoundary(slotIndex) {
   return timeSlots.value[slotIndex + 1]?.value || bookingModal.venue?.closeTime || timeSlots.value[slotIndex]?.value
 }
@@ -409,8 +409,8 @@ function handleSlotSelect(slot) {
   }
 
   const hasOccupiedBetween = timeSlots.value
-    .slice(startIndex, clickedIndex + 1)
-    .some((item) => unavailableSlots.value.includes(item.value))
+      .slice(startIndex, clickedIndex + 1)
+      .some((item) => unavailableSlots.value.includes(item.value))
 
   if (hasOccupiedBetween) {
     pushToast('选中区间包含已占用时段，请重新选择', 'warning')
@@ -430,6 +430,7 @@ function clearSlotSelection() {
 
 const bookingsQueryKey = computed(() => [
   'myBookings',
+  bookingFilters.venueName,
   bookingFilters.status,
   bookingFilters.startDate,
   bookingFilters.endDate,
@@ -442,6 +443,7 @@ const bookingsQuery = useQuery({
   queryFn: async () => {
     const response = await api.get('/bookings/my', {
       params: {
+        venueName: bookingFilters.venueName || undefined,
         status: bookingFilters.status || undefined,
         startDate: bookingFilters.startDate || undefined,
         endDate: bookingFilters.endDate || undefined,
@@ -469,7 +471,7 @@ const myBookingsTotal = computed(() => bookingsQuery.data?.total || bookingsQuer
 const isBookingsFetching = computed(() => Boolean(bookingsQuery.isFetching?.value ?? bookingsQuery.isFetching))
 
 const ownerBookingFilters = reactive({
-  venueId: '',
+  venueName: '',
   username: '',
   status: '',
   startDate: null,
@@ -508,7 +510,7 @@ const ownerBookingDateRange = computed({
 const ownerBookingsQuery = useQuery({
   queryKey: computed(() => [
     'ownerBookings',
-    ownerBookingFilters.venueId,
+    ownerBookingFilters.venueName,
     ownerBookingFilters.username,
     ownerBookingFilters.status,
     ownerBookingFilters.startDate,
@@ -519,7 +521,7 @@ const ownerBookingsQuery = useQuery({
   queryFn: async () => {
     const response = await api.get('/bookings', {
       params: {
-        venueId: ownerBookingFilters.venueId || undefined,
+        venueName: ownerBookingFilters.venueName || undefined,
         username: ownerBookingFilters.username || undefined,
         status: ownerBookingFilters.status || undefined,
         startDate: ownerBookingFilters.startDate || undefined,
@@ -543,7 +545,7 @@ const ownerBookingsQuery = useQuery({
 const ownerBookingsData = computed(() => ownerBookingsQuery.data?.records || ownerBookingsQuery.data?.value?.records || [])
 const ownerBookingsTotal = computed(() => ownerBookingsQuery.data?.total || ownerBookingsQuery.data?.value?.total || 0)
 const isOwnerBookingsFetching = computed(
-  () => Boolean(ownerBookingsQuery.isFetching?.value ?? ownerBookingsQuery.isFetching)
+    () => Boolean(ownerBookingsQuery.isFetching?.value ?? ownerBookingsQuery.isFetching)
 )
 
 function applyPageSizeUpdate(currentSize, nextSize, apply) {
@@ -557,9 +559,9 @@ function calculateVenuePageSize() {
   const styles = window.getComputedStyle(container)
   const columnTemplate = styles.gridTemplateColumns || ''
   const columns = columnTemplate
-    .split(' ')
-    .map((token) => token.trim())
-    .filter(Boolean).length || 1
+      .split(' ')
+      .map((token) => token.trim())
+      .filter(Boolean).length || 1
 
   const containerRect = container.getBoundingClientRect()
   const cardEl = container.querySelector('.venue-card')
@@ -593,44 +595,44 @@ function setupResizeObservers() {
 
 async function hydrateVenueNames(records) {
   const ids = [...new Set(records.map((item) => item.venueId).filter(Boolean))].filter(
-    (id) => !venueNameMap[id]
+      (id) => !venueNameMap[id]
   )
   if (!ids.length) return
   await Promise.all(
-    ids.map(async (id) => {
-      try {
-        const response = await api.get(`/venues/${id}`)
-        if (response.code === 200 && response.data) {
-          venueNameMap[id] = response.data.name || `场地 ${id}`
+      ids.map(async (id) => {
+        try {
+          const response = await api.get(`/venues/${id}`)
+          if (response.code === 200 && response.data) {
+            venueNameMap[id] = response.data.name || `场地 ${id}`
+          }
+        } catch (error) {
+          venueNameMap[id] = `场地 ${id}`
         }
-      } catch (error) {
-        venueNameMap[id] = `场地 ${id}`
-      }
-    })
+      })
   )
 }
 
 async function hydrateVenueImages(records) {
   const tasks = records
-    .map((venue) => ({ id: venue.id, url: venue.coverImageUrl }))
-    .filter((item) => item.id && item.url && !venueImageMap[item.id])
+      .map((venue) => ({ id: venue.id, url: venue.coverImageUrl }))
+      .filter((item) => item.id && item.url && !venueImageMap[item.id])
   if (!tasks.length) return
   await Promise.all(
-    tasks.map(async (item) => {
-      try {
-        const response = await api.get('/files/serve', {
-          params: {
-            path: item.url
+      tasks.map(async (item) => {
+        try {
+          const response = await api.get('/files/serve', {
+            params: {
+              path: item.url
+            }
+          })
+          if (response.code === 200 && response.data?.images?.length) {
+            const image = response.data.images[0]
+            venueImageMap[item.id] = `data:${image.contentType};base64,${image.content}`
           }
-        })
-        if (response.code === 200 && response.data?.images?.length) {
-          const image = response.data.images[0]
-          venueImageMap[item.id] = `data:${image.contentType};base64,${image.content}`
+        } catch (error) {
+          venueImageMap[item.id] = ''
         }
-      } catch (error) {
-        venueImageMap[item.id] = ''
-      }
-    })
+      })
   )
 }
 
@@ -675,6 +677,7 @@ async function prevBookingPage() {
 }
 
 function resetBookingFilters() {
+  bookingFilters.venueName = ''
   bookingFilters.status = ''
   bookingFilters.startDate = null
   bookingFilters.endDate = null
@@ -682,7 +685,48 @@ function resetBookingFilters() {
   queryClient.invalidateQueries({ queryKey: ['myBookings'] })
 }
 
-function openBookingModal(venue) {
+function showViolationBlockedDialog(violationData = {}, fallbackMessage = '') {
+  const isViolationUser = Boolean(violationData?.isViolationUser)
+  if (!isViolationUser && !fallbackMessage) return false
+
+  const violationCountMonth = Number(violationData?.violationCountMonth || 0)
+  const violationMonth = violationData?.violationMonth || '当月'
+  const bookingBannedUntil = violationData?.bookingBannedUntil
+  const bannedUntilText = bookingBannedUntil ? formatDisplayDateTime(bookingBannedUntil) : '请联系管理员'
+
+  dialog.warning({
+    title: '当前账号已违规，暂不可预约',
+    content: `${fallbackMessage || '你当前处于违规限制状态，暂时无法发起预约。'}\n违规月份：${violationMonth}\n当月违规次数：${violationCountMonth}\n限制截止：${bannedUntilText}`,
+    positiveText: '我知道了',
+    type: 'warning'
+  })
+  return true
+}
+
+async function checkBookingEligibility() {
+  try {
+    const response = await api.get('/bookings/my/violation-status')
+    if (response.code !== 200) {
+      pushToast(response.message || '校验预约资格失败', 'error')
+      return false
+    }
+    if (response.data?.isViolationUser) {
+      showViolationBlockedDialog(response.data, '你已违规，无法预约场地。')
+      return false
+    }
+    return true
+  } catch (error) {
+    const backendMessage = error?.response?.data?.message
+    pushToast(backendMessage || '无法连接后端服务', 'error')
+    return false
+  }
+}
+
+async function openBookingModal(venue) {
+  if (!venue?.id) return
+  const canBook = await checkBookingEligibility()
+  if (!canBook) return
+
   bookingModal.show = true
   bookingModal.venue = venue
   bookingModal.date = bookingDates.value[0]?.value || null
@@ -911,8 +955,8 @@ async function submitVenue() {
       remark
     }
     const response = venueManageModal.editingId
-      ? await api.put(`/venues/${venueManageModal.editingId}`, payload)
-      : await api.post('/venues', payload)
+        ? await api.put(`/venues/${venueManageModal.editingId}`, payload)
+        : await api.post('/venues', payload)
     if (response.code !== 200) {
       pushToast(response.message || '保存场地失败', 'error')
       return
@@ -1041,17 +1085,17 @@ function computeEndTimeOptions() {
   if (startIndex === -1) return []
 
   const options = timeSlots.value
-    .slice(startIndex + 1)
-    .filter((slot) => !isPastStartSlot(slot.value))
-    .map((slot) => ({
-      label: slot.label,
-      value: slot.value
-    }))
+      .slice(startIndex + 1)
+      .filter((slot) => !isPastStartSlot(slot.value))
+      .map((slot) => ({
+        label: slot.label,
+        value: slot.value
+      }))
 
   const closeTime = bookingModal.venue?.closeTime
   const [closeHour] = (closeTime || '').split(':').map(Number)
   const closeTimeAllowed =
-    bookingModal.date !== getTodayDateString() || Number.isNaN(closeHour) || closeHour >= getEarliestStartHourForToday()
+      bookingModal.date !== getTodayDateString() || Number.isNaN(closeHour) || closeHour >= getEarliestStartHourForToday()
 
   if (closeTime && closeTimeAllowed && !options.some((item) => item.value === closeTime)) {
     options.push({ label: closeTime, value: closeTime })
@@ -1079,6 +1123,9 @@ async function submitBooking() {
       endTime: `${bookingModal.date}T${bookingModal.endTime}:00`
     })
     if (response.code !== 200) {
+      if (showViolationBlockedDialog(response.data, response.message || '你已违规，无法预约场地。')) {
+        return
+      }
       pushToast(response.message || '预约失败', 'error')
       return
     }
@@ -1086,6 +1133,11 @@ async function submitBooking() {
     closeBookingModal()
     refreshMyBookings()
   } catch (error) {
+    const violationData = error?.response?.data?.data
+    const violationMessage = error?.response?.data?.message
+    if (showViolationBlockedDialog(violationData, violationMessage)) {
+      return
+    }
     const backendMessage = error?.response?.data?.message
     pushToast(backendMessage || '无法连接后端服务', 'error')
   } finally {
@@ -1146,51 +1198,51 @@ async function cancelBooking(item) {
 }
 
 watch(
-  () => bookingModal.date,
-  () => {
-    bookingModal.startTime = null
-    bookingModal.endTime = null
-    loadOccupiedSlots()
-  }
+    () => bookingModal.date,
+    () => {
+      bookingModal.startTime = null
+      bookingModal.endTime = null
+      loadOccupiedSlots()
+    }
 )
 
 watch(
-  () => [filters.keyword, filters.type, filters.status],
-  () => {
-    if (searchDisabled.value) return
-    pagination.pageNo = 1
-    if (debouncedSearch.value) {
-      clearTimeout(debouncedSearch.value)
+    () => [filters.keyword, filters.type, filters.status],
+    () => {
+      if (searchDisabled.value) return
+      pagination.pageNo = 1
+      if (debouncedSearch.value) {
+        clearTimeout(debouncedSearch.value)
+      }
+      debouncedSearch.value = setTimeout(() => {
+        searchFilters.keyword = filters.keyword
+        searchFilters.type = filters.type
+        searchFilters.status = filters.status
+        console.log('[VenuesPage] auto search triggered', { ...searchFilters })
+        venuesQuery.refetch()
+      }, 400)
     }
-    debouncedSearch.value = setTimeout(() => {
-      searchFilters.keyword = filters.keyword
-      searchFilters.type = filters.type
-      searchFilters.status = filters.status
-      console.log('[VenuesPage] auto search triggered', { ...searchFilters })
-      venuesQuery.refetch()
-    }, 400)
-  }
 )
 
 watch(
-  () => venuesQuery.data,
-  (data) => {
-    if (!data) return
-    const totalPages = Math.ceil((data.total || 0) / pagination.pageSize)
-    if (pagination.pageNo < totalPages) {
-      queryClient.prefetchQuery({
-        queryKey: [
-          'venues',
-          searchFilters.keyword,
-          searchFilters.type,
-          searchFilters.status,
-          pagination.pageNo + 1,
-          pagination.pageSize
-        ],
-        queryFn: () => fetchVenuesData(pagination.pageNo + 1)
-      })
+    () => venuesQuery.data,
+    (data) => {
+      if (!data) return
+      const totalPages = Math.ceil((data.total || 0) / pagination.pageSize)
+      if (pagination.pageNo < totalPages) {
+        queryClient.prefetchQuery({
+          queryKey: [
+            'venues',
+            searchFilters.keyword,
+            searchFilters.type,
+            searchFilters.status,
+            pagination.pageNo + 1,
+            pagination.pageSize
+          ],
+          queryFn: () => fetchVenuesData(pagination.pageNo + 1)
+        })
+      }
     }
-  }
 )
 
 function handleQuickBooking() {
@@ -1210,7 +1262,7 @@ async function refreshOwnerBookings() {
 }
 
 function resetOwnerBookingFilters() {
-  ownerBookingFilters.venueId = ''
+  ownerBookingFilters.venueName = ''
   ownerBookingFilters.username = ''
   ownerBookingFilters.status = ''
   ownerBookingFilters.startDate = null
@@ -1251,14 +1303,14 @@ function handleRouteQuickBooking() {
 }
 
 watch(
-  () => [activeModule.value, isOwner.value],
-  () => {
-    setTimeout(() => {
-      setupResizeObservers()
-      recalculateDynamicPageSizes()
-    }, 0)
-  },
-  { immediate: true }
+    () => [activeModule.value, isOwner.value],
+    () => {
+      setTimeout(() => {
+        setupResizeObservers()
+        recalculateDynamicPageSizes()
+      }, 0)
+    },
+    { immediate: true }
 )
 
 watch(venuesData, () => {
@@ -1269,37 +1321,31 @@ watch(venuesData, () => {
 })
 
 watch(
-  () => myBookings.pagination.pageSize,
-  (value, oldValue) => {
-    if (value === oldValue) return
-    if (!Number.isFinite(value) || value <= 0) {
-      myBookings.pagination.pageSize = oldValue || 12
-      return
+    () => myBookings.pagination.pageSize,
+    (value, oldValue) => {
+      if (value === oldValue) return
+      if (!Number.isFinite(value) || value <= 0) {
+        myBookings.pagination.pageSize = oldValue || 12
+        return
+      }
+      myBookings.pagination.pageSize = Math.min(50, Math.max(1, Math.floor(value)))
+      myBookings.pagination.pageNo = 1
     }
-    myBookings.pagination.pageSize = Math.min(50, Math.max(1, Math.floor(value)))
-    myBookings.pagination.pageNo = 1
-  }
 )
 
 watch(
-  () => ownerBookingPagination.pageSize,
-  (value, oldValue) => {
-    if (value === oldValue) return
-    if (!Number.isFinite(value) || value <= 0) {
-      ownerBookingPagination.pageSize = oldValue || 12
-      return
+    () => ownerBookingPagination.pageSize,
+    (value, oldValue) => {
+      if (value === oldValue) return
+      if (!Number.isFinite(value) || value <= 0) {
+        ownerBookingPagination.pageSize = oldValue || 12
+        return
+      }
+      ownerBookingPagination.pageSize = Math.min(50, Math.max(1, Math.floor(value)))
+      ownerBookingPagination.pageNo = 1
     }
-    ownerBookingPagination.pageSize = Math.min(50, Math.max(1, Math.floor(value)))
-    ownerBookingPagination.pageNo = 1
-  }
 )
 
-watch(ownerBookingsData, () => {
-  if (activeModule.value !== 'booking' || !isOwner.value) return
-  setTimeout(() => {
-    calculateOwnerBookingPageSize()
-  }, 0)
-})
 
 onMounted(() => {
   searchDisabled.value = false
@@ -1377,9 +1423,9 @@ onUnmounted(() => {
             {{ getStatusText(venue.status, '未知状态') }}
           </div>
           <img
-            v-if="venueImageMap[venue.id]"
-            :src="venueImageMap[venue.id]"
-            alt="venue cover"
+              v-if="venueImageMap[venue.id]"
+              :src="venueImageMap[venue.id]"
+              alt="venue cover"
           />
           <div v-else class="venue-card__placeholder">暂无封面</div>
         </div>
@@ -1403,35 +1449,41 @@ onUnmounted(() => {
           </div>
           <div class="venue-card__actions">
             <NButton tertiary @click="openVenueDetail(venue)">查看详情</NButton>
-            <NButton v-if="!isOwner" type="primary" @click="openBookingModal(venue)">预约时段</NButton>
+            <NButton
+                v-if="!isOwner && venue.status === 'AVAILABLE'"
+                type="primary"
+                @click="openBookingModal(venue)"
+            >
+              预约时段
+            </NButton>
             <NButton v-if="isOwner" tertiary @click="openEditVenue(venue)">编辑场地</NButton>
             <NButton v-if="isOwner" type="error" tertiary @click="openDeleteVenue(venue)">删除</NButton>
           </div>
           <div v-if="isOwner" class="venue-card__quick-status">
             <span>快速状态：</span>
             <NButton
-              size="tiny"
-              tertiary
-              :type="venue.status === 'AVAILABLE' ? 'success' : 'default'"
-              @click="quickChangeVenueStatus(venue, 'AVAILABLE')"
+                size="tiny"
+                tertiary
+                :type="venue.status === 'AVAILABLE' ? 'success' : 'default'"
+                @click="quickChangeVenueStatus(venue, 'AVAILABLE')"
             >可预约</NButton>
             <NButton
-              size="tiny"
-              tertiary
-              :type="venue.status === 'MAINTAIN' ? 'warning' : 'default'"
-              @click="quickChangeVenueStatus(venue, 'MAINTAIN')"
+                size="tiny"
+                tertiary
+                :type="venue.status === 'MAINTAIN' ? 'warning' : 'default'"
+                @click="quickChangeVenueStatus(venue, 'MAINTAIN')"
             >维护中</NButton>
             <NButton
-              size="tiny"
-              tertiary
-              :type="venue.status === 'SUSPEND' ? 'default' : 'default'"
-              @click="quickChangeVenueStatus(venue, 'SUSPEND')"
+                size="tiny"
+                tertiary
+                :type="venue.status === 'SUSPEND' ? 'info' : 'default'"
+                @click="quickChangeVenueStatus(venue, 'SUSPEND')"
             >暂停</NButton>
             <NButton
-              size="tiny"
-              tertiary
-              :type="venue.status === 'DISABLED' ? 'error' : 'default'"
-              @click="quickChangeVenueStatus(venue, 'DISABLED')"
+                size="tiny"
+                tertiary
+                :type="venue.status === 'DISABLED' ? 'error' : 'default'"
+                @click="quickChangeVenueStatus(venue, 'DISABLED')"
             >停用</NButton>
           </div>
         </div>
@@ -1447,9 +1499,9 @@ onUnmounted(() => {
       <NButton tertiary @click="prevPage" :disabled="pagination.pageNo <= 1">上一页</NButton>
       <span>第 {{ pagination.pageNo }} 页 / 共 {{ Math.ceil(venuesTotal / pagination.pageSize) || 1 }} 页</span>
       <NButton
-        tertiary
-        @click="nextPage"
-        :disabled="pagination.pageNo * pagination.pageSize >= venuesTotal"
+          tertiary
+          @click="nextPage"
+          :disabled="pagination.pageNo * pagination.pageSize >= venuesTotal"
       >
         下一页
       </NButton>
@@ -1465,8 +1517,8 @@ onUnmounted(() => {
 
       <div class="booking-panel__filters">
         <div>
-          <label>场地ID</label>
-          <NInput v-model:value="ownerBookingFilters.venueId" placeholder="按场地ID过滤" />
+          <label>场地名称</label>
+          <NInput v-model:value="ownerBookingFilters.venueName" placeholder="按场地名称过滤（模糊）" />
         </div>
         <div>
           <label>用户名</label>
@@ -1492,7 +1544,16 @@ onUnmounted(() => {
             <div class="booking-card__header">
               <div>
                 <strong>预约编号 #{{ item.id }}</strong>
-                <p class="text-muted">场地 {{ item.venueId }} · 用户 {{ item.username || item.userId }}</p>
+                <p class="text-muted owner-booking-meta">
+                  <span class="owner-booking-meta__item">
+                    <span class="owner-booking-meta__label">场地：</span>
+                    <span>{{ item.venueName || `场地 ${item.venueId || '-'}` }}</span>
+                  </span>
+                  <span class="owner-booking-meta__item">
+                    <span class="owner-booking-meta__label">用户：</span>
+                    <span>{{ item.userName || item.username || '-' }}</span>
+                  </span>
+                </p>
               </div>
               <NTag :type="item.status === 'APPLIED' ? 'info' : item.status === 'VERIFIED' ? 'success' : item.status === 'CANCELED' ? 'warning' : 'error'">
                 {{ getStatusText(item.status) }}
@@ -1523,11 +1584,11 @@ onUnmounted(() => {
         <span style="display: inline-flex; align-items: center; gap: 8px;">
           <span>每页</span>
           <NInputNumber
-            v-model:value="ownerBookingPagination.pageSize"
-            :min="1"
-            :max="50"
-            :step="1"
-            style="width: 100px;"
+              v-model:value="ownerBookingPagination.pageSize"
+              :min="1"
+              :max="50"
+              :step="1"
+              style="width: 100px;"
           />
           <span>条</span>
         </span>
@@ -1553,6 +1614,10 @@ onUnmounted(() => {
 
       <div class="booking-panel__filters">
         <div>
+          <label>场地名称</label>
+          <NInput v-model:value="bookingFilters.venueName" placeholder="按场地名称过滤（模糊）" />
+        </div>
+        <div>
           <label>状态</label>
           <NSelect v-model:value="bookingFilters.status" :options="bookingStatusOptions" />
         </div>
@@ -1570,16 +1635,16 @@ onUnmounted(() => {
 
       <div class="booking-panel__list">
         <NCard
-          v-for="item in myBookingsData"
-          :key="item.id"
-          size="small"
-          class="booking-card"
+            v-for="item in myBookingsData"
+            :key="item.id"
+            size="small"
+            class="booking-card"
         >
           <template #header>
             <div class="booking-card__header">
               <div>
                 <strong>预约编号 #{{ item.id }}</strong>
-                <p class="text-muted">{{ venueNameMap[item.venueId] || `场地 ${item.venueId}` }}</p>
+                <p class="text-muted">{{ item.venueName || venueNameMap[item.venueId] || `场地 ${item.venueId}` }}</p>
               </div>
               <NTag :type="item.status === 'APPLIED' ? 'info' : item.status === 'VERIFIED' ? 'success' : item.status === 'CANCELED' ? 'warning' : 'error'">
                 {{ getStatusText(item.status) }}
@@ -1602,12 +1667,12 @@ onUnmounted(() => {
           </div>
           <div class="booking-card__actions">
             <NButton
-              size="small"
-              tertiary
-              type="error"
-              :disabled="item.status !== 'APPLIED'"
-              :loading="cancelingIds.has(item.id)"
-              @click="cancelBooking(item)"
+                size="small"
+                tertiary
+                type="error"
+                :disabled="item.status !== 'APPLIED'"
+                :loading="cancelingIds.has(item.id)"
+                @click="cancelBooking(item)"
             >
               取消预约
             </NButton>
@@ -1627,18 +1692,18 @@ onUnmounted(() => {
         <span style="display: inline-flex; align-items: center; gap: 8px;">
           <span>每页</span>
           <NInputNumber
-            v-model:value="myBookings.pagination.pageSize"
-            :min="1"
-            :max="50"
-            :step="1"
-            style="width: 100px;"
+              v-model:value="myBookings.pagination.pageSize"
+              :min="1"
+              :max="50"
+              :step="1"
+              style="width: 100px;"
           />
           <span>条</span>
         </span>
         <NButton
-          tertiary
-          @click="nextBookingPage"
-          :disabled="myBookings.pagination.pageNo * myBookings.pagination.pageSize >= myBookingsTotal"
+            tertiary
+            @click="nextBookingPage"
+            :disabled="myBookings.pagination.pageNo * myBookings.pagination.pageSize >= myBookingsTotal"
         >
           下一页
         </NButton>
@@ -1775,9 +1840,9 @@ onUnmounted(() => {
       <div class="booking-modal__section">
         <label>开始时间</label>
         <NSelect
-          v-model:value="bookingModal.startTime"
-          :options="timeSlotOptions"
-          :disabled="!bookingModal.date"
+            v-model:value="bookingModal.startTime"
+            :options="timeSlotOptions"
+            :disabled="!bookingModal.date"
         />
         <p class="hint">不可选时间已被占用</p>
       </div>
@@ -1785,9 +1850,9 @@ onUnmounted(() => {
       <div class="booking-modal__section">
         <label>结束时间</label>
         <NSelect
-          v-model:value="bookingModal.endTime"
-          :options="endTimeOptions"
-          :disabled="!bookingModal.startTime"
+            v-model:value="bookingModal.endTime"
+            :options="endTimeOptions"
+            :disabled="!bookingModal.startTime"
         />
         <p class="hint">点击两个可预约时段即可快速圈选连续区间</p>
       </div>
@@ -1804,22 +1869,22 @@ onUnmounted(() => {
         </div>
         <div class="booking-modal__table">
           <div
-            v-for="slot in slotStatusList"
-            :key="slot.value"
-            class="slot-row"
-            :class="slot.status"
-            @click="handleSlotSelect(slot)"
+              v-for="slot in slotStatusList"
+              :key="slot.value"
+              class="slot-row"
+              :class="slot.status"
+              @click="handleSlotSelect(slot)"
           >
             <span>{{ slot.range }}</span>
             <span class="slot-status">
               {{
                 slot.status === 'available'
-                  ? '可预约'
-                  : slot.status === 'selected'
-                    ? '已选择'
-                    : slot.status === 'occupied'
-                      ? '已占用'
-                      : '不可用'
+                    ? '可预约'
+                    : slot.status === 'selected'
+                        ? '已选择'
+                        : slot.status === 'occupied'
+                            ? '已占用'
+                            : '不可用'
               }}
             </span>
           </div>
