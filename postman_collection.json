@@ -382,11 +382,10 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
-            "url": "{{baseUrl}}/borrows?status=USING&pageNo=1&pageSize=10"
+            "url": "{{baseUrl}}/borrows?userName=zhang&itemName=篮球&status=USING&pageNo=1&pageSize=10"
           },
           "response": []
-        }
-        ,
+        },
         {
           "name": "25-仓库-我的借用记录",
           "request": {
@@ -394,7 +393,7 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
-            "url": "{{baseUrl}}/borrows/my?status=USING&startTime=2025-03-20T00:00:00&endTime=2025-03-20T23:59:59&pageNo=1&pageSize=10"
+            "url": "{{baseUrl}}/borrows/my?itemName=篮球&status=USING&startTime=2025-03-20T00:00:00&endTime=2025-03-20T23:59:59&pageNo=1&pageSize=10"
           },
           "response": []
         }

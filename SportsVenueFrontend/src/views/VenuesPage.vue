@@ -63,8 +63,6 @@ const myBookings = reactive({
 
 const cancelingIds = ref(new Set())
 
-const venueGridRef = ref(null)
-const venueResizeObserver = ref(null)
 
 const venueQueryKey = computed(() => [
   'venues',
@@ -547,51 +545,6 @@ const ownerBookingsTotal = computed(() => ownerBookingsQuery.data?.total || owne
 const isOwnerBookingsFetching = computed(
     () => Boolean(ownerBookingsQuery.isFetching?.value ?? ownerBookingsQuery.isFetching)
 )
-
-function applyPageSizeUpdate(currentSize, nextSize, apply) {
-  if (currentSize === nextSize) return
-  apply(nextSize, Math.abs(currentSize - nextSize) > 1)
-}
-
-function calculateVenuePageSize() {
-  const container = venueGridRef.value
-  if (!container) return
-  const styles = window.getComputedStyle(container)
-  const columnTemplate = styles.gridTemplateColumns || ''
-  const columns = columnTemplate
-      .split(' ')
-      .map((token) => token.trim())
-      .filter(Boolean).length || 1
-
-  const containerRect = container.getBoundingClientRect()
-  const cardEl = container.querySelector('.venue-card')
-  const rowHeight = Math.max(cardEl?.getBoundingClientRect?.().height || 390, 320)
-  const usableHeight = Math.max(window.innerHeight - containerRect.top - 160, rowHeight)
-  const rows = Math.max(1, Math.floor(usableHeight / rowHeight))
-  const nextPageSize = Math.max(1, columns * rows)
-
-  applyPageSizeUpdate(pagination.pageSize, nextPageSize, (value, shouldReset) => {
-    pagination.pageSize = value
-    if (shouldReset) pagination.pageNo = 1
-  })
-}
-
-function recalculateDynamicPageSizes() {
-  if (activeModule.value === 'venue') {
-    calculateVenuePageSize()
-  }
-}
-
-function setupResizeObservers() {
-  venueResizeObserver.value?.disconnect?.()
-
-  if (activeModule.value === 'venue' && venueGridRef.value) {
-    venueResizeObserver.value = new ResizeObserver(() => {
-      calculateVenuePageSize()
-    })
-    venueResizeObserver.value.observe(venueGridRef.value)
-  }
-}
 
 async function hydrateVenueNames(records) {
   const ids = [...new Set(records.map((item) => item.venueId).filter(Boolean))].filter(
@@ -1303,24 +1256,6 @@ function handleRouteQuickBooking() {
 }
 
 watch(
-  () => [activeModule.value, isOwner.value],
-  () => {
-    requestAnimationFrame(() => {
-      setupResizeObservers()
-      recalculateDynamicPageSizes()
-    })
-  },
-  { immediate: true }
-)
-
-watch(venuesData, () => {
-  if (activeModule.value !== 'venue') return
-  requestAnimationFrame(() => {
-    calculateVenuePageSize()
-  })
-})
-
-watch(
     () => myBookings.pagination.pageSize,
     (value, oldValue) => {
       if (value === oldValue) return
@@ -1346,16 +1281,23 @@ watch(
     }
 )
 
+watch(
+  () => pagination.pageSize,
+  (value, oldValue) => {
+    if (value === oldValue) return
+    if (!Number.isFinite(value) || value <= 0) {
+      pagination.pageSize = oldValue || 6
+      return
+    }
+    pagination.pageSize = Math.min(50, Math.max(1, Math.floor(value)))
+    pagination.pageNo = 1
+  }
+)
 
 onMounted(() => {
   searchDisabled.value = false
   window.addEventListener('quick-booking', handleQuickBooking)
-  window.addEventListener('resize', recalculateDynamicPageSizes)
   handleRouteQuickBooking()
-  requestAnimationFrame(() => {
-    setupResizeObservers()
-    recalculateDynamicPageSizes()
-  })
   nowTimer.value = setInterval(() => {
     currentTimeTick.value = Date.now()
   }, 30000)
@@ -1363,8 +1305,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('quick-booking', handleQuickBooking)
-  window.removeEventListener('resize', recalculateDynamicPageSizes)
-  venueResizeObserver.value?.disconnect?.()
   if (debouncedSearch.value) {
     clearTimeout(debouncedSearch.value)
   }
@@ -1416,7 +1356,7 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <section v-if="activeModule === 'venue'" ref="venueGridRef" class="venues-grid">
+    <section v-if="activeModule === 'venue'" class="venues-grid">
       <article v-for="venue in venuesData" :key="venue.id" class="venue-card">
         <div class="venue-card__media">
           <div class="venue-card__badge" :class="venue.status?.toLowerCase()">
@@ -1498,6 +1438,17 @@ onUnmounted(() => {
     <section v-if="activeModule === 'venue'" class="pagination">
       <NButton tertiary @click="prevPage" :disabled="pagination.pageNo <= 1">上一页</NButton>
       <span>第 {{ pagination.pageNo }} 页 / 共 {{ Math.ceil(venuesTotal / pagination.pageSize) || 1 }} 页</span>
+      <span style="display: inline-flex; align-items: center; gap: 8px;">
+        <span>每页</span>
+        <NInputNumber
+          v-model:value="pagination.pageSize"
+          :min="1"
+          :max="50"
+          :step="1"
+          style="width: 100px;"
+        />
+        <span>条</span>
+      </span>
       <NButton
           tertiary
           @click="nextPage"

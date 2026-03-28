@@ -1,8 +1,8 @@
 package com.tly.controller;
 
-import com.tly.auth.UserContext;
 import com.tly.common.PageResult;
 import com.tly.common.Result;
+import com.tly.dto.borrow.BorrowRecordListItem;
 import com.tly.entity.BorrowRecord;
 import com.tly.service.BorrowService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,34 +55,31 @@ public class BorrowController {
      * 借用记录分页查询：GET /sportsVenue/borrows
      */
     @GetMapping
-    public Result<PageResult<BorrowRecord>> query(@RequestParam(value = "userId", required = false) Long userId,
-                                                  @RequestParam(value = "itemId", required = false) Long itemId,
-                                                  @RequestParam(value = "status", required = false) String status,
-                                                  @RequestParam(value = "startTime", required = false)
-                                                  @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
-                                                  @RequestParam(value = "endTime", required = false)
-                                                  @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime,
-                                                  @RequestParam(value = "pageNo", required = false, defaultValue = "1") long pageNo,
-                                                  @RequestParam(value = "pageSize", required = false, defaultValue = "10") long pageSize) {
-        return borrowService.query(userId, itemId, status, startTime, endTime, pageNo, pageSize);
+    public Result<PageResult<BorrowRecordListItem>> query(@RequestParam(value = "userName", required = false) String userName,
+                                                          @RequestParam(value = "itemName", required = false) String itemName,
+                                                          @RequestParam(value = "status", required = false) String status,
+                                                          @RequestParam(value = "startTime", required = false)
+                                                          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
+                                                          @RequestParam(value = "endTime", required = false)
+                                                          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime,
+                                                          @RequestParam(value = "pageNo", required = false, defaultValue = "1") long pageNo,
+                                                          @RequestParam(value = "pageSize", required = false, defaultValue = "10") long pageSize) {
+        return borrowService.query(userName, itemName, status, startTime, endTime, pageNo, pageSize);
     }
 
     /**
      * 当前登录用户的借用记录查询：GET /sportsVenue/borrows/my
      */
     @GetMapping("/my")
-    public Result<PageResult<BorrowRecord>> my(@RequestParam(value = "status", required = false) String status,
-                                               @RequestParam(value = "startTime", required = false)
-                                               @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
-                                               @RequestParam(value = "endTime", required = false)
-                                               @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime,
-                                               @RequestParam(value = "pageNo", required = false, defaultValue = "1") long pageNo,
-                                               @RequestParam(value = "pageSize", required = false, defaultValue = "10") long pageSize) {
-        UserContext.CurrentUser currentUser = UserContext.get();
-        if (currentUser == null) {
-            return Result.fail(401, "未登录");
-        }
-        return borrowService.query(currentUser.getUserId(), null, status, startTime, endTime, pageNo, pageSize);
+    public Result<PageResult<BorrowRecordListItem>> my(@RequestParam(value = "itemName", required = false) String itemName,
+                                                       @RequestParam(value = "status", required = false) String status,
+                                                       @RequestParam(value = "startTime", required = false)
+                                                       @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
+                                                       @RequestParam(value = "endTime", required = false)
+                                                       @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime,
+                                                       @RequestParam(value = "pageNo", required = false, defaultValue = "1") long pageNo,
+                                                       @RequestParam(value = "pageSize", required = false, defaultValue = "10") long pageSize) {
+        return borrowService.my(itemName, status, startTime, endTime, pageNo, pageSize);
     }
 }
 

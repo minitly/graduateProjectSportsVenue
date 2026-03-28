@@ -22,7 +22,6 @@ const itemFilters = reactive({ keyword: '', type: '', onlyAvailable: false })
 const itemPagination = reactive({ pageNo: 1, pageSize: 6 })
 const borrowFilters = reactive({ status: '', keyword: '', range: null, startTime: null, endTime: null })
 const borrowPagination = reactive({ pageNo: 1, pageSize: 5 })
-const itemNameMap = reactive({})
 const expandedRecordIds = ref([])
 const debouncedSearch = ref(null)
 /** 重置筛选时跳过 watch，避免与手动 refetch 重复请求 */
@@ -71,6 +70,7 @@ const borrowsQuery = useQuery({
     const response = await api.get('/borrows/my', {
       params: {
         status: borrowFilters.status || undefined,
+        itemName: borrowFilters.keyword?.trim() || undefined,
         startTime: borrowFilters.startTime || undefined,
         endTime: borrowFilters.endTime || undefined,
         pageNo: borrowPagination.pageNo,
@@ -78,14 +78,7 @@ const borrowsQuery = useQuery({
       }
     })
     if (response.code !== 200) throw new Error(response.message || '借用记录加载失败')
-    const data = response.data || { records: [], total: 0 }
-    await hydrateItemNames(data.records || [])
-    const keyword = borrowFilters.keyword.trim().toLowerCase()
-    if (!keyword) return data
-    const filtered = (data.records || []).filter((record) =>
-      (itemNameMap[record.itemId] || `器材 ${record.itemId}`).toLowerCase().includes(keyword)
-    )
-    return { ...data, records: filtered, total: filtered.length }
+    return response.data || { records: [], total: 0 }
   },
   keepPreviousData: true,
   staleTime: 30000
@@ -142,19 +135,6 @@ watch(
     borrowPagination.pageNo = 1
   }
 )
-
-async function hydrateItemNames(records) {
-  const ids = [...new Set(records.map((record) => record.itemId).filter(Boolean))].filter((id) => !itemNameMap[id])
-  if (!ids.length) return
-  await Promise.all(ids.map(async (id) => {
-    try {
-      const response = await api.get(`/items/${id}`)
-      if (response.code === 200 && response.data) itemNameMap[id] = response.data.name || `器材 ${id}`
-    } catch {
-      itemNameMap[id] = `器材 ${id}`
-    }
-  }))
-}
 
 function handleRangeChange(value) {
   if (!value || value.length !== 2) {
@@ -340,7 +320,7 @@ async function submitBorrow() {
       <NCard v-for="record in borrowsData" :key="record.id" size="small" class="borrow-record borrow-record--user-my" :bordered="true">
         <template #header>
           <div class="borrow-record__header">
-            <div><strong>借用单 #{{ record.id }}</strong><p class="text-muted">{{ itemNameMap[record.itemId] || `器材 ${record.itemId}` }}</p></div>
+            <div><strong>借用单 #{{ record.id }}</strong><p class="text-muted">{{ record.itemName || '—' }}</p></div>
             <NTag :type="record.status === 'REQUESTED' ? 'info' : record.status === 'USING' ? 'warning' : 'success'">{{ getStatusText(record.status) }}</NTag>
           </div>
         </template>

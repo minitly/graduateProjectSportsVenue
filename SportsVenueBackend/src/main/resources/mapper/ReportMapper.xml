@@ -4,6 +4,7 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.tly.mapper.ReportMapper">
 
+    <!-- 统计口径：预约记录 start_time ∈ [startTime, endTime)，与 create_time 无关（与接口文档 8.0 一致） -->
     <select id="selectDashboard" resultType="com.tly.dto.report.DashboardStatResponse">
         SELECT
             COUNT(1) AS booking_total,
@@ -15,6 +16,7 @@
           AND start_time &lt; #{endTime}
     </select>
 
+    <!-- 按 DATE(start_time) 分组，仅含 start_time 落在区间内的记录 -->
     <select id="selectBookingTrend" resultType="com.tly.dto.report.BookingTrendRecord">
         SELECT
             DATE(br.start_time) AS date,
@@ -29,6 +31,7 @@
         ORDER BY DATE(br.start_time) ASC
     </select>
 
+    <!-- 按场地汇总，仅统计 start_time 落在区间内的预约 -->
     <select id="selectVenueRank" resultType="com.tly.dto.report.VenueRankRecord">
         SELECT
             v.id AS venue_id,

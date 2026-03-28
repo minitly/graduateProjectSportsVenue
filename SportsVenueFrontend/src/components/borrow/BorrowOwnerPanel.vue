@@ -9,10 +9,9 @@ import { getStatusText } from '../../constants/statusMap'
 const { pushToast } = useToast()
 const queryClient = useQueryClient()
 
-const ownerFilters = reactive({ status: '', keyword: '', userId: null, range: null, startTime: null, endTime: null })
+const ownerFilters = reactive({ status: '', keyword: '', userName: '', range: null, startTime: null, endTime: null })
 const ownerPagination = reactive({ pageNo: 1, pageSize: 6 })
 const ownerActionModal = reactive({ show: false, type: 'approve', record: null, condition: 'GOOD', remark: '', submitting: false })
-const itemNameMap = reactive({})
 const expandedRecordIds = ref([])
 
 const ownerStatusOptions = [
@@ -42,42 +41,13 @@ watch(
 )
 
 const ownerBorrowsQuery = useQuery({
-  queryKey: computed(() => ['ownerBorrows', ownerFilters.status, ownerFilters.startTime, ownerFilters.endTime, ownerFilters.userId, ownerFilters.keyword, ownerPagination.pageNo, ownerPagination.pageSize]),
+  queryKey: computed(() => ['ownerBorrows', ownerFilters.status, ownerFilters.startTime, ownerFilters.endTime, ownerFilters.userName, ownerFilters.keyword, ownerPagination.pageNo, ownerPagination.pageSize]),
   queryFn: async () => {
-    const keyword = ownerFilters.keyword?.trim()?.toLowerCase()
-
-    // 有器材关键词时先拉取大列表再前端分页，避免分页页内数据不满的问题
-    if (keyword) {
-      const response = await api.get('/borrows', {
-        params: {
-          status: ownerFilters.status || undefined,
-          userId: ownerFilters.userId || undefined,
-          startTime: ownerFilters.startTime || undefined,
-          endTime: ownerFilters.endTime || undefined,
-          pageNo: 1,
-          pageSize: 2000
-        }
-      })
-      if (response.code !== 200) throw new Error(response.message || '管理借用记录加载失败')
-      const allData = response.data || { records: [], total: 0 }
-      await hydrateItemNames(allData.records || [])
-      const filtered = (allData.records || []).filter((record) => {
-        const itemName = (itemNameMap[record.itemId] || `器材 ${record.itemId}`).toLowerCase()
-        return itemName.includes(keyword)
-      })
-      const startIndex = (ownerPagination.pageNo - 1) * ownerPagination.pageSize
-      const endIndex = startIndex + ownerPagination.pageSize
-      return {
-        ...allData,
-        records: filtered.slice(startIndex, endIndex),
-        total: filtered.length
-      }
-    }
-
     const response = await api.get('/borrows', {
       params: {
         status: ownerFilters.status || undefined,
-        userId: ownerFilters.userId || undefined,
+        userName: ownerFilters.userName?.trim() || undefined,
+        itemName: ownerFilters.keyword?.trim() || undefined,
         startTime: ownerFilters.startTime || undefined,
         endTime: ownerFilters.endTime || undefined,
         pageNo: ownerPagination.pageNo,
@@ -85,9 +55,7 @@ const ownerBorrowsQuery = useQuery({
       }
     })
     if (response.code !== 200) throw new Error(response.message || '管理借用记录加载失败')
-    const data = response.data || { records: [], total: 0 }
-    await hydrateItemNames(data.records || [])
-    return data
+    return response.data || { records: [], total: 0 }
   },
   keepPreviousData: true,
   staleTime: 30000
@@ -172,19 +140,6 @@ const summaryCards = computed(() => [
 const actionTitle = computed(() => (ownerActionModal.type === 'approve' ? '确认借出' : '确认归还'))
 const actionButtonText = computed(() => (ownerActionModal.type === 'approve' ? '确认借出' : '确认归还'))
 
-async function hydrateItemNames(records) {
-  const ids = [...new Set(records.map((record) => record.itemId).filter(Boolean))].filter((id) => !itemNameMap[id])
-  if (!ids.length) return
-  await Promise.all(ids.map(async (id) => {
-    try {
-      const response = await api.get(`/items/${id}`)
-      if (response.code === 200 && response.data) itemNameMap[id] = response.data.name || `器材 ${id}`
-    } catch {
-      itemNameMap[id] = `器材 ${id}`
-    }
-  }))
-}
-
 function formatDateTime(value) {
   if (!value) return '—'
   const date = new Date(value)
@@ -214,7 +169,7 @@ function applyFilters() {
 function resetFilters() {
   ownerFilters.status = ''
   ownerFilters.keyword = ''
-  ownerFilters.userId = null
+  ownerFilters.userName = ''
   ownerFilters.range = null
   ownerFilters.startTime = null
   ownerFilters.endTime = null
@@ -290,7 +245,7 @@ async function submitOwnerAction() {
     <div class="borrow-panel__filters">
       <div><label>状态</label><NSelect v-model:value="ownerFilters.status" :options="ownerStatusOptions" /></div>
       <div><label>器材关键词</label><NInput v-model:value="ownerFilters.keyword" placeholder="器材名称" /></div>
-      <div><label>用户ID</label><NInputNumber v-model:value="ownerFilters.userId" :min="1" clearable placeholder="请输入用户ID" /></div>
+      <div><label>用户名</label><NInput v-model:value="ownerFilters.userName" clearable placeholder="借用人用户名（模糊）" /></div>
       <div><label>申请时间范围</label><NDatePicker v-model:value="ownerFilters.range" type="datetimerange" clearable @update:value="handleOwnerRangeChange" /></div>
       <div class="borrow-panel__actions">
         <NButton type="primary" :loading="isOwnerFetching" @click="applyFilters">查询</NButton>
@@ -302,12 +257,12 @@ async function submitOwnerAction() {
       <NCard v-for="record in ownerBorrowsData" :key="record.id" size="small" class="borrow-record">
         <template #header>
           <div class="borrow-record__header">
-            <div><strong>借用单 #{{ record.id }}</strong><p class="text-muted">{{ itemNameMap[record.itemId] || `器材 ${record.itemId}` }}</p></div>
+            <div><strong>借用单 #{{ record.id }}</strong><p class="text-muted">{{ record.itemName || '—' }}</p></div>
             <NTag :type="record.status === 'REQUESTED' ? 'info' : record.status === 'USING' ? 'warning' : 'success'">{{ getStatusText(record.status) }}</NTag>
           </div>
         </template>
         <div class="borrow-record__body">
-          <div><span>用户ID</span><strong>{{ record.userId }}</strong></div>
+          <div><span>用户名</span><strong>{{ record.userName || '—' }}</strong></div>
           <div><span>数量</span><strong>{{ record.quantity }}</strong></div>
           <div><span>申请时间</span><strong>{{ formatDateTime(record.requestedTime || record.createTime) }}</strong></div>
           <div><span>备注</span><strong>{{ record.remark || '—' }}</strong></div>

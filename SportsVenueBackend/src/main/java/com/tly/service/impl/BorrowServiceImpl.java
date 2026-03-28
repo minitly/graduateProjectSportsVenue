@@ -3,6 +3,7 @@ package com.tly.service.impl;
 import com.tly.auth.UserContext;
 import com.tly.common.PageResult;
 import com.tly.common.Result;
+import com.tly.dto.borrow.BorrowRecordListItem;
 import com.tly.entity.BorrowRecord;
 import com.tly.entity.WarehouseItem;
 import com.tly.mapper.BorrowRecordMapper;
@@ -157,9 +158,38 @@ public class BorrowServiceImpl implements BorrowService {
     }
 
     @Override
-    public Result<PageResult<BorrowRecord>> query(Long userId, Long itemId, String status,
-                                                  LocalDateTime startTime, LocalDateTime endTime,
-                                                  long pageNo, long pageSize) {
+    public Result<PageResult<BorrowRecordListItem>> query(String userName, String itemName, String status,
+                                                          LocalDateTime startTime, LocalDateTime endTime,
+                                                          long pageNo, long pageSize) {
+        return pageBorrowRecords(trimOrNull(userName), trimOrNull(itemName), null, status, startTime, endTime, pageNo, pageSize);
+    }
+
+    @Override
+    public Result<PageResult<BorrowRecordListItem>> my(String itemName, String status,
+                                                       LocalDateTime startTime, LocalDateTime endTime,
+                                                       long pageNo, long pageSize) {
+        UserContext.CurrentUser currentUser = UserContext.get();
+        if (currentUser == null) {
+            return Result.fail(401, "未登录");
+        }
+        return pageBorrowRecords(null, trimOrNull(itemName), currentUser.getUserId(), status, startTime, endTime, pageNo, pageSize);
+    }
+
+    private static String trimOrNull(String s) {
+        if (!StringUtils.hasText(s)) {
+            return null;
+        }
+        return s.trim();
+    }
+
+    private Result<PageResult<BorrowRecordListItem>> pageBorrowRecords(String userNameLike,
+                                                                       String itemNameLike,
+                                                                       Long scopeUserId,
+                                                                       String status,
+                                                                       LocalDateTime startTime,
+                                                                       LocalDateTime endTime,
+                                                                       long pageNo,
+                                                                       long pageSize) {
         if (pageNo <= 0) {
             pageNo = 1;
         }
@@ -168,15 +198,20 @@ public class BorrowServiceImpl implements BorrowService {
         }
         long offset = (pageNo - 1) * pageSize;
 
-        long total = borrowRecordMapper.countByCondition(userId, itemId, status, startTime, endTime);
-        List<BorrowRecord> records;
+        String statusFilter = trimOrNull(status);
+        if (statusFilter != null) {
+            statusFilter = statusFilter.toUpperCase();
+        }
+
+        long total = borrowRecordMapper.countByCondition(userNameLike, itemNameLike, scopeUserId, statusFilter, startTime, endTime);
+        List<BorrowRecordListItem> records;
         if (total == 0) {
             records = Collections.emptyList();
         } else {
-            records = borrowRecordMapper.listByCondition(userId, itemId, status, startTime, endTime, offset, pageSize);
+            records = borrowRecordMapper.listByCondition(userNameLike, itemNameLike, scopeUserId, statusFilter, startTime, endTime, offset, pageSize);
         }
 
-        PageResult<BorrowRecord> pageResult = new PageResult<>(total, pageNo, pageSize, records);
+        PageResult<BorrowRecordListItem> pageResult = new PageResult<>(total, pageNo, pageSize, records);
         return Result.success("查询成功", pageResult);
     }
 }

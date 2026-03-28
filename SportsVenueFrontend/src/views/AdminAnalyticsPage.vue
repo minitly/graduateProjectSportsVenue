@@ -14,9 +14,7 @@ use([CanvasRenderer, BarChart, LineChart, GridComponent, LegendComponent, Toolti
 const filters = reactive({
   range: null,
   startDate: null,
-  endDate: null,
-  bookingStatus: '',
-  borrowStatus: ''
+  endDate: null
 })
 
 const trendSort = reactive({
@@ -30,21 +28,6 @@ const venueTopNOptions = [
   { label: 'Top 8', value: 8 },
   { label: 'Top 10', value: 10 },
   { label: 'Top 20', value: 20 }
-]
-
-const bookingStatusOptions = [
-  { label: '全部预约状态', value: '' },
-  { label: '申请中', value: 'APPLIED' },
-  { label: '已核销', value: 'VERIFIED' },
-  { label: '已取消', value: 'CANCELED' },
-  { label: '违规', value: 'VIOLATION' }
-]
-
-const borrowStatusOptions = [
-  { label: '全部借用状态', value: '' },
-  { label: '申请中', value: 'REQUESTED' },
-  { label: '使用中', value: 'USING' },
-  { label: '已归还', value: 'RETURNED' }
 ]
 
 function formatDate(date) {
@@ -137,14 +120,22 @@ const bookingStatsQuery = useQuery({
     const violation = toNumber(dashboard.bookingViolationTotal)
     const applied = Math.max(total - verified - canceled - violation, 0)
 
-    const daily = trendRows.map((row) => ({
-      date: toYYYYMMDD(row.date),
-      total: toNumber(row.bookingTotal),
-      verified: toNumber(row.verifiedTotal),
-      canceled: toNumber(row.canceledTotal),
-      violation: toNumber(row.violationTotal),
-      violationRate: rateNumber(row.violationTotal, row.bookingTotal)
-    }))
+    const daily = trendRows.map((row) => {
+      const total = toNumber(row.bookingTotal)
+      const verified = toNumber(row.verifiedTotal)
+      const canceled = toNumber(row.canceledTotal)
+      const violation = toNumber(row.violationTotal)
+      const applied = Math.max(total - verified - canceled - violation, 0)
+      return {
+        date: toYYYYMMDD(row.date),
+        total,
+        applied,
+        verified,
+        canceled,
+        violation,
+        violationRate: rateNumber(row.violationTotal, row.bookingTotal)
+      }
+    })
 
     return {
       total,
@@ -219,56 +210,11 @@ const borrowStatsQuery = useQuery({
   keepPreviousData: true
 })
 
-const userRiskQuery = useQuery({
-  queryKey: ['analyticsUserRisk'],
-  queryFn: async () => {
-    const response = await api.get('/users', { params: { pageNo: 1, pageSize: 100 } })
-    const rows = response?.data?.records || []
-    return rows
-      .filter((user) => (user.violationCountMonth || 0) > 0)
-      .sort((a, b) => (b.violationCountMonth || 0) - (a.violationCountMonth || 0))
-      .slice(0, 8)
-  },
-  staleTime: 60000
-})
-
 const bookingStats = computed(() => unref(bookingStatsQuery.data) || {})
-const bookingStatsByStatus = computed(() => {
-  if (!filters.bookingStatus) {
-    return bookingStats.value
-  }
-  const current = {
-    APPLIED: bookingStats.value.applied || 0,
-    VERIFIED: bookingStats.value.verified || 0,
-    CANCELED: bookingStats.value.canceled || 0,
-    VIOLATION: bookingStats.value.violation || 0
-  }[filters.bookingStatus] || 0
 
-  return {
-    ...bookingStats.value,
-    total: current
-  }
-})
+/** 借用快照：始终按全部状态统计（界面不再提供状态筛选） */
+const borrowStats = computed(() => unref(borrowStatsQuery.data) || {})
 
-const borrowStatsRaw = computed(() => unref(borrowStatsQuery.data) || {})
-const borrowStats = computed(() => {
-  if (!filters.borrowStatus) {
-    return borrowStatsRaw.value
-  }
-  const selected = {
-    REQUESTED: borrowStatsRaw.value.requested || 0,
-    USING: borrowStatsRaw.value.using || 0,
-    RETURNED: borrowStatsRaw.value.returned || 0
-  }[filters.borrowStatus] || 0
-
-  return {
-    ...borrowStatsRaw.value,
-    total: selected,
-    turnoverRate: percentage(borrowStatsRaw.value.returned || 0, selected)
-  }
-})
-
-const riskUsers = computed(() => unref(userRiskQuery.data) || [])
 const venueRankList = computed(() => unref(venueRankQuery.data) || [])
 
 const sortedTrendRows = computed(() => {
@@ -287,13 +233,17 @@ const sortedTrendRows = computed(() => {
 const trendSummaryRow = computed(() => {
   const rows = bookingStats.value.daily || []
   const total = rows.reduce((sum, row) => sum + (row.total || 0), 0)
+  const applied = rows.reduce((sum, row) => sum + (row.applied || 0), 0)
   const verified = rows.reduce((sum, row) => sum + (row.verified || 0), 0)
+  const canceled = rows.reduce((sum, row) => sum + (row.canceled || 0), 0)
   const violation = rows.reduce((sum, row) => sum + (row.violation || 0), 0)
   const avgTotal = rows.length ? (total / rows.length).toFixed(1) : '0.0'
 
   return {
     total,
+    applied,
     verified,
+    canceled,
     violation,
     avgTotal,
     verifyRate: percentage(verified, total),
@@ -305,8 +255,7 @@ const isAnalyticsFetching = computed(
   () =>
     Boolean(bookingStatsQuery.isFetching?.value ?? bookingStatsQuery.isFetching) ||
     Boolean(venueRankQuery.isFetching?.value ?? venueRankQuery.isFetching) ||
-    Boolean(borrowStatsQuery.isFetching?.value ?? borrowStatsQuery.isFetching) ||
-    Boolean(userRiskQuery.isFetching?.value ?? userRiskQuery.isFetching)
+    Boolean(borrowStatsQuery.isFetching?.value ?? borrowStatsQuery.isFetching)
 )
 
 const reportsErrorMessage = computed(() => {
@@ -318,10 +267,10 @@ const reportsErrorMessage = computed(() => {
 })
 
 const kpis = computed(() => [
-  { label: '预约总量', value: bookingStatsByStatus.value.total || 0, tip: '选定日期范围内' },
-  { label: '违规率', value: `${bookingStats.value.violationRate || '0.0'}%`, tip: 'VIOLATION / 总预约' },
-  { label: '核销率', value: `${bookingStats.value.verifyRate || '0.0'}%`, tip: 'VERIFIED / 总预约' },
-  { label: '借用周转率', value: `${borrowStats.value.turnoverRate || '0.0'}%`, tip: 'RETURNED / 总借用' }
+  { label: '预约总量', value: bookingStats.value.total || 0, tip: '选定日期范围内' },
+  { label: '违规率', value: `${bookingStats.value.violationRate || '0.0'}%`, tip: '违规预约数 / 总预约' },
+  { label: '核销率', value: `${bookingStats.value.verifyRate || '0.0'}%`, tip: '已核销数 / 总预约' },
+  { label: '借用周转率', value: `${borrowStats.value.turnoverRate || '0.0'}%`, tip: '已归还数 / 总借用' }
 ])
 
 const compareCards = computed(() => {
@@ -349,8 +298,13 @@ const trendChartOption = computed(() => {
   const rows = bookingStats.value.daily || []
   return {
     tooltip: { trigger: 'axis' },
-    legend: { data: ['总预约', '已核销', '违规'] },
-    grid: { left: 24, right: 20, top: 36, bottom: 24, containLabel: true },
+    legend: {
+      data: ['总预约', '已核销', '违规'],
+      bottom: 0,
+      left: 'center',
+      padding: [12, 0, 0, 0]
+    },
+    grid: { left: 24, right: 20, top: 36, bottom: 56, containLabel: true },
     xAxis: { type: 'category', data: rows.map((r) => r.date.slice(5)) },
     yAxis: { type: 'value' },
     series: [
@@ -361,19 +315,38 @@ const trendChartOption = computed(() => {
   }
 })
 
-const bookingStackChartOption = computed(() => ({
-  tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-  legend: { data: ['申请中', '已核销', '已取消', '违规'] },
-  grid: { left: 24, right: 20, top: 36, bottom: 24, containLabel: true },
-  xAxis: { type: 'category', data: ['预约状态分布'] },
-  yAxis: { type: 'value' },
-  series: [
-    { name: '申请中', type: 'bar', stack: 'total', data: [bookingStats.value.applied || 0] },
-    { name: '已核销', type: 'bar', stack: 'total', data: [bookingStats.value.verified || 0] },
-    { name: '已取消', type: 'bar', stack: 'total', data: [bookingStats.value.canceled || 0] },
-    { name: '违规', type: 'bar', stack: 'total', data: [bookingStats.value.violation || 0] }
-  ]
-}))
+/** 各状态数量对比：分类柱状图（非堆叠） */
+const bookingStatusBarChartOption = computed(() => {
+  const applied = bookingStats.value.applied || 0
+  const verified = bookingStats.value.verified || 0
+  const canceled = bookingStats.value.canceled || 0
+  const violation = bookingStats.value.violation || 0
+  const colors = ['#5470c6', '#91cc75', '#fac858', '#ee6666']
+  return {
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' }
+    },
+    grid: { left: 24, right: 20, top: 28, bottom: 32, containLabel: true },
+    xAxis: {
+      type: 'category',
+      data: ['申请中', '已核销', '已取消', '违规'],
+      axisLabel: { interval: 0 }
+    },
+    yAxis: { type: 'value' },
+    series: [
+      {
+        type: 'bar',
+        name: '预约量',
+        data: [applied, verified, canceled, violation],
+        barMaxWidth: 48,
+        itemStyle: {
+          color: (params) => colors[params.dataIndex] ?? colors[0]
+        }
+      }
+    ]
+  }
+})
 
 function sortArrow(key) {
   if (trendSort.key !== key) return '↕'
@@ -398,7 +371,6 @@ function refreshAll() {
   bookingStatsQuery.refetch()
   venueRankQuery.refetch()
   borrowStatsQuery.refetch()
-  userRiskQuery.refetch()
 }
 </script>
 
@@ -408,7 +380,7 @@ function refreshAll() {
       <div>
         <p class="section-kicker">数据分析管理</p>
         <h2>全局预约与运营分析看板</h2>
-        <p class="text-muted">聚合预约、借用、用户风险数据，支持高频运营决策。</p>
+        <p class="text-muted">聚合预约、借用等运营数据，支持高频运营决策。</p>
       </div>
       <div class="hero-metrics">
         <div v-for="kpi in kpis" :key="kpi.label">
@@ -422,6 +394,23 @@ function refreshAll() {
     <section v-if="reportsErrorMessage" class="card error-banner">
       <strong>报表接口不可用：</strong>
       <span>{{ reportsErrorMessage }}</span>
+    </section>
+
+    <section class="card borrow-filters">
+      <div class="field">
+        <label>预约日期范围</label>
+        <NDatePicker v-model:value="filters.range" type="daterange" clearable @update:value="handleRangeChange" />
+      </div>
+      <div class="field">
+        <label>场馆排行</label>
+        <NSelect v-model:value="venueTopN" :options="venueTopNOptions" />
+      </div>
+      <div class="borrow-filters__actions">
+        <NButton type="primary" :loading="isAnalyticsFetching" @click="refreshAll">
+          刷新分析
+        </NButton>
+        <NButton tertiary @click="exportCsv">导出 CSV</NButton>
+      </div>
     </section>
 
     <section class="card analytics-compare">
@@ -439,34 +428,9 @@ function refreshAll() {
       <VChart class="chart" :option="trendChartOption" autoresize />
     </section>
 
-    <section class="card borrow-filters">
-      <div class="field">
-        <label>预约日期范围</label>
-        <NDatePicker v-model:value="filters.range" type="daterange" clearable @update:value="handleRangeChange" />
-      </div>
-      <div class="field">
-        <label>预约主筛选</label>
-        <NSelect v-model:value="filters.bookingStatus" :options="bookingStatusOptions" />
-      </div>
-      <div class="field">
-        <label>借用主筛选</label>
-        <NSelect v-model:value="filters.borrowStatus" :options="borrowStatusOptions" />
-      </div>
-      <div class="field">
-        <label>场馆排行</label>
-        <NSelect v-model:value="venueTopN" :options="venueTopNOptions" />
-      </div>
-      <div class="borrow-filters__actions">
-        <NButton type="primary" :loading="isAnalyticsFetching" @click="refreshAll">
-          刷新分析
-        </NButton>
-        <NButton tertiary @click="exportCsv">导出 CSV</NButton>
-      </div>
-    </section>
-
     <section class="analytics-grid">
-      <NCard title="预约状态分布（堆叠柱）" class="analytics-card">
-        <VChart class="chart" :option="bookingStackChartOption" autoresize />
+      <NCard title="预约状态分布" class="analytics-card">
+        <VChart class="chart" :option="bookingStatusBarChartOption" autoresize />
       </NCard>
 
       <NCard title="借用状态总览" class="analytics-card">
@@ -493,13 +457,19 @@ function refreshAll() {
 
     <section class="analytics-grid advanced-grid">
       <NCard title="高级趋势表（可排序）" class="analytics-card">
+        <p class="trend-table-hint text-muted">
+          总预约为当日开场时段的条数（与报表一致，按预约开始时间）；各状态互斥，满足
+          <strong>总预约 = 申请中 + 已核销 + 已取消 + 违规</strong>。
+        </p>
         <div class="table-wrap">
           <table class="pro-table">
             <thead>
               <tr>
                 <th @click="toggleTrendSort('date')">日期 {{ sortArrow('date') }}</th>
                 <th @click="toggleTrendSort('total')">总预约 {{ sortArrow('total') }}</th>
+                <th @click="toggleTrendSort('applied')">申请中 {{ sortArrow('applied') }}</th>
                 <th @click="toggleTrendSort('verified')">已核销 {{ sortArrow('verified') }}</th>
+                <th @click="toggleTrendSort('canceled')">已取消 {{ sortArrow('canceled') }}</th>
                 <th @click="toggleTrendSort('violation')">违规 {{ sortArrow('violation') }}</th>
                 <th @click="toggleTrendSort('violationRate')">违规率 {{ sortArrow('violationRate') }}</th>
                 <th>状态</th>
@@ -513,7 +483,9 @@ function refreshAll() {
               >
                 <td>{{ row.date }}</td>
                 <td>{{ row.total }}</td>
+                <td>{{ row.applied ?? 0 }}</td>
                 <td>{{ row.verified }}</td>
+                <td>{{ row.canceled }}</td>
                 <td>{{ row.violation }}</td>
                 <td>{{ row.violationRate }}%</td>
                 <td>
@@ -525,7 +497,9 @@ function refreshAll() {
               <tr class="summary-row">
                 <td>统计行</td>
                 <td>总计 {{ trendSummaryRow.total }} / 日均 {{ trendSummaryRow.avgTotal }}</td>
+                <td>{{ trendSummaryRow.applied }}</td>
                 <td>{{ trendSummaryRow.verified }}</td>
+                <td>{{ trendSummaryRow.canceled }}</td>
                 <td>{{ trendSummaryRow.violation }}</td>
                 <td>{{ trendSummaryRow.violationRate }}%</td>
                 <td>核销率 {{ trendSummaryRow.verifyRate }}%</td>
@@ -535,8 +509,8 @@ function refreshAll() {
         </div>
       </NCard>
 
-      <NCard title="TopN 场馆预约排行" class="analytics-card">
-        <div class="table-wrap">
+      <NCard title="TopN 场馆预约排行" class="analytics-card analytics-card--venue-rank">
+        <div class="table-wrap table-wrap--venue-rank">
           <table class="pro-table">
             <thead>
               <tr>
@@ -567,24 +541,6 @@ function refreshAll() {
               </tr>
             </tbody>
           </table>
-        </div>
-      </NCard>
-    </section>
-
-    <section class="analytics-grid">
-      <NCard title="高风险用户（本月违规）" class="analytics-card">
-        <div v-if="riskUsers.length" class="risk-list">
-          <div v-for="user in riskUsers" :key="user.id" class="risk-item">
-            <div>
-              <strong>{{ user.realName || user.username }}</strong>
-              <p class="text-muted">@{{ user.username }} · {{ user.role }}</p>
-            </div>
-            <NTag type="error">违规 {{ user.violationCountMonth || 0 }} 次</NTag>
-          </div>
-        </div>
-        <div v-else class="empty-state small-empty">
-          <h3>暂无风险用户</h3>
-          <p>当前样本中未发现本月违规用户。</p>
         </div>
       </NCard>
     </section>
@@ -663,7 +619,7 @@ function refreshAll() {
 
 .borrow-filters {
   display: grid;
-  grid-template-columns: repeat(4, minmax(170px, 1fr)) auto;
+  grid-template-columns: minmax(240px, 1.4fr) minmax(140px, 0.6fr) auto;
   gap: 12px;
   align-items: end;
 }
@@ -694,6 +650,12 @@ function refreshAll() {
   align-items: start;
 }
 
+.trend-table-hint {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .analytics-card {
   min-height: 220px;
 }
@@ -719,6 +681,16 @@ function refreshAll() {
 
 .table-wrap {
   overflow: auto;
+}
+
+/* TopN 场馆排行：限制高度，超出部分纵向滚动（表头 sticky 仍生效） */
+.table-wrap--venue-rank {
+  max-height: min(320px, 45vh);
+  overflow-x: auto;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  border-radius: 8px;
+  border: 1px solid #eef2f7;
 }
 
 .pro-table {
@@ -788,27 +760,6 @@ function refreshAll() {
   display: flex;
   gap: 8px;
   align-items: center;
-}
-
-.risk-list {
-  display: grid;
-  gap: 10px;
-}
-
-.risk-item {
-  border: 1px solid #eef2f7;
-  background: #f8fafc;
-  border-radius: 10px;
-  padding: 10px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 16px;
-  color: #6b7280;
 }
 
 @media (max-width: 1200px) {

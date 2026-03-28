@@ -4,6 +4,23 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.tly.mapper.BorrowRecordMapper">
 
+    <resultMap id="BorrowRecordListItemMap" type="com.tly.dto.borrow.BorrowRecordListItem">
+        <id property="id" column="id"/>
+        <result property="userName" column="user_name"/>
+        <result property="itemName" column="item_name"/>
+        <result property="quantity" column="quantity"/>
+        <result property="status" column="status"/>
+        <result property="requestedTime" column="requested_time"/>
+        <result property="approvedTime" column="approved_time"/>
+        <result property="returnedTime" column="returned_time"/>
+        <result property="depositSnapshot" column="deposit_snapshot"/>
+        <result property="conditionOnBorrow" column="condition_on_borrow"/>
+        <result property="conditionOnReturn" column="condition_on_return"/>
+        <result property="remark" column="remark"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
     <resultMap id="BorrowRecordResultMap" type="com.tly.entity.BorrowRecord">
         <id property="id" column="id"/>
         <result property="userId" column="user_id"/>
@@ -63,53 +80,75 @@
         LIMIT 1
     </select>
 
+    <sql id="BorrowFromJoin">
+        FROM borrow_record br
+        LEFT JOIN sys_user u ON u.id = br.user_id
+        LEFT JOIN warehouse_item wi ON wi.id = br.item_id
+    </sql>
+
     <select id="countByCondition" resultType="long">
         SELECT COUNT(1)
-        FROM borrow_record
+        <include refid="BorrowFromJoin"/>
         <where>
-            <if test="userId != null">
-                AND user_id = #{userId}
+            <if test="scopeUserId != null">
+                AND br.user_id = #{scopeUserId}
             </if>
-            <if test="itemId != null">
-                AND item_id = #{itemId}
+            <if test="userNameLike != null and userNameLike != ''">
+                AND u.username LIKE CONCAT('%', #{userNameLike}, '%')
+            </if>
+            <if test="itemNameLike != null and itemNameLike != ''">
+                AND wi.name LIKE CONCAT('%', #{itemNameLike}, '%')
             </if>
             <if test="status != null and status != ''">
-                AND status = #{status}
+                AND br.status = #{status}
             </if>
             <if test="startTime != null">
-                AND requested_time &gt;= #{startTime}
+                AND br.requested_time &gt;= #{startTime}
             </if>
             <if test="endTime != null">
-                AND requested_time &lt;= #{endTime}
+                AND br.requested_time &lt;= #{endTime}
             </if>
         </where>
     </select>
 
-    <select id="listByCondition" resultMap="BorrowRecordResultMap">
+    <select id="listByCondition" resultMap="BorrowRecordListItemMap">
         SELECT
-            id, user_id, item_id, quantity, status,
-            requested_time, approved_time, returned_time,
-            deposit_snapshot, condition_on_borrow, condition_on_return,
-            remark, create_time, update_time
-        FROM borrow_record
+            br.id,
+            u.username AS user_name,
+            wi.name AS item_name,
+            br.quantity,
+            br.status,
+            br.requested_time,
+            br.approved_time,
+            br.returned_time,
+            br.deposit_snapshot,
+            br.condition_on_borrow,
+            br.condition_on_return,
+            br.remark,
+            br.create_time,
+            br.update_time
+        <include refid="BorrowFromJoin"/>
         <where>
-            <if test="userId != null">
-                AND user_id = #{userId}
+            <if test="scopeUserId != null">
+                AND br.user_id = #{scopeUserId}
             </if>
-            <if test="itemId != null">
-                AND item_id = #{itemId}
+            <if test="userNameLike != null and userNameLike != ''">
+                AND u.username LIKE CONCAT('%', #{userNameLike}, '%')
+            </if>
+            <if test="itemNameLike != null and itemNameLike != ''">
+                AND wi.name LIKE CONCAT('%', #{itemNameLike}, '%')
             </if>
             <if test="status != null and status != ''">
-                AND status = #{status}
+                AND br.status = #{status}
             </if>
             <if test="startTime != null">
-                AND requested_time &gt;= #{startTime}
+                AND br.requested_time &gt;= #{startTime}
             </if>
             <if test="endTime != null">
-                AND requested_time &lt;= #{endTime}
+                AND br.requested_time &lt;= #{endTime}
             </if>
         </where>
-        ORDER BY requested_time DESC
+        ORDER BY br.requested_time DESC
         LIMIT #{pageSize} OFFSET #{offset}
     </select>
 

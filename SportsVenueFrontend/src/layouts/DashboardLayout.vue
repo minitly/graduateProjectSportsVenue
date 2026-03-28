@@ -360,6 +360,10 @@ const pageHeader = computed(() => {
   }
 })
 
+const sidebarBrandTitle = computed(() =>
+  authStore.role === 'ADMIN' || authStore.role === 'OWNER' ? '体育馆管理中台' : '体育馆预约服务'
+)
+
 const displayName = computed(() => authStore.user?.realName || authStore.user?.username || '访客')
 const roleLabel = computed(() => {
   if (authStore.role === 'ADMIN') return '系统管理员'
@@ -396,7 +400,7 @@ function toggleCollapsed() {
             <img class="brand-mark__logo" :src="logo" alt="体育馆图标" />
           </div>
           <div class="sidebar-fade" :class="{ 'is-hidden': collapsed }">
-            <strong>体育馆管理中台</strong>
+            <strong>{{ sidebarBrandTitle }}</strong>
             <span>Sports Venue</span>
           </div>
         </div>
