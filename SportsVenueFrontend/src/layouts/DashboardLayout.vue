@@ -39,10 +39,47 @@ const baseMenuItems = [
   }
 ]
 
+/** 普通用户侧文案：场地预约 / 我的预约；公告中心置顶 */
+const userMenuItems = (() => {
+  const withUserLabels = baseMenuItems.map((item) => {
+    if (item.path === '/app/venues') {
+      return {
+        ...item,
+        label: '场地预约',
+        description: '浏览可预约场地并选择时段'
+      }
+    }
+    if (item.path === '/app/bookings') {
+      return {
+        ...item,
+        label: '我的预约',
+        description: '查看预约记录与状态'
+      }
+    }
+    return item
+  })
+  const notices = withUserLabels.find((item) => item.path === '/app/notices')
+  const rest = withUserLabels.filter((item) => item.path !== '/app/notices')
+  return notices ? [notices, ...rest] : [...withUserLabels]
+})()
+
+/** 管理端（ADMIN / OWNER）：不展示「用户中心」；器材借用文案改为「器材管理」 */
+const adminMenuBase = baseMenuItems
+  .filter((item) => item.path !== '/app/profile')
+  .map((item) =>
+    item.path === '/app/borrow'
+      ? {
+          ...item,
+          label: '器材管理',
+          description: '查看器材库存与借用审批'
+        }
+      : item
+  )
+
 const menuItems = computed(() => {
   if (authStore.role === 'ADMIN') {
     return [
-      ...baseMenuItems,
+      ...adminMenuBase,
       {
         label: '用户管理',
         description: '查看用户状态并执行启用/禁用',
@@ -68,7 +105,7 @@ const menuItems = computed(() => {
 
   if (authStore.role === 'OWNER') {
     return [
-      ...baseMenuItems,
+      ...adminMenuBase,
       {
         label: '用户管理',
         description: '查看用户状态并执行启用/禁用',
@@ -92,10 +129,42 @@ const menuItems = computed(() => {
     ]
   }
 
-  return baseMenuItems
+  return userMenuItems
 })
 
 const activePath = computed(() => route.path)
+
+/** 与侧边栏一致：用户端 / 管理端部分页面标题与路由 meta 区分 */
+const pageHeader = computed(() => {
+  const meta = route.meta || {}
+  const path = route.path
+  const role = authStore.role
+  if (role === 'USER') {
+    if (path === '/app/venues') {
+      return {
+        title: '场地预约',
+        subtitle: '浏览可预约场地并选择时段'
+      }
+    }
+    if (path === '/app/bookings') {
+      return {
+        title: '我的预约',
+        subtitle: '查看预约记录与状态'
+      }
+    }
+  }
+  if ((role === 'ADMIN' || role === 'OWNER') && path === '/app/borrow') {
+    return {
+      title: '器材管理',
+      subtitle: '查看器材库存与借用审批'
+    }
+  }
+  return {
+    title: meta.title || '控制台',
+    subtitle: meta.subtitle || '管理你的体育馆预约与器材借用'
+  }
+})
+
 const displayName = computed(() => authStore.user?.realName || authStore.user?.username || '访客')
 const roleLabel = computed(() => {
   if (authStore.role === 'ADMIN') return '系统管理员'
@@ -158,8 +227,8 @@ function handleLogout() {
     <main class="dashboard__main">
       <header class="dashboard__header">
         <div>
-          <h2>{{ route.meta.title || '控制台' }}</h2>
-          <p>{{ route.meta.subtitle || '管理你的体育馆预约与器材借用' }}</p>
+          <h2>{{ pageHeader.title }}</h2>
+          <p>{{ pageHeader.subtitle }}</p>
         </div>
         <div class="dashboard__actions">
           <button class="ghost" type="button">帮助中心</button>

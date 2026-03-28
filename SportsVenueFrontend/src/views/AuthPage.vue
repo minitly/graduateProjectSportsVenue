@@ -26,15 +26,16 @@ function showToast(type, message) {
 }
 
 function handleLoginSuccess(data) {
+  const role = data.role || data.selectedRole || 'USER'
   authStore.setSession(data.token || '', {
     userId: data.userId,
     username: data.username || '',
     realName: data.realName || data.username || '',
-    role: data.role || data.selectedRole || 'USER',
+    role,
     permissions: data.permissions || []
   }, rememberMe.value)
   showToast('success', '登录成功')
-  router.replace('/app/venues')
+  router.replace(role === 'USER' ? '/app/notices' : '/app/venues')
 }
 
 function handleRegisterSuccess() {

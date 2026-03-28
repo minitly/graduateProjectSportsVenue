@@ -137,12 +137,12 @@ router.beforeEach((to) => {
         };
     }
     if (to.path === "/auth" && authStore.isAuthed) {
-        return "/app/venues";
+        return authStore.role === "USER" ? "/app/notices" : "/app/venues";
     }
     const allowedRoles = to.meta?.roles;
     if (allowedRoles?.length && !allowedRoles.includes(authStore.role)) {
         pushToast("当前账号无权限访问该页面", "warning");
-        return "/app/venues";
+        return authStore.role === "USER" ? "/app/notices" : "/app/venues";
     }
     return true;
 });
