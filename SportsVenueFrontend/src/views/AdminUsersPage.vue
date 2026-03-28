@@ -440,7 +440,7 @@ function formatDateTime(value) {
     <section class="card profile-hero">
       <div>
         <p class="section-kicker">用户管理</p>
-        <h2>按文档完成用户全流程管理</h2>
+        <h2>用户全流程管理</h2>
         <p class="text-muted">支持创建、详情查看、分页筛选、编辑与启用/禁用。</p>
       </div>
       <div class="hero-metrics">

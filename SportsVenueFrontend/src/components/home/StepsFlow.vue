@@ -23,7 +23,7 @@
         <div class="step-icon" aria-hidden="true">✅</div>
         <div>
           <h3>到场核销</h3>
-          <p>到场扫码，快速入场</p>
+          <p>到场验证，快速入场</p>
         </div>
       </div>
     </div>

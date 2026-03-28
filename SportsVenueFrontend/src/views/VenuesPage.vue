@@ -1356,106 +1356,108 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <section v-if="activeModule === 'venue'" class="venues-grid">
-      <article v-for="venue in venuesData" :key="venue.id" class="venue-card">
-        <div class="venue-card__media">
-          <div class="venue-card__badge" :class="venue.status?.toLowerCase()">
-            {{ getStatusText(venue.status, '未知状态') }}
-          </div>
-          <img
-              v-if="venueImageMap[venue.id]"
-              :src="venueImageMap[venue.id]"
-              alt="venue cover"
-          />
-          <div v-else class="venue-card__placeholder">暂无封面</div>
-        </div>
-        <div class="venue-card__content">
-          <div>
-            <h3>{{ venue.name }}</h3>
-            <p class="text-muted">编号 {{ venue.code || '-' }} · {{ venue.type }} · 容量 {{ venue.capacity || '-' }}</p>
-          </div>
-          <p class="venue-card__desc">
-            {{ venue.description || '暂无描述' }}
-          </p>
-          <div class="venue-card__meta">
-            <div>
-              <span>开放时间</span>
-              <strong>{{ venue.openTime }} - {{ venue.closeTime }}</strong>
+    <section v-if="activeModule === 'venue'" class="card venues-panel">
+      <div v-if="venuesData.length || isVenuesFetching" class="venues-grid">
+        <article v-for="venue in venuesData" :key="venue.id" class="venue-card">
+          <div class="venue-card__media">
+            <div class="venue-card__badge" :class="venue.status?.toLowerCase()">
+              {{ getStatusText(venue.status, '未知状态') }}
             </div>
+            <img
+                v-if="venueImageMap[venue.id]"
+                :src="venueImageMap[venue.id]"
+                alt="venue cover"
+            />
+            <div v-else class="venue-card__placeholder">暂无封面</div>
+          </div>
+          <div class="venue-card__content">
             <div>
-              <span>价格</span>
-              <strong>{{ venue.price ? `¥${venue.price}/小时` : '咨询' }}</strong>
+              <h3>{{ venue.name }}</h3>
+              <p class="text-muted">编号 {{ venue.code || '-' }} · {{ venue.type }} · 容量 {{ venue.capacity || '-' }}</p>
+            </div>
+            <p class="venue-card__desc">
+              {{ venue.description || '暂无描述' }}
+            </p>
+            <div class="venue-card__meta">
+              <div>
+                <span>开放时间</span>
+                <strong>{{ venue.openTime }} - {{ venue.closeTime }}</strong>
+              </div>
+              <div>
+                <span>价格</span>
+                <strong>{{ venue.price ? `¥${venue.price}/小时` : '咨询' }}</strong>
+              </div>
+            </div>
+            <div class="venue-card__actions">
+              <NButton tertiary @click="openVenueDetail(venue)">查看详情</NButton>
+              <NButton
+                  v-if="!isOwner && venue.status === 'AVAILABLE'"
+                  type="primary"
+                  @click="openBookingModal(venue)"
+              >
+                预约时段
+              </NButton>
+              <NButton v-if="isOwner" tertiary @click="openEditVenue(venue)">编辑场地</NButton>
+              <NButton v-if="isOwner" type="error" tertiary @click="openDeleteVenue(venue)">删除</NButton>
+            </div>
+            <div v-if="isOwner" class="venue-card__quick-status">
+              <span>快速状态：</span>
+              <NButton
+                  size="tiny"
+                  tertiary
+                  :type="venue.status === 'AVAILABLE' ? 'success' : 'default'"
+                  @click="quickChangeVenueStatus(venue, 'AVAILABLE')"
+              >可预约</NButton>
+              <NButton
+                  size="tiny"
+                  tertiary
+                  :type="venue.status === 'MAINTAIN' ? 'warning' : 'default'"
+                  @click="quickChangeVenueStatus(venue, 'MAINTAIN')"
+              >维护中</NButton>
+              <NButton
+                  size="tiny"
+                  tertiary
+                  :type="venue.status === 'SUSPEND' ? 'info' : 'default'"
+                  @click="quickChangeVenueStatus(venue, 'SUSPEND')"
+              >暂停</NButton>
+              <NButton
+                  size="tiny"
+                  tertiary
+                  :type="venue.status === 'DISABLED' ? 'error' : 'default'"
+                  @click="quickChangeVenueStatus(venue, 'DISABLED')"
+              >停用</NButton>
             </div>
           </div>
-          <div class="venue-card__actions">
-            <NButton tertiary @click="openVenueDetail(venue)">查看详情</NButton>
-            <NButton
-                v-if="!isOwner && venue.status === 'AVAILABLE'"
-                type="primary"
-                @click="openBookingModal(venue)"
-            >
-              预约时段
-            </NButton>
-            <NButton v-if="isOwner" tertiary @click="openEditVenue(venue)">编辑场地</NButton>
-            <NButton v-if="isOwner" type="error" tertiary @click="openDeleteVenue(venue)">删除</NButton>
-          </div>
-          <div v-if="isOwner" class="venue-card__quick-status">
-            <span>快速状态：</span>
-            <NButton
-                size="tiny"
-                tertiary
-                :type="venue.status === 'AVAILABLE' ? 'success' : 'default'"
-                @click="quickChangeVenueStatus(venue, 'AVAILABLE')"
-            >可预约</NButton>
-            <NButton
-                size="tiny"
-                tertiary
-                :type="venue.status === 'MAINTAIN' ? 'warning' : 'default'"
-                @click="quickChangeVenueStatus(venue, 'MAINTAIN')"
-            >维护中</NButton>
-            <NButton
-                size="tiny"
-                tertiary
-                :type="venue.status === 'SUSPEND' ? 'info' : 'default'"
-                @click="quickChangeVenueStatus(venue, 'SUSPEND')"
-            >暂停</NButton>
-            <NButton
-                size="tiny"
-                tertiary
-                :type="venue.status === 'DISABLED' ? 'error' : 'default'"
-                @click="quickChangeVenueStatus(venue, 'DISABLED')"
-            >停用</NButton>
-          </div>
-        </div>
-      </article>
+        </article>
+      </div>
 
-      <div v-if="!venuesData.length && !isVenuesFetching" class="empty-state">
+      <div v-else class="empty-state venues-panel__empty">
         <h3>暂无场地</h3>
         <p>尝试调整筛选条件或稍后再来。</p>
       </div>
-    </section>
 
-    <section v-if="activeModule === 'venue'" class="pagination">
-      <NButton tertiary @click="prevPage" :disabled="pagination.pageNo <= 1">上一页</NButton>
-      <span>第 {{ pagination.pageNo }} 页 / 共 {{ Math.ceil(venuesTotal / pagination.pageSize) || 1 }} 页</span>
-      <span style="display: inline-flex; align-items: center; gap: 8px;">
-        <span>每页</span>
-        <NInputNumber
-          v-model:value="pagination.pageSize"
-          :min="1"
-          :max="50"
-          :step="1"
-          style="width: 100px;"
-        />
-        <span>条</span>
-      </span>
-      <NButton
-          tertiary
-          @click="nextPage"
-          :disabled="pagination.pageNo * pagination.pageSize >= venuesTotal"
-      >
-        下一页
-      </NButton>
+      <section class="pagination">
+        <NButton tertiary @click="prevPage" :disabled="pagination.pageNo <= 1">上一页</NButton>
+        <span>第 {{ pagination.pageNo }} 页 / 共 {{ Math.ceil(venuesTotal / pagination.pageSize) || 1 }} 页</span>
+        <span style="display: inline-flex; align-items: center; gap: 8px;">
+          <span>每页</span>
+          <NInputNumber
+            v-model:value="pagination.pageSize"
+            :min="1"
+            :max="50"
+            :step="1"
+            style="width: 100px;"
+          />
+          <span>条</span>
+        </span>
+        <NButton
+            tertiary
+            @click="nextPage"
+            :disabled="pagination.pageNo * pagination.pageSize >= venuesTotal"
+        >
+          下一页
+        </NButton>
+      </section>
     </section>
 
     <section v-if="activeModule === 'booking' && isOwner" class="card booking-panel">
@@ -1523,9 +1525,9 @@ onUnmounted(() => {
             </NButton>
           </div>
         </NCard>
-        <div v-if="!ownerBookingsData.length && !ownerBookingsQuery.isFetching" class="empty-state">
-          <h3>暂无审核数据</h3>
-          <p>可调整筛选条件后重试。</p>
+        <div v-if="!ownerBookingsData.length && !isOwnerBookingsFetching" class="empty-state">
+          <h3>暂无预约记录</h3>
+          <p>用户预约场地后将展示在这里，您可执行核销；若无数据，也可尝试调整筛选条件。</p>
         </div>
       </div>
 

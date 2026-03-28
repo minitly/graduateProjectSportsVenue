@@ -56,7 +56,7 @@
         FROM warehouse_item
         <where>
             <if test="type != null and type != ''">
-                AND type = #{type}
+                AND type LIKE CONCAT('%', #{type}, '%')
             </if>
             <if test="keyword != null and keyword != ''">
                 AND (name LIKE CONCAT('%', #{keyword}, '%')
@@ -76,7 +76,7 @@
         FROM warehouse_item
         <where>
             <if test="type != null and type != ''">
-                AND type = #{type}
+                AND type LIKE CONCAT('%', #{type}, '%')
             </if>
             <if test="keyword != null and keyword != ''">
                 AND (name LIKE CONCAT('%', #{keyword}, '%')

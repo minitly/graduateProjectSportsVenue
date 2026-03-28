@@ -1,7 +1,7 @@
 <script setup>
-    import { computed, reactive, watch } from "vue";
+    import { computed, nextTick, reactive, ref, unref, watch } from "vue";
     import { useQuery, useQueryClient } from "@tanstack/vue-query";
-    import { NButton, NInput, NInputNumber, NModal, NTag } from "naive-ui";
+    import { NButton, NInput, NInputNumber, NModal, NSelect, NTag } from "naive-ui";
     import api from "../../services/api";
     import { useToast } from "../../composables/useToast";
 
@@ -30,6 +30,13 @@
     });
 
     const adminPagination = reactive({ pageNo: 1, pageSize: 10 });
+    const adminItemFilters = reactive({
+        keyword: "",
+        type: "",
+        onlyAvailable: false,
+    });
+    const adminFilterDebounce = ref(null);
+    const suppressAdminItemFiltersWatch = ref(false);
 
     watch(
         () => adminPagination.pageSize,
@@ -44,16 +51,40 @@
         },
     );
 
+    watch(
+        () => [
+            adminItemFilters.keyword,
+            adminItemFilters.type,
+            adminItemFilters.onlyAvailable,
+        ],
+        () => {
+            if (suppressAdminItemFiltersWatch.value) return;
+            adminPagination.pageNo = 1;
+            if (adminFilterDebounce.value)
+                clearTimeout(adminFilterDebounce.value);
+            adminFilterDebounce.value = setTimeout(
+                () => adminItemsQuery.refetch(),
+                400,
+            );
+        },
+    );
+
     const adminItemsQuery = useQuery({
         queryKey: computed(() => [
             "items",
             "admin",
+            adminItemFilters.keyword,
+            adminItemFilters.type,
+            adminItemFilters.onlyAvailable,
             adminPagination.pageNo,
             adminPagination.pageSize,
         ]),
         queryFn: async () => {
             const response = await api.get("/items", {
                 params: {
+                    keyword: adminItemFilters.keyword?.trim() || undefined,
+                    type: adminItemFilters.type?.trim() || undefined,
+                    onlyAvailable: adminItemFilters.onlyAvailable,
                     pageNo: adminPagination.pageNo,
                     pageSize: adminPagination.pageSize,
                 },
@@ -78,6 +109,25 @@
             adminItemsQuery.data?.value?.total ||
             0,
     );
+
+    const isAdminItemsFetching = computed(() =>
+        Boolean(unref(adminItemsQuery.isFetching)),
+    );
+
+    function resetAdminItemFilters() {
+        suppressAdminItemFiltersWatch.value = true;
+        if (adminFilterDebounce.value)
+            clearTimeout(adminFilterDebounce.value);
+        adminFilterDebounce.value = null;
+        adminItemFilters.keyword = "";
+        adminItemFilters.type = "";
+        adminItemFilters.onlyAvailable = false;
+        adminPagination.pageNo = 1;
+        adminItemsQuery.refetch();
+        nextTick(() => {
+            suppressAdminItemFiltersWatch.value = false;
+        });
+    }
 
     function resetForm() {
         adminItemModal.form = {
@@ -164,18 +214,49 @@
 </script>
 
 <template>
+    <section class="card venues-filters">
+        <div class="field">
+            <label>关键词</label>
+            <NInput
+                v-model:value="adminItemFilters.keyword"
+                placeholder="器材名称 / 型号"
+            />
+        </div>
+        <div class="field">
+            <label>类型</label>
+            <NInput
+                v-model:value="adminItemFilters.type"
+                clearable
+                placeholder="输入器材类型，如：球类、球拍"
+            />
+        </div>
+        <div class="field">
+            <label>只看可借</label>
+            <NSelect
+                v-model:value="adminItemFilters.onlyAvailable"
+                :options="[
+                    { label: '全部', value: false },
+                    { label: '仅可借', value: true },
+                ]"
+            />
+        </div>
+        <div class="venues-filters__actions">
+            <NButton
+                type="primary"
+                :loading="isAdminItemsFetching"
+                @click="adminItemsQuery.refetch()"
+                >查询</NButton
+            >
+            <NButton tertiary @click="resetAdminItemFilters">重置</NButton>
+            <NButton type="info" @click="openAdminCreate">新增器材</NButton>
+        </div>
+    </section>
+
     <section class="card borrow-panel">
         <div class="borrow-panel__header">
             <div>
                 <p class="section-kicker">器材管理</p>
                 <h3>维护器材台账与库存信息</h3>
-            </div>
-            <div class="borrow-panel__actions">
-                <NButton
-                    type="primary"
-                    @click="openAdminCreate"
-                    >新增器材</NButton
-                >
             </div>
         </div>
 

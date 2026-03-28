@@ -312,7 +312,7 @@
             "header": [
               { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
-            "url": "{{baseUrl}}/items?type=球类&onlyAvailable=true&pageNo=1&pageSize=10"
+            "url": "{{baseUrl}}/items?type=球&onlyAvailable=true&pageNo=1&pageSize=10"
           },
           "response": []
         },

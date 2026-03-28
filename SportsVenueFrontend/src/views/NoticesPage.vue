@@ -307,7 +307,7 @@ function formatDateTime(value) {
       <section class="card profile-hero">
         <div>
           <p class="section-kicker">公告模块</p>
-          <h2>{{ isOwner ? '公告中心（管理 + 用户侧展示联动）' : '公告中心' }}</h2>
+          <h2>公告中心</h2>
           <p class="text-muted">{{ isOwner ? '支持草稿、发布、下线、删除与详情查看。' : '查看已发布公告列表与详情。' }}</p>
         </div>
         <div class="hero-metrics"><div><span>当前页公告</span><strong>{{ notices.length }}</strong></div><div><span>总公告数</span><strong>{{ total }}</strong></div></div>
@@ -323,75 +323,77 @@ function formatDateTime(value) {
         </div>
       </section>
 
-      <section class="borrow-panel__list">
-        <div
-          v-for="item in notices"
-          :key="item.id"
-          class="notice-list-item"
-          :class="{ 'notice-list-item--user-clickable': !isOwner }"
-          :role="isOwner ? undefined : 'button'"
-          :tabindex="isOwner ? undefined : 0"
-          @click="onUserNoticeCardActivate(item)"
-          @keyup.enter="onUserNoticeCardActivate(item)"
-        >
-          <NCard size="small" class="borrow-record">
-            <template #header>
-              <div class="borrow-record__header">
-                <div>
-                  <strong>{{ item.title }}</strong>
-                  <p class="text-muted">发布时间：{{ formatDisplayDateTime(item.publishTime) }}</p>
+      <section class="card booking-panel">
+        <div class="borrow-panel__list">
+          <div
+            v-for="item in notices"
+            :key="item.id"
+            class="notice-list-item"
+            :class="{ 'notice-list-item--user-clickable': !isOwner }"
+            :role="isOwner ? undefined : 'button'"
+            :tabindex="isOwner ? undefined : 0"
+            @click="onUserNoticeCardActivate(item)"
+            @keyup.enter="onUserNoticeCardActivate(item)"
+          >
+            <NCard size="small" class="borrow-record">
+              <template #header>
+                <div class="borrow-record__header">
+                  <div>
+                    <strong>{{ item.title }}</strong>
+                    <p class="text-muted">发布时间：{{ formatDisplayDateTime(item.publishTime) }}</p>
+                  </div>
+                  <NTag v-if="isOwner" :type="statusTagType(item.status)">{{ getStatusText(item.status) }}</NTag>
                 </div>
-                <NTag v-if="isOwner" :type="statusTagType(item.status)">{{ getStatusText(item.status) }}</NTag>
+              </template>
+              <div v-if="isOwner" class="borrow-record__body">
+                <div><span>创建时间</span><strong>{{ formatDateTime(item.createTime) }}</strong></div>
+                <div><span>更新时间</span><strong>{{ formatDateTime(item.updateTime) }}</strong></div>
+                <div><span>创建人</span><strong>{{ item.createByUsername ?? '—' }}</strong></div>
+                <div><span>更新人</span><strong>{{ item.updateByUsername ?? '—' }}</strong></div>
               </div>
-            </template>
-            <div v-if="isOwner" class="borrow-record__body">
-              <div><span>创建时间</span><strong>{{ formatDateTime(item.createTime) }}</strong></div>
-              <div><span>更新时间</span><strong>{{ formatDateTime(item.updateTime) }}</strong></div>
-              <div><span>创建人</span><strong>{{ item.createByUsername ?? '—' }}</strong></div>
-              <div><span>更新人</span><strong>{{ item.updateByUsername ?? '—' }}</strong></div>
-            </div>
-            <div v-if="isOwner" class="borrow-record__actions" style="gap: 8px; justify-content: flex-end; flex-wrap: wrap;">
-              <NButton size="small" tertiary @click.stop="openDetail(item)">查看详情</NButton>
-              <NButton size="small" type="primary" tertiary @click.stop="openEditPage(item)">编辑</NButton>
-              <NButton
-                size="small"
-                type="success"
-                tertiary
-                :disabled="item.status === 'PUBLISHED'"
-                @click.stop="confirmSwitchStatus(item, 'PUBLISHED')"
-              >
-                发布
-              </NButton>
-              <NButton
-                size="small"
-                tertiary
-                :disabled="item.status === 'OFFLINE'"
-                @click.stop="confirmSwitchStatus(item, 'OFFLINE')"
-              >
-                下线
-              </NButton>
-              <NButton size="small" type="error" tertiary @click.stop="confirmRemoveNotice(item)">删除</NButton>
-            </div>
-          </NCard>
+              <div v-if="isOwner" class="borrow-record__actions" style="gap: 8px; justify-content: flex-end; flex-wrap: wrap;">
+                <NButton size="small" tertiary @click.stop="openDetail(item)">查看详情</NButton>
+                <NButton size="small" type="primary" tertiary @click.stop="openEditPage(item)">编辑</NButton>
+                <NButton
+                  size="small"
+                  type="success"
+                  tertiary
+                  :disabled="item.status === 'PUBLISHED'"
+                  @click.stop="confirmSwitchStatus(item, 'PUBLISHED')"
+                >
+                  发布
+                </NButton>
+                <NButton
+                  size="small"
+                  tertiary
+                  :disabled="item.status === 'OFFLINE'"
+                  @click.stop="confirmSwitchStatus(item, 'OFFLINE')"
+                >
+                  下线
+                </NButton>
+                <NButton size="small" type="error" tertiary @click.stop="confirmRemoveNotice(item)">删除</NButton>
+              </div>
+            </NCard>
+          </div>
+          <div v-if="!notices.length && !isQueryLoading" class="empty-state"><h3>暂无公告数据</h3><p>请调整筛选条件后重试。</p></div>
         </div>
-        <div v-if="!notices.length && !isQueryLoading" class="empty-state"><h3>暂无公告数据</h3><p>请调整筛选条件后重试。</p></div>
-      </section>
 
-      <section class="pagination">
-        <NButton tertiary @click="prevPage" :disabled="pagination.pageNo <= 1">上一页</NButton>
-        <span>第 {{ pagination.pageNo }} 页 / 共 {{ Math.ceil(total / pagination.pageSize) || 1 }} 页</span>
-        <span style="display: inline-flex; align-items: center; gap: 8px;">
-          <span>每页</span>
-          <NInputNumber
-            v-model:value="pagination.pageSize"
-            :min="1"
-            :max="50"
-            :step="1"
-            style="width: 100px;"
-          />
-          <span>条</span>
-        </span>
-        <NButton tertiary @click="nextPage" :disabled="pagination.pageNo * pagination.pageSize >= total">下一页</NButton>
+        <section class="pagination">
+          <NButton tertiary @click="prevPage" :disabled="pagination.pageNo <= 1">上一页</NButton>
+          <span>第 {{ pagination.pageNo }} 页 / 共 {{ Math.ceil(total / pagination.pageSize) || 1 }} 页</span>
+          <span style="display: inline-flex; align-items: center; gap: 8px;">
+            <span>每页</span>
+            <NInputNumber
+              v-model:value="pagination.pageSize"
+              :min="1"
+              :max="50"
+              :step="1"
+              style="width: 100px;"
+            />
+            <span>条</span>
+          </span>
+          <NButton tertiary @click="nextPage" :disabled="pagination.pageNo * pagination.pageSize >= total">下一页</NButton>
+        </section>
       </section>
     </template>
 

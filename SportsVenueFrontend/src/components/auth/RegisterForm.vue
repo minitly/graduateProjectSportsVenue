@@ -1,5 +1,5 @@
 <script setup>
-    import { computed, onUnmounted, reactive, ref, watch } from "vue";
+    import { computed, reactive, ref, watch } from "vue";
 
     const props = defineProps({
         apiBase: {
@@ -28,7 +28,6 @@
         username: "",
         password: "",
         email: "",
-        emailCode: "",
         realName: "",
         role: "USER",
         adminPassword: "",
@@ -39,7 +38,6 @@
         username: "",
         password: "",
         email: "",
-        emailCode: "",
         realName: "",
         adminPassword: "",
         phone: "",
@@ -57,8 +55,6 @@
     const passwordConfirmInline = ref("");
     const passwordConfirmError = ref("");
     const lastConfirmedPassword = ref("");
-    const emailCooldown = ref(0);
-    const emailTimer = ref(null);
 
     const roleOptions = [
         { label: "普通用户（USER）", value: "USER" },
@@ -67,7 +63,6 @@
 
     const isOwnerRegister = computed(() => registerForm.role === "OWNER");
     const canSubmit = computed(() => !props.loading);
-    const isEmailCooldown = computed(() => emailCooldown.value > 0);
     const isEmailValid = computed(() =>
         validateEmail(registerForm.email, false),
     );
@@ -111,13 +106,6 @@
         },
     );
 
-
-    onUnmounted(() => {
-        if (emailTimer.value) {
-            clearInterval(emailTimer.value);
-        }
-    });
-
     function setError(field, message) {
         errors[field] = message;
     }
@@ -126,7 +114,6 @@
         errors.username = "";
         errors.password = "";
         errors.email = "";
-        errors.emailCode = "";
         errors.realName = "";
         errors.adminPassword = "";
         errors.phone = "";
@@ -266,10 +253,6 @@
         if (!validateEmail(registerForm.email, true)) {
             valid = false;
         }
-        if (!registerForm.emailCode.trim()) {
-            setError("emailCode", "请输入验证码");
-            valid = false;
-        }
         if (!registerForm.realName.trim()) {
             setError("realName", "请输入真实姓名");
             valid = false;
@@ -291,44 +274,6 @@
         return valid;
     }
 
-    async function handleSendEmailCode() {
-        if (
-            !validateEmail(registerForm.email, true) ||
-            isEmailCooldown.value ||
-            props.loading
-        )
-            return;
-        emit("update:loading", true);
-        try {
-            const response = await fetch(`${props.apiBase}/auth/email/code`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ email: registerForm.email }),
-            });
-            const result = await response.json();
-            if (result.code !== 200) {
-                emit("toast", "error", result.message || "验证码发送失败");
-                return;
-            }
-            emit("toast", "success", "验证码已发送");
-            emailCooldown.value = 60;
-            if (emailTimer.value) clearInterval(emailTimer.value);
-            emailTimer.value = setInterval(() => {
-                emailCooldown.value -= 1;
-                if (emailCooldown.value <= 0) {
-                    clearInterval(emailTimer.value);
-                    emailTimer.value = null;
-                }
-            }, 1000);
-        } catch (error) {
-            emit("toast", "error", "无法连接后端服务");
-        } finally {
-            emit("update:loading", false);
-        }
-    }
-
     async function handleRegister() {
         if (!validate() || !canSubmit.value) return;
         emit("update:loading", true);
@@ -337,7 +282,6 @@
                 username: registerForm.username,
                 password: registerForm.password,
                 email: registerForm.email,
-                emailCode: registerForm.emailCode,
                 realName: registerForm.realName,
                 role: registerForm.role,
                 adminPassword:
@@ -461,45 +405,20 @@
 
         <div class="field">
             <label for="register-email">邮箱</label>
-            <div class="password-field">
-                <input
-                    id="register-email"
-                    v-model="registerForm.email"
-                    placeholder="请输入邮箱"
-                    :class="{
-                        error: errors.email,
-                        valid: touched.email && isEmailValid,
-                    }"
-                    @blur="handleEmailBlur"
-                />
-                <button
-                    type="button"
-                    class="ghost"
-                    :disabled="isEmailCooldown || loading"
-                    @click="handleSendEmailCode"
-                >
-                    {{ isEmailCooldown ? `${emailCooldown}s` : "发送验证码" }}
-                </button>
-            </div>
+            <input
+                id="register-email"
+                v-model="registerForm.email"
+                placeholder="请输入邮箱"
+                :class="{
+                    error: errors.email,
+                    valid: touched.email && isEmailValid,
+                }"
+                @blur="handleEmailBlur"
+            />
             <span
                 v-if="errors.email"
                 class="error-text"
                 >{{ errors.email }}</span
-            >
-        </div>
-
-        <div class="field">
-            <label for="register-email-code">邮箱验证码</label>
-            <input
-                id="register-email-code"
-                v-model="registerForm.emailCode"
-                placeholder="请输入邮箱验证码"
-                :class="{ error: errors.emailCode }"
-            />
-            <span
-                v-if="errors.emailCode"
-                class="error-text"
-                >{{ errors.emailCode }}</span
             >
         </div>
 

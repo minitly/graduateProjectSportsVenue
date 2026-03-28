@@ -253,7 +253,7 @@ async function submitOwnerAction() {
       </div>
     </div>
 
-    <div class="borrow-panel__list">
+    <div class="borrow-panel__list booking-panel__list">
       <NCard v-for="record in ownerBorrowsData" :key="record.id" size="small" class="borrow-record">
         <template #header>
           <div class="borrow-record__header">
@@ -281,7 +281,10 @@ async function submitOwnerAction() {
           <div><span>归还时器材状态</span><strong>{{ getStatusText(record.conditionOnReturn, '—') }}</strong></div>
         </div>
       </NCard>
-      <div v-if="!ownerBorrowsData.length && !ownerBorrowsQuery.isFetching" class="empty-state"><h3>暂无记录</h3><p>没有符合筛选条件的数据，试试清空筛选条件。</p></div>
+      <div v-if="!ownerBorrowsData.length && !isOwnerFetching" class="empty-state">
+        <h3>暂无借用记录</h3>
+        <p>用户提交借用申请后将展示在这里，您可确认借出或归还；若无数据，也可尝试调整筛选条件。</p>
+      </div>
     </div>
 
     <section class="pagination">

@@ -174,6 +174,12 @@ body {
   gap: 24px;
 }
 
+/* 公告中心、用户管理等：与场地预约页一致，卡片纵向分隔 */
+.admin-users-page {
+  display: grid;
+  gap: 24px;
+}
+
 .borrow-page,
 .profile-page {
   display: grid;
@@ -634,6 +640,19 @@ body {
   gap: 12px;
 }
 
+/* 与器材管理 borrow-panel 一致：列表 + 分页包在同一全宽 card 内 */
+.venues-panel {
+  display: grid;
+  gap: 20px;
+}
+
+.venues-panel__empty {
+  grid-column: unset;
+  background: transparent;
+  box-shadow: none;
+  padding: 48px 24px;
+}
+
 .venues-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 340px));
@@ -838,6 +857,36 @@ body {
 
 .booking-panel__list .n-card + .n-card {
   border-top: 4px solid #93c5fd;
+}
+
+/* 预约列表（用户「我的预约」/ 管理端审核）空状态：与浅蓝列表区配套的占位块 */
+.booking-panel__list > .empty-state {
+  grid-column: 1 / -1;
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 28px;
+  background: #f8fafc;
+  border: 1px solid #e0eaff;
+  border-radius: 16px;
+  box-shadow: none;
+}
+
+.booking-panel__list > .empty-state h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.booking-panel__list > .empty-state p {
+  margin: 10px 0 0;
+  font-size: 14px;
+  color: #64748b;
+  line-height: 1.55;
+  max-width: 360px;
 }
 
 .booking-card__header {

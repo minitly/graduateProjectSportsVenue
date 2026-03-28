@@ -36,13 +36,6 @@ const statusOptions = [
   { label: '已归还', value: 'RETURNED' }
 ]
 
-const itemTypeOptions = [
-  { label: '全部类型', value: '' },
-  { label: '球类', value: '球类' },
-  { label: '球拍', value: '球拍' },
-  { label: '护具', value: '护具' }
-]
-
 const itemsQuery = useQuery({
   queryKey: computed(() => ['items', itemFilters.keyword, itemFilters.type, itemFilters.onlyAvailable, itemPagination.pageNo, itemPagination.pageSize]),
   enabled: computed(() => props.section === 'browse'),
@@ -50,7 +43,7 @@ const itemsQuery = useQuery({
     const response = await api.get('/items', {
       params: {
         keyword: itemFilters.keyword || undefined,
-        type: itemFilters.type || undefined,
+        type: itemFilters.type?.trim() || undefined,
         onlyAvailable: itemFilters.onlyAvailable,
         pageNo: itemPagination.pageNo,
         pageSize: itemPagination.pageSize
@@ -91,7 +84,7 @@ const borrowsTotal = computed(() => borrowsQuery.data?.total || borrowsQuery.dat
 
 const itemStats = computed(() => [
   { label: '可借器材', value: itemsTotal.value },
-  { label: '当前筛选', value: itemFilters.type || '全部' }
+  { label: '当前类型', value: itemFilters.type?.trim() || '全部' }
 ])
 
 const borrowStats = computed(() => [
@@ -230,74 +223,79 @@ async function submitBorrow() {
 
 <template>
   <template v-if="section === 'browse'">
-  <section class="card borrow-hero">
-    <div>
-      <p class="section-kicker">器材借用</p>
-      <h2>快速查看器材库存，提交借用申请</h2>
-      <p class="text-muted">借用流程：申请 → 管理员确认借出 → 确认归还。</p>
-    </div>
-    <div class="hero-metrics">
-      <div v-for="stat in itemStats" :key="stat.label">
-        <span>{{ stat.label }}</span>
-        <strong>{{ stat.value }}</strong>
+  <div class="borrow-user-browse">
+    <section class="card borrow-hero">
+      <div>
+        <p class="section-kicker">器材借用</p>
+        <h2>快速查看器材库存，提交借用申请</h2>
+        <p class="text-muted">借用流程：申请 → 管理员确认借出 → 确认归还。</p>
       </div>
-    </div>
-  </section>
-
-  <section class="card borrow-filters">
-    <div class="field"><label>关键词</label><NInput v-model:value="itemFilters.keyword" placeholder="器材名称 / 型号" /></div>
-    <div class="field"><label>类型</label><NSelect v-model:value="itemFilters.type" :options="itemTypeOptions" /></div>
-    <div class="field">
-      <label>只看可借</label>
-      <NSelect v-model:value="itemFilters.onlyAvailable" :options="[{ label: '全部', value: false }, { label: '仅可借', value: true }]" />
-    </div>
-    <div class="borrow-filters__actions">
-      <NButton type="primary" :loading="isItemsFetching" @click="itemsQuery.refetch()">查询</NButton>
-      <NButton tertiary @click="resetItemFilters">重置</NButton>
-    </div>
-  </section>
-
-  <section class="borrow-grid">
-    <article v-for="item in itemsData" :key="item.id" class="borrow-card">
-      <div class="borrow-card__header">
-        <div class="borrow-card__title-wrap">
-          <h3>{{ item.name }}</h3>
-          <p class="text-muted">{{ item.type || '未分类' }} · {{ item.model || '无型号' }}</p>
+      <div class="hero-metrics">
+        <div v-for="stat in itemStats" :key="stat.label">
+          <span>{{ stat.label }}</span>
+          <strong>{{ stat.value }}</strong>
         </div>
-        <NTag type="info">押金 ¥{{ item.depositAmount || 0 }}</NTag>
       </div>
-      <div class="borrow-card__meta">
-        <div><span>库存</span><strong>{{ item.totalQuantity }}</strong></div>
-        <div><span>可借</span><strong>{{ item.availableQuantity }}</strong></div>
-        <div><span>损坏</span><strong>{{ item.damagedQuantity || 0 }}</strong></div>
-      </div>
-      <p class="borrow-card__desc">{{ item.description || '暂无描述' }}</p>
-      <div class="borrow-card__actions">
-        <NButton type="primary" :disabled="item.availableQuantity === 0" @click="openBorrowModal(item)">申请借用</NButton>
-      </div>
-    </article>
+    </section>
 
-    <div v-if="!itemsData.length && !isItemsFetching" class="empty-state">
-      <h3>暂无器材</h3><p>尝试调整筛选条件或稍后再来。</p>
-    </div>
-  </section>
+    <section class="card borrow-filters">
+      <div class="field"><label>关键词</label><NInput v-model:value="itemFilters.keyword" placeholder="器材名称 / 型号" /></div>
+      <div class="field"><label>类型</label><NInput v-model:value="itemFilters.type" clearable placeholder="输入器材类型，如：球类、球拍" /></div>
+      <div class="field">
+        <label>只看可借</label>
+        <NSelect v-model:value="itemFilters.onlyAvailable" :options="[{ label: '全部', value: false }, { label: '仅可借', value: true }]" />
+      </div>
+      <div class="borrow-filters__actions">
+        <NButton type="primary" :loading="isItemsFetching" @click="itemsQuery.refetch()">查询</NButton>
+        <NButton tertiary @click="resetItemFilters">重置</NButton>
+      </div>
+    </section>
 
-  <section class="pagination">
-    <NButton tertiary @click="itemPagination.pageNo = Math.max(1, itemPagination.pageNo - 1); itemsQuery.refetch()" :disabled="itemPagination.pageNo <= 1">上一页</NButton>
-    <span>第 {{ itemPagination.pageNo }} 页 / 共 {{ Math.ceil(itemsTotal / itemPagination.pageSize) || 1 }} 页</span>
-    <span style="display: inline-flex; align-items: center; gap: 8px;">
-      <span>每页</span>
-      <NInputNumber
-        v-model:value="itemPagination.pageSize"
-        :min="1"
-        :max="50"
-        :step="1"
-        style="width: 100px;"
-      />
-      <span>条</span>
-    </span>
-    <NButton tertiary @click="itemPagination.pageNo += 1; itemsQuery.refetch()" :disabled="itemPagination.pageNo * itemPagination.pageSize >= itemsTotal">下一页</NButton>
-  </section>
+    <section class="card booking-panel">
+      <div v-if="itemsData.length || isItemsFetching" class="borrow-grid">
+        <article v-for="item in itemsData" :key="item.id" class="borrow-card">
+          <div class="borrow-card__header">
+            <div class="borrow-card__title-wrap">
+              <h3>{{ item.name }}</h3>
+              <p class="text-muted">{{ item.type || '未分类' }} · {{ item.model || '无型号' }}</p>
+            </div>
+            <NTag type="info">押金 ¥{{ item.depositAmount || 0 }}</NTag>
+          </div>
+          <div class="borrow-card__meta">
+            <div><span>库存</span><strong>{{ item.totalQuantity }}</strong></div>
+            <div><span>可借</span><strong>{{ item.availableQuantity }}</strong></div>
+            <div><span>损坏</span><strong>{{ item.damagedQuantity || 0 }}</strong></div>
+          </div>
+          <p class="borrow-card__desc">{{ item.description || '暂无描述' }}</p>
+          <div class="borrow-card__actions">
+            <NButton type="primary" :disabled="item.availableQuantity === 0" @click="openBorrowModal(item)">申请借用</NButton>
+          </div>
+        </article>
+      </div>
+
+      <div v-else class="empty-state borrow-user-browse__empty">
+        <h3>暂无器材</h3>
+        <p>尝试调整筛选条件或稍后再来。</p>
+      </div>
+
+      <section class="pagination">
+        <NButton tertiary @click="itemPagination.pageNo = Math.max(1, itemPagination.pageNo - 1); itemsQuery.refetch()" :disabled="itemPagination.pageNo <= 1">上一页</NButton>
+        <span>第 {{ itemPagination.pageNo }} 页 / 共 {{ Math.ceil(itemsTotal / itemPagination.pageSize) || 1 }} 页</span>
+        <span style="display: inline-flex; align-items: center; gap: 8px;">
+          <span>每页</span>
+          <NInputNumber
+            v-model:value="itemPagination.pageSize"
+            :min="1"
+            :max="50"
+            :step="1"
+            style="width: 100px;"
+          />
+          <span>条</span>
+        </span>
+        <NButton tertiary @click="itemPagination.pageNo += 1; itemsQuery.refetch()" :disabled="itemPagination.pageNo * itemPagination.pageSize >= itemsTotal">下一页</NButton>
+      </section>
+    </section>
+  </div>
   </template>
 
   <section v-if="section === 'my'" class="card borrow-panel borrow-panel--standalone">
@@ -389,6 +387,17 @@ async function submitBorrow() {
 </template>
 
 <style scoped>
+.borrow-user-browse {
+  display: grid;
+  gap: 24px;
+}
+
+.borrow-user-browse__empty {
+  background: transparent;
+  box-shadow: none;
+  padding: 48px 24px;
+}
+
 /* 列表内卡片按内容高度，避免 Grid 同行拉伸 / n-card-content flex:1 在底部留白 */
 .borrow-my-records {
   align-items: start;
