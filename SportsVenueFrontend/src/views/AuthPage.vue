@@ -25,7 +25,6 @@ function showToast(type, message) {
   pushToast(message, type)
 }
 
-
 function handleLoginSuccess(data) {
   authStore.setSession(data.token || '', {
     userId: data.userId,
