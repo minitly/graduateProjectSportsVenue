@@ -585,7 +585,7 @@ function recalculateDynamicPageSizes() {
 function setupResizeObservers() {
   venueResizeObserver.value?.disconnect?.()
 
-  if (venueGridRef.value) {
+  if (activeModule.value === 'venue' && venueGridRef.value) {
     venueResizeObserver.value = new ResizeObserver(() => {
       calculateVenuePageSize()
     })
@@ -1303,21 +1303,21 @@ function handleRouteQuickBooking() {
 }
 
 watch(
-    () => [activeModule.value, isOwner.value],
-    () => {
-      setTimeout(() => {
-        setupResizeObservers()
-        recalculateDynamicPageSizes()
-      }, 0)
-    },
-    { immediate: true }
+  () => [activeModule.value, isOwner.value],
+  () => {
+    requestAnimationFrame(() => {
+      setupResizeObservers()
+      recalculateDynamicPageSizes()
+    })
+  },
+  { immediate: true }
 )
 
 watch(venuesData, () => {
   if (activeModule.value !== 'venue') return
-  setTimeout(() => {
+  requestAnimationFrame(() => {
     calculateVenuePageSize()
-  }, 0)
+  })
 })
 
 watch(
@@ -1352,10 +1352,10 @@ onMounted(() => {
   window.addEventListener('quick-booking', handleQuickBooking)
   window.addEventListener('resize', recalculateDynamicPageSizes)
   handleRouteQuickBooking()
-  setTimeout(() => {
+  requestAnimationFrame(() => {
     setupResizeObservers()
     recalculateDynamicPageSizes()
-  }, 0)
+  })
   nowTimer.value = setInterval(() => {
     currentTimeTick.value = Date.now()
   }, 30000)

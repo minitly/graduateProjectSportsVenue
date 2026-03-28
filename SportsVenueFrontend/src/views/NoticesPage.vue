@@ -277,6 +277,10 @@ function prevPage() {
   if (pagination.pageNo <= 1) return
   pagination.pageNo -= 1
 }
+
+function formatDateTime(value) {
+  return formatDisplayDateTime(value)
+}
 </script>
 
 <template>
