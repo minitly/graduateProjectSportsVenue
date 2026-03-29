@@ -63,6 +63,15 @@ const myBookings = reactive({
 
 const cancelingIds = ref(new Set())
 
+/** 预约弹窗打开时轮询已占用时段，避免并发预约后列表不更新 */
+const bookingOccupiedPollTimer = ref(null)
+
+function stopBookingOccupiedPoll() {
+  if (bookingOccupiedPollTimer.value != null) {
+    clearInterval(bookingOccupiedPollTimer.value)
+    bookingOccupiedPollTimer.value = null
+  }
+}
 
 const venueQueryKey = computed(() => [
   'venues',
@@ -129,12 +138,6 @@ watch(
     { immediate: true }
 )
 
-const stats = computed(() => [
-  { label: '可预约场地', value: venuesTotal.value },
-  { label: '预约窗口', value: '未来 7 天' },
-  { label: '当前状态', value: filters.status ? getStatusText(filters.status) : '全部' }
-])
-
 const bookingSummary = computed(() => [
   { label: '我的预约', value: myBookingsTotal.value },
   { label: '筛选状态', value: bookingFilters.status ? getStatusText(bookingFilters.status) : '全部' }
@@ -199,6 +202,34 @@ const activeModule = computed(() => {
   if (props.module === 'venue') return 'venue'
   return route.path.includes('/app/bookings') ? 'booking' : 'venue'
 })
+
+/** 用户端 hero「可预约场地」：固定统计 status=AVAILABLE 的数量，与列表筛选「全部」时的 total 解耦 */
+const availableVenuesStatsQuery = useQuery({
+  queryKey: ['venues', 'available-total'],
+  queryFn: async () => {
+    const response = await api.get('/venues', {
+      params: { status: 'AVAILABLE', pageNo: 1, pageSize: 1 }
+    })
+    if (response.code !== 200) throw new Error(response.message || '场地统计失败')
+    const data = response.data || {}
+    return data.total ?? 0
+  },
+  enabled: computed(() => !isOwner.value && activeModule.value === 'venue'),
+  staleTime: 30000,
+  refetchOnWindowFocus: false
+})
+
+const availableVenuesTotal = computed(() => {
+  const raw = availableVenuesStatsQuery.data
+  const v = raw?.value !== undefined ? raw.value : raw
+  return typeof v === 'number' ? v : 0
+})
+
+const stats = computed(() => [
+  { label: '可预约场地', value: availableVenuesTotal.value },
+  { label: '预约窗口', value: '未来 7 天' },
+  { label: '当前状态', value: filters.status ? getStatusText(filters.status) : '全部' }
+])
 
 const deleteModal = reactive({
   show: false,
@@ -281,6 +312,12 @@ function getTodayDateString() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 }
 
+/** 本地日历的 YYYY-MM-DD（不要用 toISOString().slice(0,10)，UTC 会在东八区出现「选 30 日发 29 日」） */
+function formatLocalDateString(date) {
+  if (!date || Number.isNaN(date.getTime())) return ''
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
 function getEarliestStartHourForToday() {
   const now = new Date(currentTimeTick.value)
   return now.getHours() + 1
@@ -306,13 +343,55 @@ const timeSlots = computed(() => {
 
 const unavailableSlots = computed(() => {
   if (!bookingModal.date || !bookingModal.occupied.length) return []
-  return bookingModal.occupied.map((slot) => new Date(slot.slotStartTime).toTimeString().slice(0, 5))
+  return bookingModal.occupied.map((slot) => {
+    const d = new Date(slot.slotStartTime)
+    if (Number.isNaN(d.getTime())) return ''
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  }).filter(Boolean)
 })
+
+/** 某整点时段是否与已占用区间重叠（比仅比对 HH:mm 更可靠） */
+function slotHourOverlapsOccupied(slotValue) {
+  if (!bookingModal.date || !slotValue || !bookingModal.occupied?.length) return false
+  const slotStart = new Date(`${bookingModal.date}T${slotValue}:00`).getTime()
+  const slotEnd = slotStart + 60 * 60 * 1000
+  if (!Number.isFinite(slotStart)) return false
+  return bookingModal.occupied.some((occ) => {
+    const os = new Date(occ.slotStartTime).getTime()
+    const oe = new Date(occ.slotEndTime).getTime()
+    return Number.isFinite(os) && Number.isFinite(oe) && slotStart < oe && slotEnd > os
+  })
+}
+
+/** 预约区间 [start,end) 是否与任意已占用区间重叠 */
+function bookingRangeOverlapsOccupied() {
+  if (!bookingModal.date || !bookingModal.startTime || !bookingModal.endTime) return false
+  const rangeStart = new Date(`${bookingModal.date}T${bookingModal.startTime}:00`).getTime()
+  const rangeEnd = new Date(`${bookingModal.date}T${bookingModal.endTime}:00`).getTime()
+  if (!Number.isFinite(rangeStart) || !Number.isFinite(rangeEnd)) return true
+  if (rangeEnd <= rangeStart) return false
+  return bookingModal.occupied.some((occ) => {
+    const os = new Date(occ.slotStartTime).getTime()
+    const oe = new Date(occ.slotEndTime).getTime()
+    return Number.isFinite(os) && Number.isFinite(oe) && rangeStart < oe && rangeEnd > os
+  })
+}
+
+/** 结束时间是否晚于开始时间（同日） */
+function bookingEndAfterStart() {
+  if (!bookingModal.date || !bookingModal.startTime || !bookingModal.endTime) return false
+  const a = new Date(`${bookingModal.date}T${bookingModal.startTime}:00`).getTime()
+  const b = new Date(`${bookingModal.date}T${bookingModal.endTime}:00`).getTime()
+  return Number.isFinite(a) && Number.isFinite(b) && b > a
+}
 
 const timeSlotOptions = computed(() =>
     timeSlots.value.map((slot) => ({
       ...slot,
-      disabled: unavailableSlots.value.includes(slot.value) || isPastStartSlot(slot.value)
+      disabled:
+          unavailableSlots.value.includes(slot.value) ||
+          slotHourOverlapsOccupied(slot.value) ||
+          isPastStartSlot(slot.value)
     }))
 )
 
@@ -329,7 +408,7 @@ const slotStatusList = computed(() => {
     let status = 'available'
     if (isPastStartSlot(slot.value)) {
       status = 'disabled'
-    } else if (occupiedSet.has(slot.value)) {
+    } else if (occupiedSet.has(slot.value) || slotHourOverlapsOccupied(slot.value)) {
       status = 'occupied'
     } else if (bookingModal.startTime && !bookingModal.endTime) {
       const startIndex = timeSlots.value.findIndex((item) => item.value === bookingModal.startTime)
@@ -364,15 +443,17 @@ const bookingDates = computed(() => {
     target.setDate(today.getDate() + i)
     dates.push({
       label: target.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', weekday: 'short' }),
-      value: target.toISOString().slice(0, 10)
+      value: formatLocalDateString(target)
     })
   }
   return dates
 })
 
 function formatDate(timestamp) {
-  if (!timestamp) return null
-  return new Date(timestamp).toISOString().slice(0, 10)
+  if (timestamp == null || timestamp === undefined) return null
+  const d = new Date(timestamp)
+  if (Number.isNaN(d.getTime())) return null
+  return formatLocalDateString(d)
 }
 
 function getSlotEndBoundary(slotIndex) {
@@ -639,8 +720,7 @@ function resetBookingFilters() {
 }
 
 function showViolationBlockedDialog(violationData = {}, fallbackMessage = '') {
-  const isViolationUser = Boolean(violationData?.isViolationUser)
-  if (!isViolationUser && !fallbackMessage) return false
+  if (!Boolean(violationData?.isViolationUser)) return false
 
   const violationCountMonth = Number(violationData?.violationCountMonth || 0)
   const violationMonth = violationData?.violationMonth || '当月'
@@ -654,6 +734,17 @@ function showViolationBlockedDialog(violationData = {}, fallbackMessage = '') {
     type: 'warning'
   })
   return true
+}
+
+/** 预约业务失败（时段冲突、校验不通过、禁约等）：展示后端返回的 message，不用违规模板 */
+function showBookingRejectedDialog(message) {
+  const text = (message && String(message).trim()) || '预约失败，请稍后重试'
+  dialog.warning({
+    title: '预约失败',
+    content: text,
+    positiveText: '我知道了',
+    type: 'warning'
+  })
 }
 
 async function checkBookingEligibility() {
@@ -1064,8 +1155,30 @@ async function submitBooking() {
     pushToast('请选择预约日期与时间', 'warning')
     return
   }
+  if (!bookingEndAfterStart()) {
+    dialog.warning({
+      title: '时间无效',
+      content: '结束时间必须晚于开始时间，请重新选择时段。',
+      positiveText: '确定',
+      onPositiveClick: () => {
+        clearSlotSelection()
+      }
+    })
+    return
+  }
   if (isPastStartSlot(bookingModal.startTime)) {
     pushToast('开始时间不能早于当前时间后 1 小时', 'warning')
+    return
+  }
+  if (bookingRangeOverlapsOccupied()) {
+    dialog.warning({
+      title: '时段与已占用冲突',
+      content: '所选时间段与已有预约重叠，请重新选择。',
+      positiveText: '确定',
+      onPositiveClick: () => {
+        clearSlotSelection()
+      }
+    })
     return
   }
   bookingModal.submitting = true
@@ -1076,23 +1189,34 @@ async function submitBooking() {
       endTime: `${bookingModal.date}T${bookingModal.endTime}:00`
     })
     if (response.code !== 200) {
-      if (showViolationBlockedDialog(response.data, response.message || '你已违规，无法预约场地。')) {
+      await loadOccupiedSlots()
+      const conflict =
+          response.code === 409 || String(response.message || '').includes('已被预约')
+      if (conflict) {
+        clearSlotSelection()
+      }
+      if (showViolationBlockedDialog(response.data, response.message || '')) {
         return
       }
-      pushToast(response.message || '预约失败', 'error')
+      showBookingRejectedDialog(response.message || '预约失败')
       return
     }
     pushToast('预约申请已提交', 'success')
     closeBookingModal()
     refreshMyBookings()
   } catch (error) {
-    const violationData = error?.response?.data?.data
-    const violationMessage = error?.response?.data?.message
-    if (showViolationBlockedDialog(violationData, violationMessage)) {
+    await loadOccupiedSlots()
+    const payload = error?.response?.data
+    const violationData = payload?.data
+    const violationMessage = payload?.message
+    const conflict = payload?.code === 409 || String(violationMessage || '').includes('已被预约')
+    if (conflict) {
+      clearSlotSelection()
+    }
+    if (showViolationBlockedDialog(violationData, violationMessage || '')) {
       return
     }
-    const backendMessage = error?.response?.data?.message
-    pushToast(backendMessage || '无法连接后端服务', 'error')
+    showBookingRejectedDialog(violationMessage || '无法连接后端服务')
   } finally {
     bookingModal.submitting = false
   }
@@ -1156,6 +1280,30 @@ watch(
       bookingModal.startTime = null
       bookingModal.endTime = null
       loadOccupiedSlots()
+    }
+)
+
+watch(
+    () => bookingModal.show,
+    (show) => {
+      stopBookingOccupiedPoll()
+      if (!show) return
+      loadOccupiedSlots()
+      bookingOccupiedPollTimer.value = setInterval(() => {
+        if (bookingModal.show && bookingModal.venue?.id && bookingModal.date) {
+          loadOccupiedSlots()
+        }
+      }, 12000)
+    }
+)
+
+watch(
+    () => [bookingModal.date, bookingModal.startTime],
+    () => {
+      if (!bookingModal.startTime || !bookingModal.endTime) return
+      if (!bookingEndAfterStart()) {
+        bookingModal.endTime = null
+      }
     }
 )
 
@@ -1311,6 +1459,7 @@ onUnmounted(() => {
   if (nowTimer.value) {
     clearInterval(nowTimer.value)
   }
+  stopBookingOccupiedPoll()
 })
 </script>
 
