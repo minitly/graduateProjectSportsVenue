@@ -15,6 +15,8 @@ public interface SysUserMapper {
 
     SysUser findById(@Param("id") Long id);
 
+    SysUser findByIdForUpdate(@Param("id") Long id);
+
     long countAll();
 
     List<SysUser> listAll(@Param("offset") long offset, @Param("limit") long limit);
@@ -27,6 +29,8 @@ public interface SysUserMapper {
                                   @Param("limit") long limit);
 
     int update(SysUser user);
+
+    int updateBalanceById(@Param("id") Long id, @Param("balance") java.math.BigDecimal balance);
 
     int updateBookingCredit(@Param("id") Long id,
                             @Param("violationCountMonth") Integer violationCountMonth,

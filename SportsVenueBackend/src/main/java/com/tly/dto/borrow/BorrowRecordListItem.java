@@ -21,6 +21,7 @@ public class BorrowRecordListItem {
     private BigDecimal depositSnapshot;
     private String conditionOnBorrow;
     private String conditionOnReturn;
+    private Integer damagedLostCount;
     private String remark;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;

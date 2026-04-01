@@ -10,6 +10,7 @@
         <result property="password" column="password"/>
         <result property="realName" column="real_name"/>
         <result property="role" column="role"/>
+        <result property="balance" column="balance"/>
         <result property="status" column="status"/>
         <result property="violationCountMonth" column="violation_count_month"/>
         <result property="violationMonth" column="violation_month"/>
@@ -27,6 +28,7 @@
             password,
             real_name,
             role,
+            balance,
             status,
             violation_count_month,
             violation_month,
@@ -54,6 +56,7 @@
             password,
             real_name,
             role,
+            balance,
             status,
             violation_count_month,
             violation_month,
@@ -67,6 +70,28 @@
         limit 1
     </select>
 
+    <select id="findByIdForUpdate" parameterType="long" resultMap="SysUserResultMap">
+        select
+            id,
+            username,
+            password,
+            real_name,
+            role,
+            balance,
+            status,
+            violation_count_month,
+            violation_month,
+            booking_banned_until,
+            phone,
+            email,
+            create_time,
+            update_time
+        from sys_user
+        where id = #{id}
+        limit 1
+        for update
+    </select>
+
     <select id="countAll" resultType="long">
         select count(*) from sys_user
     </select>
@@ -78,6 +103,7 @@
             password,
             real_name,
             role,
+            balance,
             status,
             violation_count_month,
             violation_month,
@@ -110,6 +136,7 @@
             password,
             real_name,
             role,
+            balance,
             status,
             violation_count_month,
             violation_month,
@@ -150,6 +177,14 @@
             violation_count_month = #{violationCountMonth},
             violation_month = #{violationMonth},
             booking_banned_until = #{bookingBannedUntil},
+            update_time = now()
+        where id = #{id}
+    </update>
+
+    <update id="updateBalanceById">
+        update sys_user
+        set
+            balance = #{balance},
             update_time = now()
         where id = #{id}
     </update>

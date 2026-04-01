@@ -6,6 +6,7 @@ CREATE TABLE sys_user (
                           password VARCHAR(100) NOT NULL COMMENT '密码',
                           real_name VARCHAR(50) NOT NULL COMMENT '真实姓名',
                           role VARCHAR(20) NOT NULL COMMENT '角色：USER/OWNER/ADMIN',
+                          balance DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '平台余额（元）',
                           status TINYINT NOT NULL DEFAULT 1 COMMENT '账号状态：1-正常，0-禁用',
                           violation_count_month INT NOT NULL DEFAULT 0 COMMENT '本月违规次数（自然月累计）',
                           violation_month CHAR(7) DEFAULT NULL COMMENT '违规次数所属月份（yyyy-MM），用于跨月自动清零',
@@ -301,7 +302,8 @@ CREATE TABLE warehouse_item (
     total_quantity INT NOT NULL DEFAULT 0 COMMENT '总数量（当前仓库该类器材总数）',
     available_quantity INT NOT NULL DEFAULT 0 COMMENT '当前可借数量',
     damaged_quantity INT NOT NULL DEFAULT 0 COMMENT '损坏/报废数量（统计用，可选）',
-    deposit_amount DECIMAL(10,2) DEFAULT NULL COMMENT '建议押金金额',
+    deposit_amount DECIMAL(10,2) DEFAULT NULL COMMENT '建议押金金额（元/件）；损坏、丢失等情形可作为扣款依据',
+    borrow_amount DECIMAL(10,2) DEFAULT NULL COMMENT '借用租金（元/件）；单次借用收取的租借费用，与押金含义不同',
     description TEXT DEFAULT NULL COMMENT '器材描述/备注',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
@@ -319,13 +321,36 @@ CREATE TABLE borrow_record (
     requested_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '提出申请时间',
     approved_time DATETIME DEFAULT NULL COMMENT '管理员确认借出时间',
     returned_time DATETIME DEFAULT NULL COMMENT '管理员确认归还时间',
-    deposit_snapshot DECIMAL(10,2) DEFAULT NULL COMMENT '借用时记录的建议押金金额快照（仅用于记录）',
+    deposit_snapshot DECIMAL(10,2) DEFAULT NULL COMMENT '确认借出扣费后写入：数量×(单件押金+单件借用租金)，仅展示；资金以流水为准',
     condition_on_borrow VARCHAR(20) DEFAULT NULL COMMENT '器材状况：GOOD-完好，DAMAGED-损坏，LOST-丢失',
     condition_on_return VARCHAR(20) DEFAULT NULL COMMENT '器材状况：GOOD-完好，DAMAGED-损坏，LOST-丢失',
+    damaged_lost_count INT DEFAULT NULL COMMENT '损坏/丢失个数（仅归还时填写；损坏与丢失对场馆均按扣押金处理，默认NULL）',
     remark VARCHAR(255) DEFAULT NULL COMMENT '备注，如损坏说明、特殊情况说明等',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录创建时间',
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '记录更新时间'
 ) COMMENT='器材借用记录表';
+
+
+-- 资金流水表：记录充值、预约扣费、借用押金扣费、退款等余额变更明细
+DROP TABLE IF EXISTS wallet_transaction;
+CREATE TABLE wallet_transaction (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '流水主键ID',
+    user_id BIGINT NOT NULL COMMENT '用户ID，对应 sys_user.id',
+    txn_no VARCHAR(64) NOT NULL COMMENT '流水号（业务内唯一）',
+    txn_type VARCHAR(50) NOT NULL COMMENT '流水类型：RECHARGE/BOOKING_DEBIT/BORROW_RENT_DEBIT/BORROW_DEPOSIT_DEBIT/REFUND/ADJUST',
+    biz_type VARCHAR(50) DEFAULT NULL COMMENT '关联业务类型：BOOKING/BORROW/OTHER',
+    biz_id BIGINT DEFAULT NULL COMMENT '关联业务单据ID，如 booking_reservation.id、borrow_record.id',
+    amount DECIMAL(10,2) NOT NULL COMMENT '变动金额（正数为入账，负数为扣款）',
+    before_balance DECIMAL(10,2) NOT NULL COMMENT '变更前余额',
+    after_balance DECIMAL(10,2) NOT NULL COMMENT '变更后余额',
+    remark VARCHAR(255) DEFAULT NULL COMMENT '备注信息',
+    operator_id BIGINT DEFAULT NULL COMMENT '操作人ID（用户自主操作可为空）',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    UNIQUE KEY uk_wallet_txn_no (txn_no),
+    INDEX idx_wallet_user_time (user_id, create_time),
+    INDEX idx_wallet_user_type_time (user_id, txn_type, create_time),
+    INDEX idx_wallet_biz (biz_type, biz_id)
+) COMMENT='用户资金流水表';
 
 
 -- 预约记录表：一条预约记录对应一个场地、一个开始/结束时间区间（按60分钟粒度）
@@ -410,31 +435,31 @@ VALUES
 
 
 INSERT INTO warehouse_item
-(name, type, model, total_quantity, available_quantity, damaged_quantity, deposit_amount, description, create_time, update_time)
+(name, type, model, total_quantity, available_quantity, damaged_quantity, deposit_amount, borrow_amount, description, create_time, update_time)
 VALUES
-    ('篮球', '球类', '7号比赛用球', 30, 28, 2, 50.00, '标准7号室内篮球，训练/比赛通用。', NOW(), NOW()),
-    ('羽毛球拍', '球拍', '碳素中端拍', 40, 35, 5, 80.00, '适合初中级，重量适中。', NOW(), NOW()),
-    ('羽毛球', '球类', '训练用耐打12只装', 80, 75, 5, 20.00, '一筒12只，训练用。', NOW(), NOW()),
-    ('乒乓球拍', '球拍', '双面反胶成品拍', 25, 22, 3, 30.00, '大众成品拍，适合入门。', NOW(), NOW()),
-    ('乒乓球', '球类', '40+三星球 6只装', 100, 96, 4, 10.00, '比赛训练通用。', NOW(), NOW()),
-    ('瑜伽垫', '健身器材', '加厚防滑 183cm', 35, 34, 1, 20.00, '加厚防滑，适合团课。', NOW(), NOW()),
-    ('跳绳', '健身器材', '可调节钢丝绳', 50, 48, 2, 15.00, '可调节长度，带轴承。', NOW(), NOW()),
-    ('护腕', '护具', '运动护腕通用', 60, 58, 2, 5.00, '篮球/羽毛球通用护腕。', NOW(), NOW()),
-    ('训练背心', '训练用品', '分队背心（红/黄）', 80, 80, 0, NULL, '对抗训练分组背心，红黄各40。', NOW(), NOW()),
-    ('哑铃（可调）', '健身器材', '2.5-25kg可调哑铃', 10, 9, 1, 200.00, '可调重量哑铃，使用需登记。', NOW(), NOW());
+    ('篮球', '球类', '7号比赛用球', 30, 28, 2, 50.00, 10.00, '标准7号室内篮球，训练/比赛通用。', NOW(), NOW()),
+    ('羽毛球拍', '球拍', '碳素中端拍', 40, 35, 5, 80.00, 15.00, '适合初中级，重量适中。', NOW(), NOW()),
+    ('羽毛球', '球类', '训练用耐打12只装', 80, 75, 5, 20.00, 5.00, '一筒12只，训练用。', NOW(), NOW()),
+    ('乒乓球拍', '球拍', '双面反胶成品拍', 25, 22, 3, 30.00, 8.00, '大众成品拍，适合入门。', NOW(), NOW()),
+    ('乒乓球', '球类', '40+三星球 6只装', 100, 96, 4, 10.00, 3.00, '比赛训练通用。', NOW(), NOW()),
+    ('瑜伽垫', '健身器材', '加厚防滑 183cm', 35, 34, 1, 20.00, 6.00, '加厚防滑，适合团课。', NOW(), NOW()),
+    ('跳绳', '健身器材', '可调节钢丝绳', 50, 48, 2, 15.00, 4.00, '可调节长度，带轴承。', NOW(), NOW()),
+    ('护腕', '护具', '运动护腕通用', 60, 58, 2, 5.00, 2.00, '篮球/羽毛球通用护腕。', NOW(), NOW()),
+    ('训练背心', '训练用品', '分队背心（红/黄）', 80, 80, 0, NULL, 5.00, '对抗训练分组背心，红黄各40。', NOW(), NOW()),
+    ('哑铃（可调）', '健身器材', '2.5-25kg可调哑铃', 10, 9, 1, 200.00, 40.00, '可调重量哑铃，使用需登记。', NOW(), NOW());
 INSERT INTO warehouse_item
-(name, type, model, total_quantity, available_quantity, damaged_quantity, deposit_amount, description, create_time, update_time)
+(name, type, model, total_quantity, available_quantity, damaged_quantity, deposit_amount, borrow_amount, description, create_time, update_time)
 VALUES
-    ('足球', '球类', '5号比赛用球', 20, 19, 1, 60.00, '五人制/七人制训练比赛用。', NOW(), NOW()),
-    ('网球拍', '球拍', '入门铝合金拍', 18, 16, 2, 100.00, '入门友好，适合初学者。', NOW(), NOW()),
-    ('网球', '球类', '练习球 3只装', 60, 58, 2, 15.00, '耐打练习球。', NOW(), NOW()),
-    ('运动锥桶', '训练用品', '标志桶 23cm', 80, 78, 2, NULL, '带孔训练标志桶，用于绕桩训练。', NOW(), NOW()),
-    ('训练标志碟', '训练用品', '标志碟 10cm', 200, 195, 5, NULL, '足球/体能训练标志碟。', NOW(), NOW()),
-    ('救生圈', '泳具', '成人加厚款', 25, 24, 1, 30.00, '游泳馆训练备用。', NOW(), NOW()),
-    ('浮板', '泳具', 'EVA训练浮板', 30, 29, 1, 25.00, '游泳打腿训练用。', NOW(), NOW()),
-    ('拉力带', '健身器材', '5档阻力套装', 40, 38, 2, 20.00, '力量训练/康复训练。', NOW(), NOW()),
-    ('心率带', '健身器材', '蓝牙心率带', 12, 11, 1, 120.00, '团课监测心率用。', NOW(), NOW()),
-    ('计分牌（便携）', '比赛器材', '翻页计分牌', 6, 6, 0, 80.00, '篮球/羽毛球比赛训练用。', NOW(), NOW());
+    ('足球', '球类', '5号比赛用球', 20, 19, 1, 60.00, 12.00, '五人制/七人制训练比赛用。', NOW(), NOW()),
+    ('网球拍', '球拍', '入门铝合金拍', 18, 16, 2, 100.00, 18.00, '入门友好，适合初学者。', NOW(), NOW()),
+    ('网球', '球类', '练习球 3只装', 60, 58, 2, 15.00, 4.00, '耐打练习球。', NOW(), NOW()),
+    ('运动锥桶', '训练用品', '标志桶 23cm', 80, 78, 2, NULL, 3.00, '带孔训练标志桶，用于绕桩训练。', NOW(), NOW()),
+    ('训练标志碟', '训练用品', '标志碟 10cm', 200, 195, 5, NULL, 2.00, '足球/体能训练标志碟。', NOW(), NOW()),
+    ('救生圈', '泳具', '成人加厚款', 25, 24, 1, 30.00, 8.00, '游泳馆训练备用。', NOW(), NOW()),
+    ('浮板', '泳具', 'EVA训练浮板', 30, 29, 1, 25.00, 6.00, '游泳打腿训练用。', NOW(), NOW()),
+    ('拉力带', '健身器材', '5档阻力套装', 40, 38, 2, 20.00, 6.00, '力量训练/康复训练。', NOW(), NOW()),
+    ('心率带', '健身器材', '蓝牙心率带', 12, 11, 1, 120.00, 25.00, '团课监测心率用。', NOW(), NOW()),
+    ('计分牌（便携）', '比赛器材', '翻页计分牌', 6, 6, 0, 80.00, 15.00, '篮球/羽毛球比赛训练用。', NOW(), NOW());
 
 INSERT INTO notice
 (title, content, status, publish_time, is_deleted, create_by, update_by, create_time, update_time)

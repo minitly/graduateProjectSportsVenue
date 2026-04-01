@@ -3,6 +3,7 @@ package com.tly.entity;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -15,6 +16,10 @@ public class SysUser {
      * USER / OWNER / ADMIN
      */
     private String role;
+    /**
+     * 平台余额（元）
+     */
+    private BigDecimal balance;
     /**
      * 1-正常，0-禁用
      */

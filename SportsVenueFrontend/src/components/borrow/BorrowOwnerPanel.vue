@@ -11,7 +11,16 @@ const queryClient = useQueryClient()
 
 const ownerFilters = reactive({ status: '', keyword: '', userName: '', range: null, startTime: null, endTime: null })
 const ownerPagination = reactive({ pageNo: 1, pageSize: 6 })
-const ownerActionModal = reactive({ show: false, type: 'approve', record: null, condition: 'GOOD', remark: '', submitting: false })
+const ownerActionModal = reactive({
+  show: false,
+  type: 'approve',
+  record: null,
+  condition: 'GOOD',
+  remark: '',
+  /** 归还且状况为损坏/丢失时填写，1～本次借用数量 */
+  damagedLostCount: 1,
+  submitting: false
+})
 const expandedRecordIds = ref([])
 
 const ownerStatusOptions = [
@@ -140,6 +149,33 @@ const summaryCards = computed(() => [
 const actionTitle = computed(() => (ownerActionModal.type === 'approve' ? '确认借出' : '确认归还'))
 const actionButtonText = computed(() => (ownerActionModal.type === 'approve' ? '确认借出' : '确认归还'))
 
+/** 本次借用数量上限（归还时损坏/丢失个数不可超过该值） */
+const returnBorrowQuantityMax = computed(() => {
+  const q = ownerActionModal.record?.quantity
+  const n = Number(q)
+  if (!Number.isFinite(n) || n < 1) return 1
+  return Math.floor(n)
+})
+
+const showReturnDamagedLostCount = computed(
+  () =>
+    ownerActionModal.type === 'return' &&
+    (ownerActionModal.condition === 'DAMAGED' || ownerActionModal.condition === 'LOST')
+)
+
+watch(
+  () => [ownerActionModal.type, ownerActionModal.condition, ownerActionModal.record?.quantity],
+  () => {
+    if (!showReturnDamagedLostCount.value) return
+    const max = returnBorrowQuantityMax.value
+    const raw = Number(ownerActionModal.damagedLostCount)
+    let n = Number.isFinite(raw) ? Math.floor(raw) : 1
+    if (n < 1) n = 1
+    if (n > max) n = max
+    ownerActionModal.damagedLostCount = n
+  }
+)
+
 function formatDateTime(value) {
   if (!value) return '—'
   const date = new Date(value)
@@ -194,6 +230,7 @@ function openOwnerAction(type, record) {
   ownerActionModal.record = record
   ownerActionModal.condition = 'GOOD'
   ownerActionModal.remark = ''
+  ownerActionModal.damagedLostCount = 1
 }
 
 function closeOwnerAction() {
@@ -202,15 +239,34 @@ function closeOwnerAction() {
 
 async function submitOwnerAction() {
   if (!ownerActionModal.record) return
+  if (ownerActionModal.type === 'return') {
+    const cond = ownerActionModal.condition
+    if (cond === 'DAMAGED' || cond === 'LOST') {
+      const max = returnBorrowQuantityMax.value
+      const raw = Number(ownerActionModal.damagedLostCount)
+      const n = Number.isFinite(raw) ? Math.floor(raw) : NaN
+      if (!Number.isFinite(n) || n < 1 || n > max) {
+        pushToast(`丢失/损坏数量须在 1～${max} 之间（不可超过本次借用数量）`, 'warning')
+        return
+      }
+    }
+  }
   ownerActionModal.submitting = true
   try {
     const recordId = ownerActionModal.record.id
     const endpoint = ownerActionModal.type === 'approve' ? `/borrows/${recordId}/approve` : `/borrows/${recordId}/return`
-    const response = await api.put(endpoint, {
+    const payload = {
       remark: ownerActionModal.remark,
-      conditionOnBorrow: ownerActionModal.type === 'approve' ? ownerActionModal.condition : undefined,
+      conditionOnBorrow: ownerActionModal.type === 'approve' ? 'GOOD' : undefined,
       conditionOnReturn: ownerActionModal.type === 'return' ? ownerActionModal.condition : undefined
-    })
+    }
+    if (ownerActionModal.type === 'return') {
+      const cond = ownerActionModal.condition
+      if (cond === 'DAMAGED' || cond === 'LOST') {
+        payload.damagedLostCount = Math.floor(Number(ownerActionModal.damagedLostCount))
+      }
+    }
+    const response = await api.put(endpoint, payload)
     if (response.code !== 200) {
       pushToast(response.message || '提交失败', 'error')
       return
@@ -279,6 +335,7 @@ async function submitOwnerAction() {
           <div><span>归还确认时间</span><strong>{{ formatDateTime(record.returnedTime) }}</strong></div>
           <div><span>借出时器材状态</span><strong>{{ getStatusText(record.conditionOnBorrow, '—') }}</strong></div>
           <div><span>归还时器材状态</span><strong>{{ getStatusText(record.conditionOnReturn, '—') }}</strong></div>
+          <div><span>损坏数量</span><strong>{{ (record.damagedLostCount ?? record.damaged_lost_count) ?? 0 }}</strong></div>
         </div>
       </NCard>
       <div v-if="!ownerBorrowsData.length && !isOwnerFetching" class="empty-state">
@@ -307,8 +364,44 @@ async function submitOwnerAction() {
 
   <NModal v-model:show="ownerActionModal.show" preset="card" class="booking-modal" :title="actionTitle">
     <p class="text-muted" style="margin: 0 0 12px 0;">你正在处理借用单 #{{ ownerActionModal.record?.id }}，请确认器材状态并填写补充说明。</p>
-    <div class="booking-modal__section"><label>器材状态</label><NSelect v-model:value="ownerActionModal.condition" :options="conditionOptions" /></div>
+    <div v-if="ownerActionModal.type === 'approve'" class="booking-modal__section">
+      <label>器材状态</label>
+      <p class="owner-borrow-condition-readonly">完好</p>
+    </div>
+    <div v-else class="booking-modal__section">
+      <label>器材状态</label>
+      <NSelect v-model:value="ownerActionModal.condition" :options="conditionOptions" />
+    </div>
+    <div v-if="showReturnDamagedLostCount" class="booking-modal__section">
+      <label>丢失/损坏数量</label>
+      <NInputNumber
+        v-model:value="ownerActionModal.damagedLostCount"
+        :min="1"
+        :max="returnBorrowQuantityMax"
+        :precision="0"
+        :step="1"
+        placeholder="件数"
+        style="width: 100%;"
+      />
+      <p class="owner-return-damaged-hint">须为 1～{{ returnBorrowQuantityMax }}，不可超过本次借用数量。</p>
+    </div>
     <div class="booking-modal__section"><label>备注</label><NInput v-model:value="ownerActionModal.remark" type="textarea" placeholder="可填写处理说明" /></div>
     <div class="booking-modal__actions"><NButton @click="closeOwnerAction">取消</NButton><NButton type="primary" :loading="ownerActionModal.submitting" @click="submitOwnerAction">{{ actionButtonText }}</NButton></div>
   </NModal>
 </template>
+
+<style scoped>
+.owner-return-damaged-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.owner-borrow-condition-readonly {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+}
+</style>

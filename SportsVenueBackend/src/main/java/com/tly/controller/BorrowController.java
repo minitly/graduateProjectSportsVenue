@@ -48,7 +48,8 @@ public class BorrowController {
                                               @RequestBody(required = false) BorrowRecord body) {
         String conditionOnReturn = body != null ? body.getConditionOnReturn() : null;
         String remark = body != null ? body.getRemark() : null;
-        return borrowService.confirmReturn(id, conditionOnReturn, remark);
+        Integer damagedLostCount = body != null ? body.getDamagedLostCount() : null;
+        return borrowService.confirmReturn(id, conditionOnReturn, remark, damagedLostCount);
     }
 
     /**

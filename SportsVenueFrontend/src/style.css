@@ -434,6 +434,14 @@ body {
   min-width: 0;
 }
 
+.borrow-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
 .borrow-card__meta {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -60,6 +61,7 @@ public class AuthServiceImpl implements AuthService {
         toSave.setRealName(request.getRealName());
         toSave.setRole(role);
         toSave.setStatus(1);
+        toSave.setBalance(BigDecimal.ZERO);
         toSave.setPhone(request.getPhone());
         toSave.setEmail(request.getEmail());
 
@@ -70,6 +72,7 @@ public class AuthServiceImpl implements AuthService {
         data.put("username", toSave.getUsername());
         data.put("realName", toSave.getRealName());
         data.put("role", toSave.getRole());
+        data.put("balance", toSave.getBalance());
 
         return Result.success("注册成功", data);
     }
@@ -102,6 +105,7 @@ public class AuthServiceImpl implements AuthService {
                 .username(user.getUsername())
                 .realName(user.getRealName())
                 .role(user.getRole())
+                .balance(user.getBalance())
                 .token(token)
                 .permissions(permissions)
                 .build();

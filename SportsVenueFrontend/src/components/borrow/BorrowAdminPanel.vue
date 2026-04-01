@@ -20,6 +20,7 @@
             availableQuantity: 0,
             damagedQuantity: 0,
             depositAmount: 0,
+            borrowAmount: 0,
             description: "",
         },
     });
@@ -37,6 +38,10 @@
     });
     const adminFilterDebounce = ref(null);
     const suppressAdminItemFiltersWatch = ref(false);
+    /** 打开弹窗或重置表单时跳过库存联动 watch */
+    const suppressInventoryWatch = ref(false);
+    /** 进入编辑时快照，用于计算编辑态库存总量下限（保持可借 ≥ 1） */
+    const editInventorySnap = reactive({ total: 0, available: 0 });
 
     watch(
         () => adminPagination.pageSize,
@@ -66,6 +71,34 @@
                 () => adminItemsQuery.refetch(),
                 400,
             );
+        },
+    );
+
+    const editMinTotal = computed(() => {
+        if (!adminItemModal.editingId) return 0;
+        const t0 = editInventorySnap.total;
+        const a0 = editInventorySnap.available;
+        return Math.max(0, t0 - a0 + 1);
+    });
+
+    watch(
+        () => adminItemModal.form.totalQuantity,
+        (newVal, oldVal) => {
+            if (suppressInventoryWatch.value) return;
+            if (!adminItemModal.editingId) return;
+            if (oldVal === undefined || newVal === oldVal) return;
+            const delta = newVal - oldVal;
+            const newAvail = adminItemModal.form.availableQuantity + delta;
+            if (newAvail < 1) {
+                pushToast("可借数量须大于 0", "warning");
+                suppressInventoryWatch.value = true;
+                adminItemModal.form.totalQuantity = oldVal;
+                nextTick(() => {
+                    suppressInventoryWatch.value = false;
+                });
+                return;
+            }
+            adminItemModal.form.availableQuantity = newAvail;
         },
     );
 
@@ -130,6 +163,7 @@
     }
 
     function resetForm() {
+        suppressInventoryWatch.value = true;
         adminItemModal.form = {
             name: "",
             type: "",
@@ -138,8 +172,12 @@
             availableQuantity: 0,
             damagedQuantity: 0,
             depositAmount: 0,
+            borrowAmount: 0,
             description: "",
         };
+        nextTick(() => {
+            suppressInventoryWatch.value = false;
+        });
     }
 
     function openAdminCreate() {
@@ -149,8 +187,11 @@
     }
 
     function openAdminEdit(item) {
+        suppressInventoryWatch.value = true;
         adminItemModal.show = true;
         adminItemModal.editingId = item.id;
+        editInventorySnap.total = item.totalQuantity || 0;
+        editInventorySnap.available = item.availableQuantity || 0;
         adminItemModal.form = {
             name: item.name || "",
             type: item.type || "",
@@ -159,8 +200,12 @@
             availableQuantity: item.availableQuantity || 0,
             damagedQuantity: item.damagedQuantity || 0,
             depositAmount: item.depositAmount || 0,
+            borrowAmount: item.borrowAmount ?? 0,
             description: item.description || "",
         };
+        nextTick(() => {
+            suppressInventoryWatch.value = false;
+        });
     }
 
     function closeAdminModal() {
@@ -182,9 +227,16 @@
             pushToast("请填写器材名称", "warning");
             return;
         }
+        if (adminItemModal.editingId && adminItemModal.form.availableQuantity < 1) {
+            pushToast("可借数量须大于 0", "warning");
+            return;
+        }
         adminItemModal.submitting = true;
         try {
             const payload = { ...adminItemModal.form };
+            if (!adminItemModal.editingId) {
+                payload.damagedQuantity = 0;
+            }
             const response = adminItemModal.editingId
                 ? await api.put(`/items/${adminItemModal.editingId}`, {
                       ...payload,
@@ -275,9 +327,10 @@
                                 {{ item.model || "无型号" }}
                             </p>
                         </div>
-                        <NTag type="info"
-                            >押金 ¥{{ item.depositAmount || 0 }}</NTag
-                        >
+                        <div class="borrow-card__tags">
+                            <NTag type="info">押金 ¥{{ item.depositAmount || 0 }}</NTag>
+                            <NTag type="success">租金 ¥{{ item.borrowAmount ?? 0 }}</NTag>
+                        </div>
                     </div>
                     <div class="borrow-card__meta">
                         <div>
@@ -391,14 +444,21 @@
                 <label>库存总量</label
                 ><NInputNumber
                     v-model:value="adminItemModal.form.totalQuantity"
-                    :min="0"
+                    :min="adminItemModal.editingId ? editMinTotal : 0"
                 />
+                <p
+                    v-if="adminItemModal.editingId"
+                    class="booking-modal__hint"
+                >
+                    修改库存时与可借数量同步增减；可借须始终大于 0。
+                </p>
             </div>
             <div>
                 <label>可借数量</label
                 ><NInputNumber
                     v-model:value="adminItemModal.form.availableQuantity"
                     :min="0"
+                    :disabled="Boolean(adminItemModal.editingId)"
                 />
             </div>
         </div>
@@ -408,6 +468,7 @@
                 ><NInputNumber
                     v-model:value="adminItemModal.form.damagedQuantity"
                     :min="0"
+                    :disabled="true"
                 />
             </div>
             <div>
@@ -417,6 +478,14 @@
                     :min="0"
                 />
             </div>
+        </div>
+        <div class="booking-modal__section">
+            <label>租金（元/件）</label
+            ><NInputNumber
+                v-model:value="adminItemModal.form.borrowAmount"
+                :min="0"
+                :precision="2"
+            />
         </div>
         <div class="booking-modal__section">
             <label>描述</label
@@ -451,7 +520,10 @@
                     <h3>{{ detailModal.item?.name || '—' }}</h3>
                     <p class="text-muted">{{ detailModal.item?.type || '未分类' }} · {{ detailModal.item?.model || '无型号' }}</p>
                 </div>
-                <NTag type="info">押金 ¥{{ detailModal.item?.depositAmount || 0 }}</NTag>
+                <div class="borrow-detail__tags">
+                    <NTag type="info">押金 ¥{{ detailModal.item?.depositAmount || 0 }}</NTag>
+                    <NTag type="success">租金 ¥{{ detailModal.item?.borrowAmount ?? 0 }}</NTag>
+                </div>
             </div>
             <div class="borrow-detail__grid">
                 <div><span>库存总量</span><strong>{{ detailModal.item?.totalQuantity ?? 0 }}</strong></div>
@@ -470,6 +542,13 @@
 </template>
 
 <style scoped>
+    .booking-modal__hint {
+        margin: 6px 0 0;
+        font-size: 12px;
+        color: #64748b;
+        line-height: 1.4;
+    }
+
     .borrow-detail {
         display: flex;
         flex-direction: column;
@@ -481,6 +560,13 @@
         justify-content: space-between;
         gap: 16px;
         align-items: center;
+    }
+
+    .borrow-detail__tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
     }
 
     .borrow-detail__grid {

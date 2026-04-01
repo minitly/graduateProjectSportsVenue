@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tly.mapper.WalletTransactionMapper">
+
+    <resultMap id="WalletTransactionResultMap" type="com.tly.entity.WalletTransaction">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="txnNo" column="txn_no"/>
+        <result property="txnType" column="txn_type"/>
+        <result property="bizType" column="biz_type"/>
+        <result property="bizId" column="biz_id"/>
+        <result property="amount" column="amount"/>
+        <result property="beforeBalance" column="before_balance"/>
+        <result property="afterBalance" column="after_balance"/>
+        <result property="remark" column="remark"/>
+        <result property="operatorId" column="operator_id"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.tly.entity.WalletTransaction" useGeneratedKeys="true" keyProperty="id">
+        insert into wallet_transaction
+        (user_id, txn_no, txn_type, biz_type, biz_id, amount, before_balance, after_balance, remark, operator_id, create_time)
+        values
+        (#{userId}, #{txnNo}, #{txnType}, #{bizType}, #{bizId}, #{amount}, #{beforeBalance}, #{afterBalance}, #{remark}, #{operatorId}, #{createTime})
+    </insert>
+
+    <select id="countMyByCondition" resultType="long">
+        select count(*)
+        from wallet_transaction
+        where user_id = #{userId}
+        <if test="txnType != null and txnType != ''">
+            and txn_type = #{txnType}
+        </if>
+        <if test="startTime != null">
+            and create_time &gt;= #{startTime}
+        </if>
+        <if test="endTime != null">
+            and create_time &lt; #{endTime}
+        </if>
+    </select>
+
+    <select id="listMyByCondition" resultMap="WalletTransactionResultMap">
+        select
+            id,
+            user_id,
+            txn_no,
+            txn_type,
+            biz_type,
+            biz_id,
+            amount,
+            before_balance,
+            after_balance,
+            remark,
+            operator_id,
+            create_time
+        from wallet_transaction
+        where user_id = #{userId}
+        <if test="txnType != null and txnType != ''">
+            and txn_type = #{txnType}
+        </if>
+        <if test="startTime != null">
+            and create_time &gt;= #{startTime}
+        </if>
+        <if test="endTime != null">
+            and create_time &lt; #{endTime}
+        </if>
+        order by create_time desc, id desc
+        limit #{limit} offset #{offset}
+    </select>
+
+    <select id="findBookingDebitByReservationId" resultMap="WalletTransactionResultMap">
+        select
+            id,
+            user_id,
+            txn_no,
+            txn_type,
+            biz_type,
+            biz_id,
+            amount,
+            before_balance,
+            after_balance,
+            remark,
+            operator_id,
+            create_time
+        from wallet_transaction
+        where txn_type = 'BOOKING_DEBIT'
+          and biz_type = 'BOOKING'
+          and biz_id = #{reservationId}
+        limit 1
+    </select>
+
+    <select id="countBookingRefundByReservationId" resultType="long">
+        select count(*)
+        from wallet_transaction
+        where txn_type = 'REFUND'
+          and biz_type = 'BOOKING'
+          and biz_id = #{reservationId}
+    </select>
+
+    <select id="findBorrowDepositDebitByBorrowId" resultMap="WalletTransactionResultMap">
+        select
+            id,
+            user_id,
+            txn_no,
+            txn_type,
+            biz_type,
+            biz_id,
+            amount,
+            before_balance,
+            after_balance,
+            remark,
+            operator_id,
+            create_time
+        from wallet_transaction
+        where txn_type = 'BORROW_DEPOSIT_DEBIT'
+          and biz_type = 'BORROW'
+          and biz_id = #{borrowId}
+        limit 1
+    </select>
+
+    <select id="countBorrowRefundByBorrowId" resultType="long">
+        select count(*)
+        from wallet_transaction
+        where txn_type = 'REFUND'
+          and biz_type = 'BORROW'
+          and biz_id = #{borrowId}
+    </select>
+
+</mapper>

@@ -13,6 +13,7 @@
         <result property="availableQuantity" column="available_quantity"/>
         <result property="damagedQuantity" column="damaged_quantity"/>
         <result property="depositAmount" column="deposit_amount"/>
+        <result property="borrowAmount" column="borrow_amount"/>
         <result property="description" column="description"/>
         <result property="createTime" column="create_time"/>
         <result property="updateTime" column="update_time"/>
@@ -20,10 +21,10 @@
 
     <insert id="insert" parameterType="com.tly.entity.WarehouseItem" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO warehouse_item
-        (name, type, model, total_quantity, available_quantity, damaged_quantity, deposit_amount, description, create_time, update_time)
+        (name, type, model, total_quantity, available_quantity, damaged_quantity, deposit_amount, borrow_amount, description, create_time, update_time)
         VALUES
         (#{name}, #{type}, #{model}, #{totalQuantity}, #{availableQuantity}, #{damagedQuantity},
-         #{depositAmount}, #{description}, NOW(), NOW())
+         #{depositAmount}, #{borrowAmount}, #{description}, NOW(), NOW())
     </insert>
 
     <update id="update" parameterType="com.tly.entity.WarehouseItem">
@@ -36,6 +37,7 @@
             available_quantity = #{availableQuantity},
             damaged_quantity = #{damagedQuantity},
             deposit_amount = #{depositAmount},
+            borrow_amount = #{borrowAmount},
             description = #{description},
             update_time = NOW()
         WHERE id = #{id}
@@ -45,7 +47,7 @@
         SELECT
             id, name, type, model,
             total_quantity, available_quantity, damaged_quantity,
-            deposit_amount, description, create_time, update_time
+            deposit_amount, borrow_amount, description, create_time, update_time
         FROM warehouse_item
         WHERE id = #{id}
         LIMIT 1
@@ -72,7 +74,7 @@
         SELECT
             id, name, type, model,
             total_quantity, available_quantity, damaged_quantity,
-            deposit_amount, description, create_time, update_time
+            deposit_amount, borrow_amount, description, create_time, update_time
         FROM warehouse_item
         <where>
             <if test="type != null and type != ''">

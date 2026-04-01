@@ -1,15 +1,21 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { NButton, NCard, NInput, NTag } from 'naive-ui'
+import { RefreshCw } from 'lucide-vue-next'
+import { NButton, NCard, NInput, NInputNumber, NModal, NTag } from 'naive-ui'
 import api from '../services/api'
 import { useAuthStore } from '../stores/auth'
 import { useToast } from '../composables/useToast'
+import WalletTransactionsModal from '../components/profile/WalletTransactionsModal.vue'
 
 const authStore = useAuthStore()
 const { pushToast } = useToast()
 
 const loading = ref(false)
 const saving = ref(false)
+const rechargeSubmitting = ref(false)
+const balanceRefreshing = ref(false)
+const walletTransactionsVisible = ref(false)
+const walletTransactionsRef = ref(null)
 
 const profile = ref(null)
 
@@ -33,6 +39,12 @@ const borrowSummary = reactive({
   requested: 0,
   using: 0,
   returned: 0
+})
+
+const rechargeModal = reactive({
+  show: false,
+  amount: null,
+  remark: ''
 })
 
 const roleLabel = computed(() => {
@@ -59,6 +71,11 @@ function formatDateTime(value) {
   ).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(
     date.getMinutes()
   ).padStart(2, '0')}`
+}
+
+function formatMoney(value) {
+  const num = Number(value || 0)
+  return Number.isFinite(num) ? num.toFixed(2) : '0.00'
 }
 
 function patchProfileForm(data) {
@@ -123,6 +140,21 @@ async function fetchAll() {
   }
 }
 
+async function refreshBalance() {
+  if (!authStore.user?.userId) {
+    pushToast('请先登录', 'warning')
+    return
+  }
+  balanceRefreshing.value = true
+  try {
+    await fetchProfile()
+  } catch (error) {
+    pushToast(error?.message || '余额刷新失败', 'error')
+  } finally {
+    balanceRefreshing.value = false
+  }
+}
+
 async function saveProfile() {
   if (!profile.value?.id) return
   saving.value = true
@@ -153,6 +185,44 @@ async function saveProfile() {
     pushToast('保存失败，请稍后再试', 'error')
   } finally {
     saving.value = false
+  }
+}
+
+function openRechargeModal() {
+  rechargeModal.show = true
+  rechargeModal.amount = null
+  rechargeModal.remark = ''
+}
+
+function closeRechargeModal() {
+  rechargeModal.show = false
+}
+
+async function submitRecharge() {
+  const amount = Number(rechargeModal.amount)
+  if (!Number.isFinite(amount) || amount <= 0) {
+    pushToast('充值金额必须大于0', 'warning')
+    return
+  }
+  rechargeSubmitting.value = true
+  try {
+    const response = await api.post('/wallet/recharge', {
+      amount: Number(amount.toFixed(2)),
+      remark: rechargeModal.remark?.trim() || undefined
+    })
+    if (response.code !== 200) {
+      pushToast(response.message || '充值失败', 'error')
+      return
+    }
+    pushToast('充值成功', 'success')
+    closeRechargeModal()
+    await fetchProfile()
+    await walletTransactionsRef.value?.reloadFirstPage?.()
+  } catch (error) {
+    const backendMessage = error?.response?.data?.message
+    pushToast(backendMessage || '充值失败，请稍后再试', 'error')
+  } finally {
+    rechargeSubmitting.value = false
   }
 }
 
@@ -213,6 +283,32 @@ onMounted(() => {
           <div>
             <span>创建时间</span>
             <strong>{{ formatDateTime(profile?.createTime) }}</strong>
+          </div>
+        </div>
+
+        <div class="wallet-inline">
+          <div class="wallet-balance">
+            <span>当前余额（元）</span>
+            <div class="wallet-balance__amount-row">
+              <strong>¥{{ formatMoney(profile?.balance) }}</strong>
+              <NButton
+                size="small"
+                circle
+                tertiary
+                title="刷新余额"
+                aria-label="刷新余额"
+                :loading="balanceRefreshing"
+                :disabled="loading || !profile"
+                @click="refreshBalance"
+              >
+                <RefreshCw :size="18" :stroke-width="2" aria-hidden="true" />
+              </NButton>
+            </div>
+          </div>
+          <p class="text-muted">充值成功后将立即更新余额，并可在资金流水中查看明细。</p>
+          <div class="profile-form__actions">
+            <NButton type="primary" @click="openRechargeModal">用户充值</NButton>
+            <NButton tertiary @click="walletTransactionsVisible = true">我的资金流水</NButton>
           </div>
         </div>
       </NCard>
@@ -286,5 +382,53 @@ onMounted(() => {
         </div>
       </NCard>
     </section>
+
+    <NModal v-model:show="rechargeModal.show" preset="card" class="booking-modal" title="余额充值">
+      <div class="booking-modal__section">
+        <label>充值金额（元）</label>
+        <NInputNumber v-model:value="rechargeModal.amount" :min="0.01" :precision="2" :step="10" style="width: 100%;" />
+      </div>
+      <div class="booking-modal__section">
+        <label>备注（可选）</label>
+        <NInput v-model:value="rechargeModal.remark" type="textarea" placeholder="例如：账户充值" />
+      </div>
+      <div class="booking-modal__actions">
+        <NButton @click="closeRechargeModal">取消</NButton>
+        <NButton type="primary" :loading="rechargeSubmitting" @click="submitRecharge">立即充值</NButton>
+      </div>
+    </NModal>
+
+    <WalletTransactionsModal ref="walletTransactionsRef" v-model:show="walletTransactionsVisible" />
   </div>
 </template>
+
+<style scoped>
+.wallet-balance {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.wallet-balance span {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.wallet-balance strong {
+  font-size: 30px;
+  color: #0f172a;
+}
+
+.wallet-balance__amount-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.wallet-inline {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px dashed #dbe3f0;
+}
+</style>

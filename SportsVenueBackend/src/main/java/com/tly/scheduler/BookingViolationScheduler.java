@@ -16,7 +16,7 @@ public class BookingViolationScheduler {
 
     @Scheduled(fixedDelay = 60_000)
     public void markNoShowAsViolation() {
-        bookingService.processNoShowViolations(200);
+        bookingService.processNoShowViolations(2000);
     }
 }
 

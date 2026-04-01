@@ -228,7 +228,7 @@ async function submitBorrow() {
       <div>
         <p class="section-kicker">器材借用</p>
         <h2>快速查看器材库存，提交借用申请</h2>
-        <p class="text-muted">借用流程：申请 → 管理员确认借出 → 确认归还。</p>
+        <p class="text-muted">借用流程：申请（不扣费）→ 管理员确认借出（此时按器材价扣租金与押金）→ 确认归还。</p>
       </div>
       <div class="hero-metrics">
         <div v-for="stat in itemStats" :key="stat.label">
@@ -259,7 +259,10 @@ async function submitBorrow() {
               <h3>{{ item.name }}</h3>
               <p class="text-muted">{{ item.type || '未分类' }} · {{ item.model || '无型号' }}</p>
             </div>
-            <NTag type="info">押金 ¥{{ item.depositAmount || 0 }}</NTag>
+            <div class="borrow-card__tags">
+              <NTag type="info">押金 ¥{{ item.depositAmount || 0 }}</NTag>
+              <NTag type="success">租金 ¥{{ item.borrowAmount ?? 0 }}</NTag>
+            </div>
           </div>
           <div class="borrow-card__meta">
             <div><span>库存</span><strong>{{ item.totalQuantity }}</strong></div>
@@ -337,6 +340,7 @@ async function submitBorrow() {
           <div><span>归还确认时间</span><strong>{{ formatDateTime(record.returnedTime) || '—' }}</strong></div>
           <div><span>借出时器材状态</span><strong>{{ getStatusText(record.conditionOnBorrow, '—') }}</strong></div>
           <div><span>归还时器材状态</span><strong>{{ getStatusText(record.conditionOnReturn, '—') }}</strong></div>
+          <div><span>损坏数量</span><strong>{{ (record.damagedLostCount ?? record.damaged_lost_count) ?? 0 }}</strong></div>
         </div>
       </NCard>
       <div v-if="!borrowsData.length && !isBorrowsFetching" class="empty-state">

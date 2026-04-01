@@ -16,6 +16,7 @@
         <result property="depositSnapshot" column="deposit_snapshot"/>
         <result property="conditionOnBorrow" column="condition_on_borrow"/>
         <result property="conditionOnReturn" column="condition_on_return"/>
+        <result property="damagedLostCount" column="damaged_lost_count"/>
         <result property="remark" column="remark"/>
         <result property="createTime" column="create_time"/>
         <result property="updateTime" column="update_time"/>
@@ -33,6 +34,7 @@
         <result property="depositSnapshot" column="deposit_snapshot"/>
         <result property="conditionOnBorrow" column="condition_on_borrow"/>
         <result property="conditionOnReturn" column="condition_on_return"/>
+        <result property="damagedLostCount" column="damaged_lost_count"/>
         <result property="remark" column="remark"/>
         <result property="createTime" column="create_time"/>
         <result property="updateTime" column="update_time"/>
@@ -42,12 +44,12 @@
         INSERT INTO borrow_record
         (user_id, item_id, quantity, status, requested_time,
          approved_time, returned_time, deposit_snapshot,
-         condition_on_borrow, condition_on_return, remark,
+         condition_on_borrow, condition_on_return, damaged_lost_count, remark,
          create_time, update_time)
         VALUES
         (#{userId}, #{itemId}, #{quantity}, #{status}, #{requestedTime},
          #{approvedTime}, #{returnedTime}, #{depositSnapshot},
-         #{conditionOnBorrow}, #{conditionOnReturn}, #{remark},
+         #{conditionOnBorrow}, #{conditionOnReturn}, #{damagedLostCount}, #{remark},
          NOW(), NOW())
     </insert>
 
@@ -64,6 +66,7 @@
             deposit_snapshot = #{depositSnapshot},
             condition_on_borrow = #{conditionOnBorrow},
             condition_on_return = #{conditionOnReturn},
+            damaged_lost_count = #{damagedLostCount},
             remark = #{remark},
             update_time = NOW()
         WHERE id = #{id}
@@ -74,7 +77,7 @@
             id, user_id, item_id, quantity, status,
             requested_time, approved_time, returned_time,
             deposit_snapshot, condition_on_borrow, condition_on_return,
-            remark, create_time, update_time
+            damaged_lost_count, remark, create_time, update_time
         FROM borrow_record
         WHERE id = #{id}
         LIMIT 1
@@ -124,6 +127,7 @@
             br.deposit_snapshot,
             br.condition_on_borrow,
             br.condition_on_return,
+            br.damaged_lost_count,
             br.remark,
             br.create_time,
             br.update_time

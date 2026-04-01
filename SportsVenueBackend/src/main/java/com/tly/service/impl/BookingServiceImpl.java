@@ -8,10 +8,12 @@ import com.tly.entity.BookingReservation;
 import com.tly.entity.BookingReservationSlot;
 import com.tly.entity.SysUser;
 import com.tly.entity.Venue;
+import com.tly.entity.WalletTransaction;
 import com.tly.mapper.BookingReservationMapper;
 import com.tly.mapper.BookingReservationSlotMapper;
 import com.tly.mapper.SysUserMapper;
 import com.tly.mapper.VenueMapper;
+import com.tly.mapper.WalletTransactionMapper;
 import com.tly.service.BookingService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
@@ -20,12 +22,16 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class BookingServiceImpl implements BookingService {
@@ -44,6 +50,9 @@ public class BookingServiceImpl implements BookingService {
 
     @Autowired
     private SysUserMapper sysUserMapper;
+
+    @Autowired
+    private WalletTransactionMapper walletTransactionMapper;
 
     @Override
     public Result<List<BookingReservationSlot>> occupied(Long venueId, LocalDate startDate, LocalDate endDate) {
@@ -99,6 +108,18 @@ public class BookingServiceImpl implements BookingService {
             return Result.fail(validateTime.getCode(), validateTime.getMessage());
         }
 
+        BigDecimal fee = calculateBookingFee(venue, startTime, endTime);
+        if (fee.compareTo(BigDecimal.ZERO) > 0) {
+            SysUser locked = sysUserMapper.findByIdForUpdate(currentUser.getUserId());
+            if (locked == null) {
+                return Result.fail(401, "用户不存在");
+            }
+            BigDecimal balance = locked.getBalance() == null ? BigDecimal.ZERO : locked.getBalance();
+            if (balance.compareTo(fee) < 0) {
+                return Result.fail(400, "余额不足，无法预约");
+            }
+        }
+
         BookingReservation toSave = new BookingReservation();
         toSave.setUserId(currentUser.getUserId());
         toSave.setVenueId(request.getVenueId());
@@ -113,6 +134,14 @@ public class BookingServiceImpl implements BookingService {
             // 并发下唯一约束冲突：回滚本次预约创建
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return Result.fail(409, "该时段已被预约，请选择其他时段");
+        }
+
+        if (fee.compareTo(BigDecimal.ZERO) > 0) {
+            Result<Void> charge = applyBookingCharge(currentUser.getUserId(), toSave.getId(), fee);
+            if (charge.getCode() != 200) {
+                TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+                return Result.fail(charge.getCode(), charge.getMessage());
+            }
         }
 
         BookingReservation db = reservationMapper.selectById(toSave.getId());
@@ -151,6 +180,7 @@ public class BookingServiceImpl implements BookingService {
             }
             slotMapper.deleteByReservationId(id);
             applyViolationForUser(exists.getUserId(), now);
+            refundBookingPayment(id, "预约取消退款");
             BookingReservation db = reservationMapper.selectById(id);
             return Result.success("取消成功", db);
         } else {
@@ -159,6 +189,7 @@ public class BookingServiceImpl implements BookingService {
                 return Result.fail(400, "取消失败，请刷新后重试");
             }
             slotMapper.deleteByReservationId(id);
+            refundBookingPayment(id, "预约取消退款");
             BookingReservation db = reservationMapper.selectById(id);
             return Result.success("取消成功", db);
         }
@@ -291,6 +322,9 @@ public class BookingServiceImpl implements BookingService {
         if (ids == null || ids.isEmpty()) {
             return;
         }
+        for (Long reservationId : ids) {
+            refundBookingPayment(reservationId, "预约取消退款");
+        }
         reservationMapper.cancelAppliedByVenue(venueId, now, cancelReason, cancelRemark);
         slotMapper.deleteByReservationIds(ids);
     }
@@ -329,6 +363,94 @@ public class BookingServiceImpl implements BookingService {
         }
 
         return Result.success(null);
+    }
+
+    private static BigDecimal calculateBookingFee(Venue venue, LocalDateTime startTime, LocalDateTime endTime) {
+        if (venue.getPrice() == null) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+        long minutes = Duration.between(startTime, endTime).toMinutes();
+        if (minutes <= 0) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+        BigDecimal hours = BigDecimal.valueOf(minutes).divide(BigDecimal.valueOf(60), 4, RoundingMode.HALF_UP);
+        return venue.getPrice().multiply(hours).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private Result<Void> applyBookingCharge(Long userId, Long reservationId, BigDecimal fee) {
+        SysUser user = sysUserMapper.findByIdForUpdate(userId);
+        if (user == null) {
+            return Result.fail(401, "用户不存在");
+        }
+        BigDecimal before = user.getBalance() == null ? BigDecimal.ZERO : user.getBalance();
+        if (before.compareTo(fee) < 0) {
+            return Result.fail(400, "余额不足，无法预约");
+        }
+        BigDecimal after = before.subtract(fee);
+        sysUserMapper.updateBalanceById(userId, after);
+
+        LocalDateTime txnTime = LocalDateTime.now();
+        WalletTransaction txn = new WalletTransaction();
+        txn.setUserId(userId);
+        txn.setTxnNo(genTxnNo());
+        txn.setTxnType("BOOKING_DEBIT");
+        txn.setBizType("BOOKING");
+        txn.setBizId(reservationId);
+        txn.setAmount(fee.negate());
+        txn.setBeforeBalance(before);
+        txn.setAfterBalance(after);
+        txn.setRemark("场地预约扣费");
+        txn.setOperatorId(null);
+        txn.setCreateTime(txnTime);
+        walletTransactionMapper.insert(txn);
+        return Result.success(null);
+    }
+
+    /**
+     * 退还该预约对应的预约扣费（幂等：同一预约仅退一次）
+     */
+    private void refundBookingPayment(Long reservationId, String remark) {
+        if (reservationId == null) {
+            return;
+        }
+        if (walletTransactionMapper.countBookingRefundByReservationId(reservationId) > 0) {
+            return;
+        }
+        WalletTransaction debit = walletTransactionMapper.findBookingDebitByReservationId(reservationId);
+        if (debit == null || debit.getAmount() == null) {
+            return;
+        }
+        BigDecimal refundAmt = debit.getAmount().abs();
+        if (refundAmt.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+        Long userId = debit.getUserId();
+        SysUser user = sysUserMapper.findByIdForUpdate(userId);
+        if (user == null) {
+            return;
+        }
+        BigDecimal before = user.getBalance() == null ? BigDecimal.ZERO : user.getBalance();
+        BigDecimal after = before.add(refundAmt);
+        sysUserMapper.updateBalanceById(userId, after);
+
+        LocalDateTime txnTime = LocalDateTime.now();
+        WalletTransaction txn = new WalletTransaction();
+        txn.setUserId(userId);
+        txn.setTxnNo(genTxnNo());
+        txn.setTxnType("REFUND");
+        txn.setBizType("BOOKING");
+        txn.setBizId(reservationId);
+        txn.setAmount(refundAmt);
+        txn.setBeforeBalance(before);
+        txn.setAfterBalance(after);
+        txn.setRemark(remark);
+        txn.setOperatorId(null);
+        txn.setCreateTime(txnTime);
+        walletTransactionMapper.insert(txn);
+    }
+
+    private static String genTxnNo() {
+        return "TXN" + UUID.randomUUID().toString().replace("-", "").toUpperCase(Locale.ROOT);
     }
 
     private void createSlotsForReservation(Long reservationId, Long venueId, LocalDateTime startTime, LocalDateTime endTime) {
@@ -370,7 +492,7 @@ public class BookingServiceImpl implements BookingService {
     @Transactional(rollbackFor = Exception.class)
     public void processNoShowViolations(int batchSize) {
         if (batchSize <= 0) {
-            batchSize = 200;
+            batchSize = 2000;
         }
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime deadline = now.minusMinutes(SLOT_MINUTES);

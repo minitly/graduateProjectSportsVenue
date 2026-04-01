@@ -13,7 +13,7 @@ public interface BorrowService {
 
     Result<BorrowRecord> approve(Long id, String conditionOnBorrow, String remark);
 
-    Result<BorrowRecord> confirmReturn(Long id, String conditionOnReturn, String remark);
+    Result<BorrowRecord> confirmReturn(Long id, String conditionOnReturn, String remark, Integer damagedLostCount);
 
     Result<PageResult<BorrowRecordListItem>> query(String userName, String itemName, String status,
                                                    LocalDateTime startTime, LocalDateTime endTime,

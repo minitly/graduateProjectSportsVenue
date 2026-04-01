@@ -15,6 +15,10 @@ public class WarehouseItem {
     private Integer availableQuantity;
     private Integer damagedQuantity;
     private BigDecimal depositAmount;
+    /**
+     * 借用租金（元/件），单次借用的租借费用；与押金 depositAmount 含义不同。
+     */
+    private BigDecimal borrowAmount;
     private String description;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
