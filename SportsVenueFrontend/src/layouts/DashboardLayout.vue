@@ -161,7 +161,42 @@ onMounted(() => {
   fetchLocationAndWeather()
 })
 
-const baseMenuItems = [
+/** 普通用户侧边栏（顺序：公告置顶，与其余入口一致） */
+const USER_MENU_ITEMS = [
+  {
+    label: '公告中心',
+    description: '查看平台公告与运营通知',
+    path: '/app/notices'
+  },
+  {
+    label: '场地预约',
+    description: '浏览可预约场地并选择时段',
+    path: '/app/venues'
+  },
+  {
+    label: '我的预约',
+    description: '查看预约记录与状态',
+    path: '/app/bookings'
+  },
+  {
+    label: '器材借用',
+    description: '查看可借器材并提交借用申请',
+    path: '/app/borrow'
+  },
+  {
+    label: '我的借用',
+    description: '查看借用记录与状态',
+    path: '/app/my-borrows'
+  },
+  {
+    label: '用户中心',
+    description: '完善个人资料、查看账号状态',
+    path: '/app/profile'
+  }
+]
+
+/** 管理者（场馆主 / 系统管理员）共用同一份侧边栏 */
+const OWNER_MENU_ITEMS = [
   {
     label: '场地管理',
     description: '维护场地信息与开放状态',
@@ -173,120 +208,50 @@ const baseMenuItems = [
     path: '/app/bookings'
   },
   {
-    label: '器材借用',
-    description: '查看器材库存并提交借用申请',
+    label: '器材管理',
+    description: '维护器材台账与库存',
     path: '/app/borrow'
   },
   {
-    label: '用户中心',
-    description: '完善个人资料、查看账号状态',
-    path: '/app/profile'
+    label: '借用审批',
+    description: '审批借用申请并确认归还',
+    path: '/app/borrow-approval'
   },
   {
     label: '公告中心',
     description: '查看平台公告与运营通知',
     path: '/app/notices'
+  },
+  {
+    label: '用户管理',
+    description: '查看用户状态并执行启用/禁用',
+    path: '/app/admin-users'
+  },
+  {
+    label: '数据分析管理',
+    description: '查看全局预约与运营数据分析',
+    path: '/app/admin-analytics'
+  // },
+  // {
+  //   label: '2D建模管理',
+  //   description: '进行2D建模配置与画布预览',
+  //   path: '/app/admin-model-2d'
+  // },
+  // {
+  //   label: '3D场馆预览',
+  //   description: '查看2D模型转化的3D场馆效果',
+  //   path: '/app/admin-model-3d'
   }
 ]
 
-const userMenuItems = (() => {
-  const withUserLabels = baseMenuItems.map((item) => {
-    if (item.path === '/app/venues') {
-      return {
-        ...item,
-        label: '场地预约',
-        description: '浏览可预约场地并选择时段'
-      }
-    }
-    if (item.path === '/app/bookings') {
-      return {
-        ...item,
-        label: '我的预约',
-        description: '查看预约记录与状态'
-      }
-    }
-    return item
-  })
-  const expanded = []
-  for (const item of withUserLabels) {
-    if (item.path === '/app/borrow') {
-      expanded.push(
-        {
-          label: '器材借用',
-          description: '查看可借器材并提交借用申请',
-          path: '/app/borrow'
-        },
-        {
-          label: '我的借用',
-          description: '查看借用记录与状态',
-          path: '/app/my-borrows'
-        }
-      )
-    } else {
-      expanded.push(item)
-    }
-  }
-  const notices = expanded.find((item) => item.path === '/app/notices')
-  const rest = expanded.filter((item) => item.path !== '/app/notices')
-  return notices ? [notices, ...rest] : [...expanded]
-})()
-
-const adminMenuBase = baseMenuItems
-  .filter((item) => item.path !== '/app/profile' && item.path !== '/app/notices')
-  .map((item) =>
-    item.path === '/app/borrow'
-      ? {
-          ...item,
-          label: '器材管理',
-          description: '维护器材台账与库存'
-        }
-      : item
-  )
-
-const noticesMenuItem = {
-  label: '公告中心',
-  description: '查看平台公告与运营通知',
-  path: '/app/notices'
-}
+const ADMIN_MENU_ITEMS = OWNER_MENU_ITEMS
 
 const menuItems = computed(() => {
-  if (authStore.role === 'ADMIN' || authStore.role === 'OWNER') {
-    return [
-      ...adminMenuBase,
-      ...(authStore.role === 'OWNER'
-        ? [
-            {
-              label: '借用审批',
-              description: '审批借用申请并确认归还',
-              path: '/app/borrow-approval'
-            },
-            noticesMenuItem
-          ]
-        : [noticesMenuItem]),
-      {
-        label: '用户管理',
-        description: '查看用户状态并执行启用/禁用',
-        path: '/app/admin-users'
-      },
-      {
-        label: '数据分析管理',
-        description: '查看全局预约与运营数据分析',
-        path: '/app/admin-analytics'
-      },
-      {
-        label: '2D建模管理',
-        description: '进行2D建模配置与画布预览',
-        path: '/app/admin-model-2d'
-      },
-      {
-        label: '3D场馆预览',
-        description: '查看2D模型转化的3D场馆效果',
-        path: '/app/admin-model-3d'
-      }
-    ]
+  const role = authStore.role
+  if (role === 'ADMIN' || role === 'OWNER') {
+    return ADMIN_MENU_ITEMS
   }
-
-  return userMenuItems
+  return USER_MENU_ITEMS
 })
 
 const pathIconMap = {
@@ -348,7 +313,7 @@ const pageHeader = computed(() => {
       subtitle: '维护器材台账与库存'
     }
   }
-  if (role === 'OWNER' && path === '/app/borrow-approval') {
+  if ((role === 'ADMIN' || role === 'OWNER') && path === '/app/borrow-approval') {
     return {
       title: '借用审批',
       subtitle: '审批借用申请并确认归还'
