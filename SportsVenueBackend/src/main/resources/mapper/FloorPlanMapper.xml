@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tly.mapper.FloorPlanMapper">
+
+    <resultMap id="FloorPlanResultMap" type="com.tly.entity.FloorPlan">
+        <id property="id" column="id"/>
+        <result property="title" column="title"/>
+        <result property="description" column="description"/>
+        <result property="status" column="status"/>
+        <result property="contentJson" column="content_json"/>
+        <result property="isDeleted" column="is_deleted"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.tly.entity.FloorPlan" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO floor_plan
+        (title, description, status, content_json, is_deleted, create_time, update_time)
+        VALUES
+        (#{title}, #{description}, #{status}, #{contentJson}, 0, NOW(), NOW())
+    </insert>
+
+    <update id="update" parameterType="com.tly.entity.FloorPlan">
+        UPDATE floor_plan
+        SET
+            title = #{title},
+            description = #{description},
+            status = #{status},
+            content_json = #{contentJson},
+            update_time = NOW()
+        WHERE id = #{id}
+          AND is_deleted = 0
+    </update>
+
+    <update id="logicalDelete">
+        UPDATE floor_plan
+        SET
+            is_deleted = 1,
+            update_time = NOW()
+        WHERE id = #{id}
+          AND is_deleted = 0
+    </update>
+
+    <select id="selectById" parameterType="long" resultMap="FloorPlanResultMap">
+        SELECT
+            id, title, description, status, content_json, is_deleted, create_time, update_time
+        FROM floor_plan
+        WHERE id = #{id}
+          AND is_deleted = 0
+        LIMIT 1
+    </select>
+
+    <select id="countByCondition" resultType="long">
+        SELECT COUNT(1)
+        FROM floor_plan
+        <where>
+            is_deleted = 0
+            <if test="keyword != null and keyword != ''">
+                AND title LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <select id="listByCondition" resultMap="FloorPlanResultMap">
+        SELECT
+            id, title, description, status, content_json, is_deleted, create_time, update_time
+        FROM floor_plan
+        <where>
+            is_deleted = 0
+            <if test="keyword != null and keyword != ''">
+                AND title LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+</mapper>
+

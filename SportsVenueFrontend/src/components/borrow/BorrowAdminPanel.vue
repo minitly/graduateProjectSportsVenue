@@ -146,6 +146,14 @@
     const isAdminItemsFetching = computed(() =>
         Boolean(unref(adminItemsQuery.isFetching)),
     );
+    const adminSummaryCards = computed(() => [
+        { label: "器材总数", value: adminTotal.value },
+        { label: "筛选类型", value: adminItemFilters.type?.trim() || "全部类型" },
+        {
+            label: "可借筛选",
+            value: adminItemFilters.onlyAvailable ? "仅可借" : "全部",
+        },
+    ]);
 
     function resetAdminItemFilters() {
         suppressAdminItemFiltersWatch.value = true;
@@ -266,7 +274,23 @@
 </script>
 
 <template>
-    <section class="card venues-filters">
+    <section class="card borrow-panel module-tier module-tier--summary">
+        <div class="borrow-panel__header">
+            <div>
+                <p class="section-kicker">器材管理</p>
+                <h3>维护器材台账与库存信息</h3>
+                <p class="text-muted">先看状态总览，再按条件查询并处理器材数据。</p>
+            </div>
+        </div>
+        <div class="borrow-panel__summary borrow-panel__summary--three">
+            <div v-for="stat in adminSummaryCards" :key="stat.label" class="summary-card">
+                <span>{{ stat.label }}</span>
+                <strong>{{ stat.value }}</strong>
+            </div>
+        </div>
+    </section>
+
+    <section class="card venues-filters module-tier module-tier--filters">
         <div class="field">
             <label>关键词</label>
             <NInput
@@ -304,14 +328,7 @@
         </div>
     </section>
 
-    <section class="card borrow-panel">
-        <div class="borrow-panel__header">
-            <div>
-                <p class="section-kicker">器材管理</p>
-                <h3>维护器材台账与库存信息</h3>
-            </div>
-        </div>
-
+    <section class="card borrow-panel module-tier module-tier--data">
         <div class="borrow-grid">
             <template v-if="adminItems.length || adminItemsQuery.isFetching">
                 <article

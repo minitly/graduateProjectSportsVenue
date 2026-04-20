@@ -41,7 +41,8 @@ VALUES
     ('MODULE_WAREHOUSE',  '仓库管理模块',   NULL, '物资入库、出库及库存管理等相关功能的入口权限'),
     ('MODULE_USER',       '用户管理模块',   NULL, '前台用户、场地管理员等用户信息管理相关功能的入口权限'),
     ('MODULE_REPORT',     '数据报表模块',   NULL, '统计报表、数据分析等相关功能的入口权限'),
-    ('MODULE_NOTICE',     '公告管理模块',   NULL, '公告发布、草稿管理、公告查询等相关功能的入口权限');
+    ('MODULE_NOTICE',     '公告管理模块',   NULL, '公告发布、草稿管理、公告查询等相关功能的入口权限'),
+    ('MODULE_FLOOR_PLAN', '场地图管理模块', NULL, '场地图的新增、修改、删除、详情与列表查询等功能入口权限');
 
 -- -------------------场地管理模块下的具体权限（5 条：新增、修改、删除、详情查看、列表查询）-------------------------
 INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
@@ -122,6 +123,18 @@ INSERT INTO sys_permission (permission_code, permission_name, module_name, descr
 VALUES ('NOTICE_USER_LIST', '公告-用户列表查询', 'MODULE_NOTICE', '登录用户分页查询已发布公告');
 INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
 VALUES ('NOTICE_USER_DETAIL', '公告-用户详情查看', 'MODULE_NOTICE', '登录用户按ID查看已发布公告详情');
+
+-- -------------------场地图模块权限------------------------
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('FLOOR_PLAN_CREATE', '场地图-新增', 'MODULE_FLOOR_PLAN', '新增场地图的权限');
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('FLOOR_PLAN_UPDATE', '场地图-修改', 'MODULE_FLOOR_PLAN', '修改场地图的权限');
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('FLOOR_PLAN_DELETE', '场地图-删除', 'MODULE_FLOOR_PLAN', '逻辑删除场地图的权限');
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('FLOOR_PLAN_QUERY_LIST', '场地图-列表查询', 'MODULE_FLOOR_PLAN', '按条件分页查询场地图列表的权限');
+INSERT INTO sys_permission (permission_code, permission_name, module_name, description)
+VALUES ('FLOOR_PLAN_QUERY_DETAIL', '场地图-详情查看', 'MODULE_FLOOR_PLAN', '按ID查询场地图详情的权限');
 
 -- 角色权限关联表
 DROP TABLE IF EXISTS sys_role_permission;
@@ -261,6 +274,43 @@ VALUES ('OWNER', 'NOTICE_USER_LIST');
 INSERT INTO sys_role_permission (role, permission_code)
 VALUES ('OWNER', 'NOTICE_USER_DETAIL');
 
+-- -------------------------场地图模块---------------------------
+-- USER：只读（列表 + 详情）
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('USER', 'MODULE_FLOOR_PLAN');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('USER', 'FLOOR_PLAN_QUERY_LIST');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('USER', 'FLOOR_PLAN_QUERY_DETAIL');
+
+-- OWNER：全量管理权限
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'MODULE_FLOOR_PLAN');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'FLOOR_PLAN_CREATE');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'FLOOR_PLAN_UPDATE');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'FLOOR_PLAN_DELETE');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'FLOOR_PLAN_QUERY_LIST');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('OWNER', 'FLOOR_PLAN_QUERY_DETAIL');
+
+-- ADMIN：全量管理权限
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('ADMIN', 'MODULE_FLOOR_PLAN');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('ADMIN', 'FLOOR_PLAN_CREATE');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('ADMIN', 'FLOOR_PLAN_UPDATE');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('ADMIN', 'FLOOR_PLAN_DELETE');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('ADMIN', 'FLOOR_PLAN_QUERY_LIST');
+INSERT INTO sys_role_permission (role, permission_code)
+VALUES ('ADMIN', 'FLOOR_PLAN_QUERY_DETAIL');
+
 
 
 
@@ -290,6 +340,23 @@ CREATE TABLE venue (
                        create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                        update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
 ) COMMENT='场地信息表';
+
+
+-- 场地图表：独立于 venue 的俯视图/分布图实体（JSON 存储画布内容）
+DROP TABLE IF EXISTS floor_plan;
+CREATE TABLE floor_plan (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '场地图主键ID',
+    title VARCHAR(120) NOT NULL COMMENT '场地图标题，如：篮球场场地分布图',
+    description VARCHAR(500) DEFAULT NULL COMMENT '场地图说明',
+    status VARCHAR(20) NOT NULL DEFAULT 'PUBLISHED' COMMENT '状态：DRAFT-草稿，PUBLISHED-已发布，OFFLINE-已下线',
+    content_json LONGTEXT NOT NULL COMMENT '画布JSON内容（元素、坐标、旋转、样式等）',
+    is_deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除：0-未删除，1-已删除',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX idx_floor_plan_status_deleted_time (status, is_deleted, update_time),
+    INDEX idx_floor_plan_title (title),
+    INDEX idx_floor_plan_create_time (create_time)
+) COMMENT='场地图表（独立对象，JSON存储）';
 
 
 -- 器材信息表：不区分场地，所有器材统一属于体育馆

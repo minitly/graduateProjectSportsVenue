@@ -231,6 +231,12 @@ const stats = computed(() => [
   { label: '当前状态', value: filters.status ? getStatusText(filters.status) : '全部' }
 ])
 
+const ownerVenueStats = computed(() => [
+  { label: '场地总数', value: venuesTotal.value },
+  { label: '筛选状态', value: filters.status ? getStatusText(filters.status) : '全部状态' },
+  { label: '每页数量', value: pagination.pageSize }
+])
+
 const deleteModal = reactive({
   show: false,
   venue: null,
@@ -626,6 +632,11 @@ const ownerBookingsTotal = computed(() => ownerBookingsQuery.data?.total || owne
 const isOwnerBookingsFetching = computed(
     () => Boolean(ownerBookingsQuery.isFetching?.value ?? ownerBookingsQuery.isFetching)
 )
+const ownerBookingSummary = computed(() => [
+  { label: '预约总数', value: ownerBookingsTotal.value },
+  { label: '当前筛选', value: ownerBookingFilters.status ? getStatusText(ownerBookingFilters.status) : '全部状态' },
+  { label: '分页大小', value: ownerBookingPagination.pageSize }
+])
 
 async function hydrateVenueNames(records) {
   const ids = [...new Set(records.map((item) => item.venueId).filter(Boolean))].filter(
@@ -1465,7 +1476,7 @@ onUnmounted(() => {
 
 <template>
   <div class="venues-page">
-    <section v-if="!isOwner && activeModule === 'venue'" class="card venues-hero">
+    <section v-if="!isOwner && activeModule === 'venue'" class="card venues-hero module-tier module-tier--summary">
       <div>
         <p class="section-kicker">场地预约</p>
         <h2>找到最合适的场地，在线预约并管理你的计划</h2>
@@ -1481,9 +1492,23 @@ onUnmounted(() => {
       </div>
     </section>
 
+    <section v-if="isOwner && activeModule === 'venue'" class="card venues-hero module-tier module-tier--summary">
+      <div>
+        <p class="section-kicker">场地管理</p>
+        <h2>统一维护场地信息、状态与预约资源</h2>
+        <p class="text-muted">通过筛选快速定位场地，进行编辑、状态调整与详情查看。</p>
+      </div>
+      <div class="hero-metrics">
+        <div v-for="stat in ownerVenueStats" :key="stat.label">
+          <span>{{ stat.label }}</span>
+          <strong>{{ stat.value }}</strong>
+        </div>
+      </div>
+    </section>
+
     <p v-if="activeModule === 'venue' && venuesQuery.error" class="error-text">{{ venuesQuery.error.message }}</p>
 
-    <section v-if="activeModule === 'venue'" class="card venues-filters">
+    <section v-if="activeModule === 'venue'" class="card venues-filters module-tier module-tier--filters">
       <div class="field">
         <label>关键词</label>
         <NInput v-model:value="filters.keyword" placeholder="场地名称 / 编号" />
@@ -1505,7 +1530,7 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <section v-if="activeModule === 'venue'" class="card venues-panel">
+    <section v-if="activeModule === 'venue'" class="card venues-panel module-tier module-tier--data">
       <div v-if="venuesData.length || isVenuesFetching" class="venues-grid">
         <article v-for="venue in venuesData" :key="venue.id" class="venue-card">
           <div class="venue-card__media">
@@ -1609,14 +1634,23 @@ onUnmounted(() => {
       </section>
     </section>
 
-    <section v-if="activeModule === 'booking' && isOwner" class="card booking-panel">
+    <section v-if="activeModule === 'booking' && isOwner" class="card booking-panel module-tier module-tier--summary">
       <div class="booking-panel__header">
         <div>
           <p class="section-kicker">预约审核管理</p>
           <h3>查看全部用户预约并执行审核操作</h3>
+          <p class="text-muted">按场地、用户、状态和日期筛选预约并执行核销。</p>
+        </div>
+        <div class="booking-panel__summary">
+          <div v-for="stat in ownerBookingSummary" :key="stat.label" class="summary-card">
+            <span>{{ stat.label }}</span>
+            <strong>{{ stat.value }}</strong>
+          </div>
         </div>
       </div>
+    </section>
 
+    <section v-if="activeModule === 'booking' && isOwner" class="card booking-panel module-tier module-tier--filters">
       <div class="booking-panel__filters">
         <div>
           <label>场地名称</label>
@@ -1639,7 +1673,9 @@ onUnmounted(() => {
           <NButton tertiary @click="resetOwnerBookingFilters">重置</NButton>
         </div>
       </div>
+    </section>
 
+    <section v-if="activeModule === 'booking' && isOwner" class="card booking-panel module-tier module-tier--data">
       <div class="booking-panel__list">
         <NCard v-for="item in ownerBookingsData" :key="`owner-${item.id}`" size="small" class="booking-card">
           <template #header>

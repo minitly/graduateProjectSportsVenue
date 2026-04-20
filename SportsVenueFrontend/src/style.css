@@ -171,7 +171,7 @@ body {
 
 .venues-page {
   display: grid;
-  gap: 24px;
+  gap: 16px;
 }
 
 /* 公告中心、用户管理等：与场地预约页一致，卡片纵向分隔 */
@@ -183,7 +183,78 @@ body {
 .borrow-page,
 .profile-page {
   display: grid;
-  gap: 24px;
+  gap: 16px;
+}
+
+/* 管理端模块三层模板：顶部状态栏 / 查询区 / 数据区 */
+.module-tier {
+  border-radius: 22px;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.08);
+}
+
+.module-tier--summary {
+  gap: 16px;
+}
+
+.module-tier--summary h2,
+.module-tier--summary h3 {
+  margin: 6px 0 4px;
+  font-size: clamp(22px, 2.4vw, 28px);
+  color: #0f172a;
+}
+
+.module-tier--summary .text-muted {
+  color: #64748b;
+}
+
+.module-tier--summary .hero-metrics {
+  gap: 12px;
+}
+
+.module-tier--summary .hero-metrics > div,
+.module-tier--summary .summary-card {
+  min-height: 92px;
+  border-radius: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: none;
+}
+
+.module-tier--summary .hero-metrics span,
+.module-tier--summary .summary-card span {
+  font-size: 12px;
+  color: #64748b;
+  text-transform: none;
+  letter-spacing: 0.01em;
+}
+
+.module-tier--summary .hero-metrics strong,
+.module-tier--summary .summary-card strong {
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.module-tier--filters {
+  gap: 14px;
+}
+
+.module-tier--filters .venues-filters,
+.module-tier--filters .booking-panel__filters,
+.module-tier--filters .borrow-panel__filters {
+  gap: 14px;
+}
+
+.module-tier--filters .venues-filters__actions,
+.module-tier--filters .booking-panel__actions,
+.module-tier--filters .borrow-panel__actions {
+  justify-content: flex-start;
+  align-items: end;
+  gap: 10px;
+}
+
+.module-tier--data .pagination {
+  margin-top: 4px;
 }
 
 .profile-hero {

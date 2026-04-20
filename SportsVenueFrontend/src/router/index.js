@@ -8,9 +8,8 @@ import BorrowApprovalPage from "../views/BorrowApprovalPage.vue";
 import ProfilePage from "../views/ProfilePage.vue";
 import AdminUsersPage from "../views/AdminUsersPage.vue";
 import AdminAnalyticsPage from "../views/AdminAnalyticsPage.vue";
-import AdminModel2DPage from "../views/AdminModel2DPage.vue";
-import AdminModel3DPreviewPage from "../views/AdminModel3DPreviewPage.vue";
 import NoticesPage from "../views/NoticesPage.vue";
+import FloorPlanPage from "../views/FloorPlanPage.vue";
 import { useAuthStore } from "../stores/auth";
 import { useToast } from "../composables/useToast";
 
@@ -75,7 +74,7 @@ const routes = [
                 meta: {
                     title: "借用审批",
                     subtitle: "审批借用申请并确认归还",
-                    roles: ["OWNER"],
+                    roles: ["ADMIN", "OWNER"],
                 },
             },
             {
@@ -97,6 +96,25 @@ const routes = [
                 },
             },
             {
+                path: "floor-plans",
+                name: "floor-plans",
+                component: FloorPlanPage,
+                meta: {
+                    title: "场地图展示",
+                    subtitle: "查看体育馆场地图与分区信息",
+                },
+            },
+            {
+                path: "floor-plans-admin",
+                name: "floor-plans-admin",
+                component: FloorPlanPage,
+                meta: {
+                    title: "场地图管理",
+                    subtitle: "维护场地图画布并发布可视化分区",
+                    roles: ["ADMIN", "OWNER"],
+                },
+            },
+            {
                 path: "admin-users",
                 name: "admin-users",
                 component: AdminUsersPage,
@@ -113,26 +131,6 @@ const routes = [
                 meta: {
                     title: "数据分析管理",
                     subtitle: "查看平台级预约与运营分析",
-                    roles: ["ADMIN", "OWNER"],
-                },
-            },
-            {
-                path: "admin-model-2d",
-                name: "admin-model-2d",
-                component: AdminModel2DPage,
-                meta: {
-                    title: "2D建模管理",
-                    subtitle: "在数据分析管理下进行2D建模配置与预览",
-                    roles: ["ADMIN", "OWNER"],
-                },
-            },
-            {
-                path: "admin-model-3d",
-                name: "admin-model-3d",
-                component: AdminModel3DPreviewPage,
-                meta: {
-                    title: "3D场馆预览",
-                    subtitle: "基于2D语义模型生成3D场馆可视化预览",
                     roles: ["ADMIN", "OWNER"],
                 },
             },

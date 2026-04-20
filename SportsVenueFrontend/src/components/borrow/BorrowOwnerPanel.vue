@@ -289,15 +289,21 @@ async function submitOwnerAction() {
 </script>
 
 <template>
-  <section class="card borrow-panel">
+  <section class="card borrow-panel module-tier module-tier--summary">
     <div class="borrow-panel__header">
-      <div><p class="section-kicker">借用管理</p><h3>审批借用与归还确认</h3></div>
+      <div>
+        <p class="section-kicker">借用审批</p>
+        <h3>审批借用与归还确认</h3>
+        <p class="text-muted">按条件筛选借用单并执行借出、归还处理。</p>
+      </div>
     </div>
 
     <div class="borrow-panel__summary borrow-panel__summary--three">
       <div v-for="stat in summaryCards" :key="stat.label" class="summary-card"><span>{{ stat.label }}</span><strong>{{ stat.value }}</strong></div>
     </div>
+  </section>
 
+  <section class="card borrow-panel module-tier module-tier--filters">
     <div class="borrow-panel__filters">
       <div><label>状态</label><NSelect v-model:value="ownerFilters.status" :options="ownerStatusOptions" /></div>
       <div><label>器材关键词</label><NInput v-model:value="ownerFilters.keyword" placeholder="器材名称" /></div>
@@ -308,7 +314,9 @@ async function submitOwnerAction() {
         <NButton @click="resetFilters">重置</NButton>
       </div>
     </div>
+  </section>
 
+  <section class="card borrow-panel module-tier module-tier--data">
     <div class="borrow-panel__list booking-panel__list">
       <NCard v-for="record in ownerBorrowsData" :key="record.id" size="small" class="borrow-record">
         <template #header>

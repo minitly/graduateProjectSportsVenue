@@ -12,8 +12,7 @@ import {
   Bell,
   Users,
   BarChart3,
-  PencilRuler,
-  Cuboid,
+  LayoutGrid,
   LogOut,
   Sun,
   CloudSun,
@@ -169,6 +168,11 @@ const USER_MENU_ITEMS = [
     path: '/app/notices'
   },
   {
+    label: '场地图展示',
+    description: '查看已发布场地图与分区信息',
+    path: '/app/floor-plans'
+  },
+  {
     label: '场地预约',
     description: '浏览可预约场地并选择时段',
     path: '/app/venues'
@@ -197,6 +201,11 @@ const USER_MENU_ITEMS = [
 
 /** 管理者（场馆主 / 系统管理员）共用同一份侧边栏 */
 const OWNER_MENU_ITEMS = [
+  {
+    label: '场地图管理',
+    description: '创建并维护场地图画布',
+    path: '/app/floor-plans-admin'
+  },
   {
     label: '场地管理',
     description: '维护场地信息与开放状态',
@@ -231,16 +240,6 @@ const OWNER_MENU_ITEMS = [
     label: '数据分析管理',
     description: '查看全局预约与运营数据分析',
     path: '/app/admin-analytics'
-  // },
-  // {
-  //   label: '2D建模管理',
-  //   description: '进行2D建模配置与画布预览',
-  //   path: '/app/admin-model-2d'
-  // },
-  // {
-  //   label: '3D场馆预览',
-  //   description: '查看2D模型转化的3D场馆效果',
-  //   path: '/app/admin-model-3d'
   }
 ]
 
@@ -262,10 +261,10 @@ const pathIconMap = {
   '/app/borrow-approval': ClipboardCheck,
   '/app/profile': UserCircle2,
   '/app/notices': Bell,
+  '/app/floor-plans': LayoutGrid,
+  '/app/floor-plans-admin': LayoutGrid,
   '/app/admin-users': Users,
-  '/app/admin-analytics': BarChart3,
-  '/app/admin-model-2d': PencilRuler,
-  '/app/admin-model-3d': Cuboid
+  '/app/admin-analytics': BarChart3
 }
 
 const navItems = computed(() =>
@@ -277,48 +276,51 @@ const navItems = computed(() =>
 
 const activePath = computed(() => route.path)
 
+const PAGE_HEADER_OVERRIDES = {
+  USER: {
+    '/app/venues': {
+      title: '场地预约',
+      subtitle: '浏览可预约场地并选择时段'
+    },
+    '/app/bookings': {
+      title: '我的预约',
+      subtitle: '查看预约记录与状态'
+    },
+    '/app/borrow': {
+      title: '器材借用',
+      subtitle: '查看可借器材并提交借用申请'
+    },
+    '/app/my-borrows': {
+      title: '我的借用',
+      subtitle: '查看借用记录与状态'
+    },
+    '/app/floor-plans': {
+      title: '场地图展示',
+      subtitle: '查看已发布场地图与分区说明'
+    }
+  },
+  ADMIN: {
+    '/app/borrow': {
+      title: '器材管理',
+      subtitle: '维护器材台账与库存'
+    },
+    '/app/borrow-approval': {
+      title: '借用审批',
+      subtitle: '审批借用申请并确认归还'
+    },
+    '/app/floor-plans-admin': {
+      title: '场地图管理',
+      subtitle: '创建并维护场地图画布'
+    }
+  }
+}
+
 const pageHeader = computed(() => {
   const meta = route.meta || {}
   const path = route.path
-  const role = authStore.role
-  if (role === 'USER') {
-    if (path === '/app/venues') {
-      return {
-        title: '场地预约',
-        subtitle: '浏览可预约场地并选择时段'
-      }
-    }
-    if (path === '/app/bookings') {
-      return {
-        title: '我的预约',
-        subtitle: '查看预约记录与状态'
-      }
-    }
-    if (path === '/app/borrow') {
-      return {
-        title: '器材借用',
-        subtitle: '查看可借器材并提交借用申请'
-      }
-    }
-    if (path === '/app/my-borrows') {
-      return {
-        title: '我的借用',
-        subtitle: '查看借用记录与状态'
-      }
-    }
-  }
-  if ((role === 'ADMIN' || role === 'OWNER') && path === '/app/borrow') {
-    return {
-      title: '器材管理',
-      subtitle: '维护器材台账与库存'
-    }
-  }
-  if ((role === 'ADMIN' || role === 'OWNER') && path === '/app/borrow-approval') {
-    return {
-      title: '借用审批',
-      subtitle: '审批借用申请并确认归还'
-    }
-  }
+  const role = authStore.role === 'USER' ? 'USER' : 'ADMIN'
+  const override = PAGE_HEADER_OVERRIDES[role]?.[path]
+  if (override) return override
   return {
     title: meta.title || '控制台',
     subtitle: meta.subtitle || '管理你的体育馆预约与器材借用'

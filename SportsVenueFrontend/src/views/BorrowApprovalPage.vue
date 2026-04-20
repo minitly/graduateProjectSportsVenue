@@ -7,3 +7,10 @@ import BorrowOwnerPanel from '../components/borrow/BorrowOwnerPanel.vue'
     <BorrowOwnerPanel />
   </div>
 </template>
+
+<style scoped>
+.borrow-approval-page {
+  display: grid;
+  gap: 16px;
+}
+</style>
