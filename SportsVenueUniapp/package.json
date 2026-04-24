@@ -1,0 +1,20 @@
+{
+  "name": "sports-venue-uniapp",
+  "private": true,
+  "version": "0.1.0",
+  "description": "SportsVenue UniApp (mp-weixin) user client",
+  "scripts": {
+    "install:clean": "rimraf node_modules pnpm-lock.yaml && pnpm install",
+    "dev:deps": "pnpm install"
+  },
+  "dependencies": {
+    "@dcloudio/uni-ui": "^1.5.10",
+    "axios": "^1.7.9",
+    "dayjs": "^1.11.13",
+    "pinia": "^3.0.1"
+  },
+  "devDependencies": {
+    "rimraf": "^6.0.1"
+  }
+}
+

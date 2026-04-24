@@ -1,0 +1,134 @@
+{
+	"pages": [ //pages数组中第一项表示应用启动页，参考：https://uniapp.dcloud.io/collocation/pages
+		{
+			"path": "pages/index/index",
+			"style": {
+				"navigationBarTitleText": "体育馆预约服务",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/venue/index",
+			"style": {
+				"navigationBarTitleText": "场地"
+			}
+		},
+		{
+			"path": "pages/equipment/index",
+			"style": {
+				"navigationBarTitleText": "器材"
+			}
+		},
+		{
+			"path": "pages/notice/index",
+			"style": {
+				"navigationBarTitleText": "公告"
+			}
+		},
+		{
+			"path": "pages/mine/index",
+			"style": {
+				"navigationBarTitleText": "我的"
+			}
+		},
+		{
+			"path": "pages/venue/detail",
+			"style": {
+				"navigationBarTitleText": "场地详情"
+			}
+		},
+		{
+			"path": "pages/venue/floorplan",
+			"style": {
+				"navigationBarTitleText": "场地图"
+			}
+		},
+		{
+			"path": "pages/venue/venueselect",
+			"style": {
+				"navigationBarTitleText": "场地选择"
+			}
+		},
+		{
+			"path": "pages/venue/floorplan-detail",
+			"style": {
+				"navigationBarTitleText": "场地图详情"
+			}
+		},
+		{
+			"path": "pages/venue/booking",
+			"style": {
+				"navigationBarTitleText": "预约时段"
+			}
+		},
+		{
+			"path": "pages/mine/bookings",
+			"style": {
+				"navigationBarTitleText": "我的预约"
+			}
+		},
+		{
+			"path": "pages/mine/borrows",
+			"style": {
+				"navigationBarTitleText": "我的借用"
+			}
+		},
+		{
+			"path": "pages/mine/wallet",
+			"style": {
+				"navigationBarTitleText": "我的钱包"
+			}
+		},
+		{
+			"path": "pages/mine/profile-edit",
+			"style": {
+				"navigationBarTitleText": "修改资料"
+			}
+		}
+	],
+	"globalStyle": {
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "体育馆预约服务",
+		"navigationBarBackgroundColor": "#F8F8F8",
+		"backgroundColor": "#F8F8F8"
+	},
+	"easycom": {
+		"autoscan": true,
+		"custom": {
+			"^uni-(.*)": "@dcloudio/uni-ui/lib/uni-$1/uni-$1.vue"
+		}
+	},
+	"tabBar": {
+		"color": "#7A7E83",
+		"selectedColor": "#4D74F8",
+		"backgroundColor": "#FFFFFF",
+		"borderStyle": "black",
+		"list": [
+			{
+				"pagePath": "pages/venue/index",
+				"text": "场地",
+				"iconPath": "static/tabbar/venue.png",
+				"selectedIconPath": "static/tabbar/venue-active.png"
+			},
+			{
+				"pagePath": "pages/equipment/index",
+				"text": "器材",
+				"iconPath": "static/tabbar/equipment.png",
+				"selectedIconPath": "static/tabbar/equipment-active.png"
+			},
+			{
+				"pagePath": "pages/notice/index",
+				"text": "公告",
+				"iconPath": "static/tabbar/notice.png",
+				"selectedIconPath": "static/tabbar/notice-active.png"
+			},
+			{
+				"pagePath": "pages/mine/index",
+				"text": "我的",
+				"iconPath": "static/tabbar/mine.png",
+				"selectedIconPath": "static/tabbar/mine-active.png"
+			}
+		]
+	},
+	"uniIdRouter": {}
+}
