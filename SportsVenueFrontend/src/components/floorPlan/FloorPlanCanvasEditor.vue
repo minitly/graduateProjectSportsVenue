@@ -1,7 +1,11 @@
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
-import { NButton, NInput, NInputNumber } from 'naive-ui'
+import { useDialog, NButton, NInput, NInputNumber } from 'naive-ui'
 import { createDefaultRect, normalizeFloorPlanModel } from '../../utils/floorPlan'
+import { useToast } from '../../composables/useToast'
+
+const { pushToast } = useToast()
+const dialog = useDialog()
 
 const props = defineProps({
   modelValue: {
@@ -95,6 +99,17 @@ function addRect() {
 
 function removeSelected() {
   if (props.readonly || !selectedRect.value) return
+  const venueId = Number(selectedRect.value.venueId)
+  if (Number.isFinite(venueId) && venueId > 0) {
+    const label = selectedRect.value.label || selectedRect.value.id || '未命名区域'
+    dialog.warning({
+      title: '已绑定场地，不可删除',
+      content: `区域「${label}」已绑定场地，请先在场地管理中解绑后再删除。`,
+      positiveText: '我知道了'
+    })
+    pushToast('该区域已绑定场地，不可删除', 'warning')
+    return
+  }
   const next = normalizeFloorPlanModel(model.value)
   next.items = next.items.filter((item) => item.id !== selectedRect.value.id)
   emitModel(next)
@@ -145,6 +160,18 @@ function endDrag() {
   window.removeEventListener('mousemove', onDragMove)
   window.removeEventListener('mouseup', endDrag)
 }
+
+function rectStyle(item) {
+  const color = /^#([0-9a-fA-F]{6})$/.test(item?.color || '') ? item.color : '#4f7bc3'
+  return {
+    width: `${item.w}px`,
+    height: `${item.h}px`,
+    transform: `translate(${item.x}px, ${item.y}px) rotate(${item.rotation}deg)`,
+    borderColor: color,
+    background: `${color}33`,
+    color: '#1f3e67'
+  }
+}
 </script>
 
 <template>
@@ -164,11 +191,7 @@ function endDrag() {
             type="button"
             class="rect-item"
             :class="{ active: item.id === selectedId }"
-            :style="{
-              width: `${item.w}px`,
-              height: `${item.h}px`,
-              transform: `translate(${item.x}px, ${item.y}px) rotate(${item.rotation}deg)`
-            }"
+            :style="rectStyle(item)"
             @mousedown="beginDrag($event, item, 'move')"
             @click.stop="selectRect(item.id)"
           >

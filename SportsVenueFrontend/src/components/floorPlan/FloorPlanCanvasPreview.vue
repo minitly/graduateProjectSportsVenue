@@ -7,11 +7,21 @@ const props = defineProps({
     type: Object,
     required: true
   },
+  interactive: {
+    type: Boolean,
+    default: false
+  },
+  highlightItemUid: {
+    type: String,
+    default: ''
+  },
   maxHeight: {
     type: Number,
     default: 520
   }
 })
+
+const emit = defineEmits(['item-click'])
 
 const normalized = computed(() => normalizeFloorPlanModel(props.model))
 const stageStyle = computed(() => ({
@@ -19,6 +29,29 @@ const stageStyle = computed(() => ({
   height: `${normalized.value.canvas.height}px`,
   background: normalized.value.canvas.backgroundColor
 }))
+
+function rectStyle(item) {
+  const color = /^#([0-9a-fA-F]{6})$/.test(item?.color || '') ? item.color : '#4f7bc3'
+  const isHighlighted = !props.highlightItemUid || props.highlightItemUid === item?.id
+  const clickable = Boolean(props.interactive && item?.venueId)
+  return {
+    width: `${item.w}px`,
+    height: `${item.h}px`,
+    transform: `translate(${item.x}px, ${item.y}px) rotate(${item.rotation}deg)`,
+    borderColor: color,
+    background: `${color}33`,
+    color: '#1f3e67',
+    opacity: isHighlighted ? 1 : 0.35,
+    boxShadow: isHighlighted ? `0 0 0 2px ${color}66` : 'none',
+    cursor: clickable ? 'pointer' : 'default'
+  }
+}
+
+function handleRectClick(item) {
+  if (!props.interactive) return
+  if (!item?.venueId) return
+  emit('item-click', item)
+}
 </script>
 
 <template>
@@ -28,11 +61,8 @@ const stageStyle = computed(() => ({
         v-for="item in normalized.items"
         :key="item.id"
         class="preview-rect"
-        :style="{
-          width: `${item.w}px`,
-          height: `${item.h}px`,
-          transform: `translate(${item.x}px, ${item.y}px) rotate(${item.rotation}deg)`
-        }"
+        :style="rectStyle(item)"
+        @click="handleRectClick(item)"
       >
         <span>{{ item.label || '未命名区域' }}</span>
       </div>

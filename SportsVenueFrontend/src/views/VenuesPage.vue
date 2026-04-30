@@ -1,13 +1,15 @@
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
-import { useDialog, NButton, NCard, NDatePicker, NDivider, NInput, NInputNumber, NModal, NSelect, NTag } from 'naive-ui'
+import { useDialog, NButton, NCard, NDatePicker, NDivider, NInput, NInputNumber, NModal, NSelect, NTag, NTabs, NTabPane } from 'naive-ui'
 import { useRoute } from 'vue-router'
 import { useToast } from '../composables/useToast'
 import api from '../services/api'
 import { useAuthStore } from '../stores/auth'
 import { getStatusText } from '../constants/statusMap'
 import { formatDisplayDateTime } from '../utils/dateFormat'
+import FloorPlanCanvasPreview from '../components/floorPlan/FloorPlanCanvasPreview.vue'
+import { parseFloorPlanContent } from '../utils/floorPlan'
 
 const props = defineProps({
   module: {
@@ -48,7 +50,10 @@ const bookingModal = reactive({
   endTime: null,
   occupied: [],
   dragging: false,
-  submitting: false
+  submitting: false,
+  floorPlanLoading: false,
+  floorPlanTitle: '',
+  floorPlanModel: null
 })
 
 const venueNameMap = reactive({})
@@ -176,9 +181,60 @@ const venueManageModal = reactive({
     openTimeDesc: '',
     remark: '',
     status: 'AVAILABLE',
-    coverImageUrl: ''
+    coverImageUrl: '',
+    floorPlanId: null,
+    floorPlanItemUid: ''
   }
 })
+
+const floorPlanOptions = ref([])
+const floorPlanLoading = ref(false)
+const floorPlanItemOptions = ref([])
+const floorPlanItemLoading = ref(false)
+
+async function loadFloorPlanOptions() {
+  floorPlanLoading.value = true
+  try {
+    const response = await api.get('/floor-plans', { params: { pageNo: 1, pageSize: 200 } })
+    if (response.code !== 200) {
+      throw new Error(response.message || '场地图加载失败')
+    }
+    const records = response.data?.records || []
+    floorPlanOptions.value = records
+      .map((fp) => ({ label: fp.title || `场地图 ${fp.id}`, value: fp.id }))
+      .filter((opt) => opt.value != null)
+  } catch (e) {
+    pushToast(e?.message || '场地图加载失败', 'error')
+    floorPlanOptions.value = []
+  } finally {
+    floorPlanLoading.value = false
+  }
+}
+
+async function loadFloorPlanItemOptions(floorPlanId) {
+  if (!floorPlanId) {
+    floorPlanItemOptions.value = []
+    return
+  }
+  floorPlanItemLoading.value = true
+  try {
+    const response = await api.get(`/floor-plans/${floorPlanId}/items`, {
+      params: { venueId: venueManageModal.editingId || undefined }
+    })
+    if (response.code !== 200) {
+      throw new Error(response.message || '场地图区域加载失败')
+    }
+    const items = response.data || []
+    floorPlanItemOptions.value = items
+      .map((it) => ({ label: it.label || it.itemUid || it.itemUid, value: it.itemUid }))
+      .filter((opt) => opt.value)
+  } catch (e) {
+    pushToast(e?.message || '场地图区域加载失败', 'error')
+    floorPlanItemOptions.value = []
+  } finally {
+    floorPlanItemLoading.value = false
+  }
+}
 
 const venueFormErrors = reactive({
   name: '',
@@ -280,6 +336,19 @@ const bookingDateRange = computed({
     bookingFilters.endDate = formatDate(value[1])
   }
 })
+
+watch(
+  () => venueManageModal.form.floorPlanId,
+  async (next, old) => {
+    if (next === old) return
+    venueManageModal.form.floorPlanItemUid = ''
+    if (!next) {
+      floorPlanItemOptions.value = []
+      return
+    }
+    await loadFloorPlanItemOptions(next)
+  }
+)
 
 const debouncedSearch = ref(null)
 const currentTimeTick = ref(Date.now())
@@ -454,6 +523,8 @@ const bookingDates = computed(() => {
   }
   return dates
 })
+
+const hasBookingFloorPlan = computed(() => Boolean(bookingModal.floorPlanLoading || bookingModal.floorPlanModel))
 
 function formatDate(timestamp) {
   if (timestamp == null || timestamp === undefined) return null
@@ -788,6 +859,29 @@ async function openBookingModal(venue) {
   bookingModal.startTime = null
   bookingModal.endTime = null
   bookingModal.occupied = []
+  bookingModal.floorPlanLoading = false
+  bookingModal.floorPlanTitle = ''
+  bookingModal.floorPlanModel = null
+  await loadBookingFloorPlan(venue)
+}
+
+async function loadBookingFloorPlan(venue) {
+  if (!venue?.floorPlanId) return
+  bookingModal.floorPlanLoading = true
+  try {
+    const response = await api.get(`/floor-plans/${venue.floorPlanId}`)
+    if (response.code !== 200) {
+      throw new Error(response.message || '场地图加载失败')
+    }
+    const detail = response.data || {}
+    bookingModal.floorPlanTitle = detail.title || ''
+    bookingModal.floorPlanModel = parseFloorPlanContent(detail.contentJson)
+  } catch (error) {
+    pushToast(error?.message || '场地图加载失败', 'warning')
+    bookingModal.floorPlanModel = null
+  } finally {
+    bookingModal.floorPlanLoading = false
+  }
 }
 
 async function generateVenueCode() {
@@ -819,7 +913,9 @@ function resetVenueForm() {
     openTimeDesc: '',
     remark: '',
     status: 'AVAILABLE',
-    coverImageUrl: ''
+    coverImageUrl: '',
+    floorPlanId: null,
+    floorPlanItemUid: ''
   }
   venueFormErrors.name = ''
   venueFormErrors.type = ''
@@ -842,6 +938,7 @@ function openCreateVenue() {
   venueManageModal.show = true
   venueManageModal.editingId = null
   resetVenueForm()
+  loadFloorPlanOptions()
   generateVenueCode()
 }
 
@@ -863,7 +960,15 @@ function openEditVenue(venue) {
     openTimeDesc: venue.openTimeDesc || '',
     remark: venue.remark || '',
     status: venue.status || 'AVAILABLE',
-    coverImageUrl: venue.coverImageUrl || ''
+    coverImageUrl: venue.coverImageUrl || '',
+    floorPlanId: venue.floorPlanId ?? null,
+    floorPlanItemUid: venue.floorPlanItemUid || ''
+  }
+  loadFloorPlanOptions()
+  if (venue.floorPlanId) {
+    loadFloorPlanItemOptions(venue.floorPlanId)
+  } else {
+    floorPlanItemOptions.value = []
   }
   originalVenueCode.value = venue.code || ''
   cleanupCoverObjectUrl()
@@ -1134,6 +1239,48 @@ async function loadOccupiedSlots() {
   }
 }
 
+async function jumpToVenueBooking(venueId) {
+  const id = Number(venueId)
+  if (!Number.isFinite(id) || id <= 0) return
+  if (bookingModal.venue?.id === id) return
+  try {
+    const response = await api.get(`/venues/${id}`)
+    if (response.code !== 200) {
+      pushToast(response.message || '加载场地失败', 'error')
+      return
+    }
+    const venue = response.data
+    if (!venue?.id) return
+    bookingModal.venue = venue
+    bookingModal.date = bookingDates.value[0]?.value || null
+    bookingModal.startTime = null
+    bookingModal.endTime = null
+    bookingModal.occupied = []
+    bookingModal.floorPlanTitle = ''
+    bookingModal.floorPlanModel = null
+    await loadBookingFloorPlan(venue)
+    await loadOccupiedSlots()
+  } catch (error) {
+    pushToast(error?.response?.data?.message || '加载场地失败', 'error')
+  }
+}
+
+const unboundMapHintAt = ref(0)
+function showUnboundMapHint(item) {
+  const now = Date.now()
+  if (now - (unboundMapHintAt.value || 0) < 900) return
+  unboundMapHintAt.value = now
+  const label = item?.label || '该区域'
+  pushToast(`${label} 未绑定场地，无法跳转`, 'info')
+}
+
+function handleBookingMapItemClick(item) {
+  if (!item?.venueId) {
+    showUnboundMapHint(item)
+    return
+  }
+  jumpToVenueBooking(item.venueId)
+}
 function computeEndTimeOptions() {
   if (!bookingModal.startTime) return []
   const startIndex = timeSlots.value.findIndex((slot) => slot.value === bookingModal.startTime)
@@ -1895,6 +2042,37 @@ onUnmounted(() => {
         <NInput v-model:value="venueManageModal.form.remark" type="textarea" placeholder="请输入备注信息" :status="venueFormErrors.remark ? 'error' : undefined" />
         <p v-if="venueFormErrors.remark" class="error-text">{{ venueFormErrors.remark }}</p>
       </div>
+
+      <div class="booking-modal__section">
+        <label>场地图绑定（选填）</label>
+        <NTabs type="line" animated>
+          <NTabPane name="floorPlan" tab="选择场地图">
+            <NSelect
+              v-model:value="venueManageModal.form.floorPlanId"
+              clearable
+              :loading="floorPlanLoading"
+              :options="floorPlanOptions"
+              placeholder="选择场地图标题（可选）"
+            />
+            <p class="hint" style="margin-top: 10px;">
+              先选择场地图标题，才可在下一个选项卡选择区域 item。
+            </p>
+          </NTabPane>
+          <NTabPane name="floorPlanItem" tab="选择区域">
+            <NSelect
+              v-model:value="venueManageModal.form.floorPlanItemUid"
+              clearable
+              :loading="floorPlanItemLoading"
+              :disabled="!venueManageModal.form.floorPlanId"
+              :options="floorPlanItemOptions"
+              placeholder="选择区域（仅未绑定 + 当前场地已绑定）"
+            />
+            <p class="hint" style="margin-top: 10px;">
+              未选择区域将视为不绑定/解绑；选择区域后将与当前场地一一绑定。
+            </p>
+          </NTabPane>
+        </NTabs>
+      </div>
       <div class="booking-modal__section"><label>状态</label><NSelect v-model:value="venueManageModal.form.status" :options="venueStatusOptions" /></div>
       <div class="booking-modal__section">
         <label>封面图片</label>
@@ -1959,92 +2137,120 @@ onUnmounted(() => {
       </div>
     </NModal>
 
-    <NModal v-model:show="bookingModal.show" preset="card" class="booking-modal" :mask-closable="false" title="预约时段">
-      <div class="booking-modal__header">
-        <div>
-          <h3>{{ bookingModal.venue?.name }}</h3>
-          <p class="text-muted">{{ bookingModal.venue?.openTime }} - {{ bookingModal.venue?.closeTime }}</p>
-        </div>
-        <NTag type="info">{{ bookingModal.venue?.type }}</NTag>
-      </div>
+    <NModal
+      v-model:show="bookingModal.show"
+      preset="card"
+      class="booking-modal booking-modal--booking"
+      :class="{ 'booking-modal--with-map': hasBookingFloorPlan }"
+      :style="{ width: hasBookingFloorPlan ? 'min(1360px, 96vw)' : 'min(540px, 92vw)' }"
+      :mask-closable="false"
+      title="预约时段"
+    >
+      <div class="booking-modal__layout" :class="{ 'booking-modal__layout--with-map': hasBookingFloorPlan }">
+        <div class="booking-modal__main">
+          <div class="booking-modal__header">
+            <div>
+              <h3>{{ bookingModal.venue?.name }}</h3>
+              <p class="text-muted">{{ bookingModal.venue?.openTime }} - {{ bookingModal.venue?.closeTime }}</p>
+            </div>
+            <NTag type="info">{{ bookingModal.venue?.type }}</NTag>
+          </div>
 
-      <NDivider />
+          <NDivider />
 
-      <div class="booking-modal__section">
-        <label>预约日期</label>
-        <NSelect v-model:value="bookingModal.date" :options="bookingDates" />
-      </div>
+          <div class="booking-modal__section">
+            <label>预约日期</label>
+            <NSelect v-model:value="bookingModal.date" :options="bookingDates" />
+          </div>
 
-      <div class="booking-modal__section">
-        <label>开始时间</label>
-        <NSelect
-            v-model:value="bookingModal.startTime"
-            :options="timeSlotOptions"
-            :disabled="!bookingModal.date"
-        />
-        <p class="hint">不可选时间已被占用</p>
-      </div>
+          <div class="booking-modal__section">
+            <label>开始时间</label>
+            <NSelect
+                v-model:value="bookingModal.startTime"
+                :options="timeSlotOptions"
+                :disabled="!bookingModal.date"
+            />
+            <p class="hint">不可选时间已被占用</p>
+          </div>
 
-      <div class="booking-modal__section">
-        <label>结束时间</label>
-        <NSelect
-            v-model:value="bookingModal.endTime"
-            :options="endTimeOptions"
-            :disabled="!bookingModal.startTime"
-        />
-        <p class="hint">点击两个可预约时段即可快速圈选连续区间</p>
-      </div>
+          <div class="booking-modal__section">
+            <label>结束时间</label>
+            <NSelect
+                v-model:value="bookingModal.endTime"
+                :options="endTimeOptions"
+                :disabled="!bookingModal.startTime"
+            />
+            <p class="hint">点击两个可预约时段即可快速圈选连续区间</p>
+          </div>
 
-      <div class="booking-modal__slots">
-        <div class="booking-modal__slot-header">
-          <p>可选时段表格</p>
-          <div class="slot-legend">
-            <span class="legend available">可预约</span>
-            <span class="legend selected">已选择</span>
-            <span class="legend occupied">已占用</span>
-            <span class="legend disabled">不可用</span>
+          <div class="booking-modal__slots">
+            <div class="booking-modal__slot-header">
+              <p>可选时段表格</p>
+              <div class="slot-legend">
+                <span class="legend available">可预约</span>
+                <span class="legend selected">已选择</span>
+                <span class="legend occupied">已占用</span>
+                <span class="legend disabled">不可用</span>
+              </div>
+            </div>
+            <div class="booking-modal__table">
+              <div
+                  v-for="slot in slotStatusList"
+                  :key="slot.value"
+                  class="slot-row"
+                  :class="slot.status"
+                  @click="handleSlotSelect(slot)"
+              >
+                <span>{{ slot.range }}</span>
+                <span class="slot-status">
+                  {{
+                    slot.status === 'available'
+                        ? '可预约'
+                        : slot.status === 'selected'
+                            ? '已选择'
+                            : slot.status === 'occupied'
+                                ? '已占用'
+                                : '不可用'
+                  }}
+                </span>
+              </div>
+            </div>
+            <div class="booking-modal__occupied">
+              <p>已占用区间</p>
+              <div class="booking-modal__tags">
+                <NTag v-for="slot in occupiedRanges" :key="slot.start" type="warning" size="small">
+                  {{ slot.start }} ~ {{ slot.end }}
+                </NTag>
+                <span v-if="!occupiedRanges.length" class="text-muted">暂无占用</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="booking-modal__rules">
+            <p>预约规则提示</p>
+            <ul>
+              <li>预约时间必须为整点。</li>
+              <li>每个时段为 60 分钟粒度，需至少选择 1 个时段。</li>
+              <li>开始与结束时间必须在同一天内。</li>
+            </ul>
           </div>
         </div>
-        <div class="booking-modal__table">
-          <div
-              v-for="slot in slotStatusList"
-              :key="slot.value"
-              class="slot-row"
-              :class="slot.status"
-              @click="handleSlotSelect(slot)"
-          >
-            <span>{{ slot.range }}</span>
-            <span class="slot-status">
-              {{
-                slot.status === 'available'
-                    ? '可预约'
-                    : slot.status === 'selected'
-                        ? '已选择'
-                        : slot.status === 'occupied'
-                            ? '已占用'
-                            : '不可用'
-              }}
-            </span>
-          </div>
-        </div>
-        <div class="booking-modal__occupied">
-          <p>已占用区间</p>
-          <div class="booking-modal__tags">
-            <NTag v-for="slot in occupiedRanges" :key="slot.start" type="warning" size="small">
-              {{ slot.start }} ~ {{ slot.end }}
-            </NTag>
-            <span v-if="!occupiedRanges.length" class="text-muted">暂无占用</span>
-          </div>
-        </div>
-      </div>
 
-      <div class="booking-modal__rules">
-        <p>预约规则提示</p>
-        <ul>
-          <li>预约时间必须为整点。</li>
-          <li>每个时段为 60 分钟粒度，需至少选择 1 个时段。</li>
-          <li>开始与结束时间必须在同一天内。</li>
-        </ul>
+        <aside v-if="bookingModal.floorPlanLoading || bookingModal.floorPlanModel" class="booking-modal__side">
+          <h4>场地图预览</h4>
+          <p class="text-muted" style="margin-bottom: 10px;">
+            {{ bookingModal.floorPlanTitle || '该场地已绑定场地图区域' }}
+          </p>
+          <div v-if="bookingModal.floorPlanLoading" class="text-muted">场地图加载中...</div>
+          <FloorPlanCanvasPreview
+            v-else-if="bookingModal.floorPlanModel"
+            :model="bookingModal.floorPlanModel"
+            :highlight-item-uid="bookingModal.venue?.floorPlanItemUid || ''"
+            :max-height="620"
+            interactive
+            @item-click="handleBookingMapItemClick"
+          />
+        </aside>
       </div>
 
       <div class="booking-modal__actions">

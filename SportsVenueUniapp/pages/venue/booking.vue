@@ -9,6 +9,25 @@
       <view v-if="loading" class="state-text">数据加载中...</view>
       <view v-else-if="!venue" class="state-text">未获取到场地信息</view>
       <view v-else class="content-shell">
+        <view v-if="floorPlanModel" class="map-panel">
+          <view class="map-head">
+            <text class="map-title">场地图：{{ floorPlanTitle || "-" }}</text>
+            <text class="map-sub">点击区域可切换场地预约</text>
+          </view>
+          <view class="map-stage" :style="{ background: floorPlanModel.canvas.backgroundColor }">
+            <view
+              v-for="item in floorPlanModel.items"
+              :key="item.uid"
+              class="map-rect"
+              :class="{ active: String(item.venueId) === String(venue.id) }"
+              :style="mapRectStyle(item)"
+              @click="onMapItemClick(item)"
+            >
+              <text class="map-label">{{ item.label || item.id }}</text>
+            </view>
+          </view>
+        </view>
+
         <view class="form-panel">
           <text class="meta-text">{{ venue.openTime || "--:--" }} - {{ venue.closeTime || "--:--" }} · {{ venue.type || "-" }}</text>
           <view class="field">
@@ -73,13 +92,16 @@
 import dayjs from "dayjs";
 import { computed, ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
-import { fetchVenueDetailApi } from "../../api/venue";
+import { fetchFloorPlanDetailApi, fetchVenueDetailApi } from "../../api/venue";
 import { createBookingApi, fetchMyViolationStatusApi, fetchOccupiedSlotsApi } from "../../api/booking";
+import { parseFloorPlanContent } from "../../utils/floorPlan";
 
 const loading = ref(false);
 const submitting = ref(false);
 const venueId = ref("");
 const venue = ref(null);
+const floorPlanTitle = ref("");
+const floorPlanModel = ref(null);
 const bookingDate = ref("");
 const startTime = ref("");
 const endTime = ref("");
@@ -313,6 +335,77 @@ async function loadVenueDetail() {
   if (!bookingDate.value) {
     bookingDate.value = dateStart.value;
   }
+  await loadBookingFloorPlan(res.data);
+}
+
+async function loadBookingFloorPlan(v) {
+  const fpId = v?.floorPlanId ?? v?.floorPlan_id;
+  if (!fpId) {
+    floorPlanTitle.value = "";
+    floorPlanModel.value = null;
+    return;
+  }
+  try {
+    const res = await fetchFloorPlanDetailApi(fpId);
+    if (res.code !== 200 || !res.data) {
+      floorPlanTitle.value = "";
+      floorPlanModel.value = null;
+      return;
+    }
+    floorPlanTitle.value = res.data.title || "";
+    floorPlanModel.value = parseFloorPlanContent(res.data.contentJson || "");
+  } catch (_) {
+    floorPlanTitle.value = "";
+    floorPlanModel.value = null;
+  }
+}
+
+function mapRectStyle(item) {
+  const cw = floorPlanModel.value?.canvas?.width || 1200;
+  const ch = floorPlanModel.value?.canvas?.height || 800;
+  const rotation = Number(item.rotation || 0);
+  const baseColor = item.color || "#5c8fe6";
+  return {
+    left: `${((item.x || 0) / cw) * 100}%`,
+    top: `${((item.y || 0) / ch) * 100}%`,
+    width: `${((item.w || 200) / cw) * 100}%`,
+    height: `${((item.h || 120) / ch) * 100}%`,
+    transform: `rotate(${rotation}deg)`,
+    transformOrigin: "center center",
+    borderColor: baseColor
+  };
+}
+
+function showUnboundMapHint(item) {
+  uni.showModal({
+    title: "未绑定场地",
+    content: `区域「${item?.label || item?.id || "-"}」未绑定场地，无法切换预约。`,
+    showCancel: false
+  });
+}
+
+async function jumpToVenueBooking(nextVenueId) {
+  if (!nextVenueId) return;
+  if (String(nextVenueId) === String(venue.value?.id)) return;
+  loading.value = true;
+  try {
+    venueId.value = String(nextVenueId);
+    clearSlotSelection();
+    await loadVenueDetail();
+    await loadOccupiedSlots();
+  } catch (error) {
+    uni.showModal({ title: "切换失败", content: error?.message || "无法切换场地", showCancel: false });
+  } finally {
+    loading.value = false;
+  }
+}
+
+function onMapItemClick(item) {
+  if (!item?.venueId) {
+    showUnboundMapHint(item);
+    return;
+  }
+  jumpToVenueBooking(item.venueId);
 }
 
 async function loadOccupiedSlots() {
@@ -458,5 +551,13 @@ onLoad(async (query) => {
 .btn-clear, .btn-cancel { color: #4a5b7d; background: #eef2fb; }
 .btn-submit { color: #fff; background: linear-gradient(135deg, #4d74ff 0%, #78a3ff 100%); flex: 1; }
 .state-text { color: #7b88a3; font-size: 25rpx; text-align: center; padding: 24rpx 0; }
+.map-panel { border: 1rpx solid #e2e9fb; border-radius: 16rpx; background: #f8faff; overflow: hidden; }
+.map-head { padding: 12rpx 14rpx; background: #fff; border-bottom: 1rpx solid #e3e9f8; }
+.map-title { color: #1f2d47; font-size: 26rpx; font-weight: 700; display: block; }
+.map-sub { color: #7a87a2; font-size: 22rpx; display: block; margin-top: 6rpx; }
+.map-stage { height: 260rpx; position: relative; overflow: hidden; }
+.map-rect { position: absolute; border: 2rpx solid #5c8fe6; border-radius: 12rpx; background: rgba(255,255,255,.20); display: flex; align-items: center; justify-content: center; }
+.map-rect.active { box-shadow: 0 0 0 4rpx rgba(77,116,248,.28); background: rgba(77,116,248,.10); }
+.map-label { color: #2a3a57; font-size: 20rpx; font-weight: 700; text-align: center; padding: 6rpx; }
 </style>
 

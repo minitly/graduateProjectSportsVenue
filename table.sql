@@ -342,21 +342,55 @@ CREATE TABLE venue (
 ) COMMENT='场地信息表';
 
 
--- 场地图表：独立于 venue 的俯视图/分布图实体（JSON 存储画布内容）
+-- 场地图表：独立于 venue 的俯视图/分布图实体（content_json 仅存画布信息 canvas）
 DROP TABLE IF EXISTS floor_plan;
 CREATE TABLE floor_plan (
     id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '场地图主键ID',
     title VARCHAR(120) NOT NULL COMMENT '场地图标题，如：篮球场场地分布图',
     description VARCHAR(500) DEFAULT NULL COMMENT '场地图说明',
     status VARCHAR(20) NOT NULL DEFAULT 'PUBLISHED' COMMENT '状态：DRAFT-草稿，PUBLISHED-已发布，OFFLINE-已下线',
-    content_json LONGTEXT NOT NULL COMMENT '画布JSON内容（元素、坐标、旋转、样式等）',
+    content_json LONGTEXT NOT NULL COMMENT '画布JSON内容（仅存 canvas 信息，如宽高与背景色）',
     is_deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除：0-未删除，1-已删除',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     INDEX idx_floor_plan_status_deleted_time (status, is_deleted, update_time),
     INDEX idx_floor_plan_title (title),
     INDEX idx_floor_plan_create_time (create_time)
-) COMMENT='场地图表（独立对象，JSON存储）';
+) COMMENT='场地图表（独立对象，content_json 仅存 canvas 信息）';
+
+-- 场地图项表：存储原 content_json.items[] 中的 item 对象（后端内部使用）
+DROP TABLE IF EXISTS floor_plan_item;
+CREATE TABLE floor_plan_item (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '场地图项主键ID',
+    item_uid VARCHAR(64) NOT NULL COMMENT '前端画布项ID（原 items[].id）',
+    type VARCHAR(20) NOT NULL DEFAULT 'rect' COMMENT '图元类型（当前为 rect）',
+    x INT NOT NULL COMMENT '图元左上角X坐标',
+    y INT NOT NULL COMMENT '图元左上角Y坐标',
+    w INT NOT NULL COMMENT '图元宽度',
+    h INT NOT NULL COMMENT '图元高度',
+    rotation INT NOT NULL DEFAULT 0 COMMENT '旋转角度（-360~360）',
+    label VARCHAR(120) DEFAULT NULL COMMENT '图元文本说明',
+    color VARCHAR(20) DEFAULT NULL COMMENT '图元颜色（HEX，如 #FF0000）',
+    venue_id BIGINT DEFAULT NULL COMMENT '关联场地ID（一一对应，可为空；为空表示未关联场地）',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    UNIQUE KEY uk_floor_plan_item_uid (item_uid),
+    UNIQUE KEY uk_floor_plan_item_venue (venue_id),
+    INDEX idx_floor_plan_item_type (type),
+    INDEX idx_floor_plan_item_label (label)
+) COMMENT='场地图项表（后端内部使用，存储 items 图元）';
+
+-- 场地图-场地图项关系表：一个场地图可关联多个 item
+DROP TABLE IF EXISTS floor_plan_item_rel;
+CREATE TABLE floor_plan_item_rel (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '关系主键ID',
+    floor_plan_id BIGINT NOT NULL COMMENT '场地图ID，对应 floor_plan.id',
+    floor_plan_item_id BIGINT NOT NULL COMMENT '场地图项ID，对应 floor_plan_item.id',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    UNIQUE KEY uk_floor_plan_item_rel_item (floor_plan_item_id),
+    INDEX idx_floor_plan_item_rel_plan (floor_plan_id),
+    INDEX idx_floor_plan_item_rel_plan_item (floor_plan_id, floor_plan_item_id)
+) COMMENT='场地图与场地图项关系表（一个场地图可有多个 item）';
 
 
 -- 器材信息表：不区分场地，所有器材统一属于体育馆

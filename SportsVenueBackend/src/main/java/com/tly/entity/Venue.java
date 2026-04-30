@@ -42,5 +42,13 @@ public class Venue {
     private String remark;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
+
+    /**
+     * 绑定信息（由后端通过 floor_plan_item 关联查询得出；非 venue 表字段）
+     */
+    private Long floorPlanId;
+    private String floorPlanTitle;
+    private String floorPlanItemUid;
+    private String floorPlanItemLabel;
 }
 

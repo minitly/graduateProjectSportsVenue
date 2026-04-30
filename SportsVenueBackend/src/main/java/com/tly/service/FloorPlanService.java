@@ -3,6 +3,9 @@ package com.tly.service;
 import com.tly.common.PageResult;
 import com.tly.common.Result;
 import com.tly.entity.FloorPlan;
+import com.tly.entity.FloorPlanItem;
+
+import java.util.List;
 
 public interface FloorPlanService {
 
@@ -15,5 +18,7 @@ public interface FloorPlanService {
     Result<PageResult<FloorPlan>> query(String keyword, String status, long pageNo, long pageSize);
 
     Result<FloorPlan> getById(Long id);
+
+    Result<List<FloorPlanItem>> listSelectableItems(Long floorPlanId, Long venueId);
 }
 

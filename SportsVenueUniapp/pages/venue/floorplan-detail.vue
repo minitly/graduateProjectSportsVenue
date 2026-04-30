@@ -25,27 +25,31 @@ import dayjs from "dayjs";
 import { computed, ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
 import { fetchFloorPlanDetailApi } from "../../api/venue";
+import { parseFloorPlanContent } from "../../utils/floorPlan";
 
 const loading = ref(false);
 const detail = ref(null);
-const contentObj = ref(null);
-const items = computed(() => contentObj.value?.items || []);
+const model = ref(null);
+const items = computed(() => model.value?.items || []);
 
 function formatDateTime(value) {
   return value ? dayjs(value).format("YYYY-MM-DD HH:mm") : "-";
 }
 
 function shapeStyle(item) {
-  const canvasWidth = contentObj.value?.canvas?.width || 1200;
-  const canvasHeight = contentObj.value?.canvas?.height || 800;
+  const canvasWidth = model.value?.canvas?.width || 1200;
+  const canvasHeight = model.value?.canvas?.height || 800;
   const rotation = Number(item.rotation || 0);
+  const baseColor = item.color || "#5c8fe6";
   return {
     left: `${((item.x || 0) / canvasWidth) * 100}%`,
     top: `${((item.y || 0) / canvasHeight) * 100}%`,
     width: `${((item.w || 200) / canvasWidth) * 100}%`,
     height: `${((item.h || 120) / canvasHeight) * 100}%`,
     transform: `rotate(${rotation}deg)`,
-    transformOrigin: "center center"
+    transformOrigin: "center center",
+    borderColor: baseColor,
+    background: "rgba(242, 247, 255, 0.45)"
   };
 }
 
@@ -55,11 +59,7 @@ async function loadDetail(id) {
     const res = await fetchFloorPlanDetailApi(id);
     if (res.code !== 200 || !res.data) return;
     detail.value = res.data;
-    try {
-      contentObj.value = JSON.parse(res.data.contentJson || "{}");
-    } catch (error) {
-      contentObj.value = { canvas: { width: 1200, height: 800 }, items: [] };
-    }
+    model.value = parseFloorPlanContent(res.data.contentJson || "");
   } catch (error) {
     uni.showToast({ title: error.message || "加载失败", icon: "none" });
   } finally {
@@ -81,7 +81,7 @@ onLoad((query) => {
 .desc, .update { display: block; margin-top: 10rpx; color: #667792; font-size: 24rpx; }
 .canvas-wrap { margin-top: 16rpx; border: 1rpx solid #e2e9fb; border-radius: 14rpx; background: #f6f8fd; padding: 12rpx; }
 .canvas-inner { width: 100%; height: 520rpx; border-radius: 12rpx; background: #b9c0cb; position: relative; overflow: hidden; }
-.shape { position: absolute; border: 2rpx solid #5c8fe6; border-radius: 12rpx; background: rgba(242, 247, 255, 0.45); display: flex; align-items: center; justify-content: center; }
+.shape { position: absolute; border: 2rpx solid #5c8fe6; border-radius: 12rpx; display: flex; align-items: center; justify-content: center; }
 .shape-label { color: #2a3a57; font-size: 22rpx; font-weight: 600; }
 .state-text { text-align: center; color: #7b88a3; padding: 40rpx 0; }
 </style>

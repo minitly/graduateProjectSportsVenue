@@ -1,4 +1,5 @@
 const MIN_RECT_SIZE = 40
+const DEFAULT_RECT_COLOR = '#4f7bc3'
 
 function clampNumber(value, min, max) {
   const parsed = Number(value)
@@ -7,6 +8,13 @@ function clampNumber(value, min, max) {
 }
 
 function normalizeRect(item, index = 0) {
+  const venueIdRaw = item?.venueId
+  const venueIdNumber = Number(venueIdRaw)
+  const venueId = venueIdRaw === null || venueIdRaw === undefined || venueIdRaw === ''
+    ? null
+    : (Number.isFinite(venueIdNumber) && venueIdNumber > 0 ? venueIdNumber : null)
+  const rawColor = typeof item?.color === 'string' ? item.color.trim() : ''
+  const normalizedColor = /^#([0-9a-fA-F]{6})$/.test(rawColor) ? rawColor : DEFAULT_RECT_COLOR
   return {
     id: item?.id || `rect_${Date.now()}_${index}`,
     type: 'rect',
@@ -15,7 +23,9 @@ function normalizeRect(item, index = 0) {
     w: clampNumber(item?.w ?? 200, MIN_RECT_SIZE, 2000),
     h: clampNumber(item?.h ?? 120, MIN_RECT_SIZE, 2000),
     rotation: clampNumber(item?.rotation ?? 0, -360, 360),
-    label: typeof item?.label === 'string' ? item.label : ''
+    label: typeof item?.label === 'string' ? item.label : '',
+    color: normalizedColor,
+    venueId
   }
 }
 

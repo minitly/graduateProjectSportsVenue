@@ -8,6 +8,8 @@ import com.tly.common.Result;
 import com.tly.auth.UserContext;
 import com.tly.entity.SysUser;
 import com.tly.entity.Venue;
+import com.tly.entity.FloorPlanItem;
+import com.tly.mapper.FloorPlanMapper;
 import com.tly.mapper.SysUserMapper;
 import com.tly.mapper.VenueMapper;
 import com.tly.service.BookingService;
@@ -39,9 +41,13 @@ public class VenueServiceImpl implements VenueService {
     @Autowired
     private BookingService bookingService;
 
+    @Autowired
+    private FloorPlanMapper floorPlanMapper;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Result<Venue> create(Venue venue) {
         if (!StringUtils.hasText(venue.getName()) || !StringUtils.hasText(venue.getCode())
                 || !StringUtils.hasText(venue.getType()) || !StringUtils.hasText(venue.getStatus())) {
@@ -58,6 +64,12 @@ public class VenueServiceImpl implements VenueService {
         normalizeImageUrlsForSave(venue);
 
         venueMapper.insert(venue);
+
+        Result<Void> bindResult = applyVenueFloorPlanBinding(venue.getId(), venue.getFloorPlanId(), venue.getFloorPlanItemUid());
+        if (bindResult != null) {
+            return Result.fail(bindResult.getCode(), bindResult.getMessage());
+        }
+
         // 查询一次确保返回数据库中的最终数据
         Venue dbVenue = venueMapper.selectById(venue.getId());
         normalizeImageUrlsForRead(dbVenue);
@@ -87,8 +99,14 @@ public class VenueServiceImpl implements VenueService {
         String oldStatus = exists.getStatus();
         String newStatus = venue.getStatus();
 
+        venue.setId(id);
         normalizeImageUrlsForSave(venue);
         venueMapper.update(venue);
+
+        Result<Void> bindResult = applyVenueFloorPlanBinding(id, venue.getFloorPlanId(), venue.getFloorPlanItemUid());
+        if (bindResult != null) {
+            return Result.fail(bindResult.getCode(), bindResult.getMessage());
+        }
 
         // 场地从可用变更为不可用时，联动取消该场地所有申请中的预约
         if ("AVAILABLE".equalsIgnoreCase(oldStatus) && ! "AVAILABLE".equalsIgnoreCase(newStatus)) {
@@ -145,8 +163,50 @@ public class VenueServiceImpl implements VenueService {
         // 删除场地前联动取消该场地所有申请中的预约，并释放占用时段
         bookingService.cancelAppliedByVenueStatusChange(id, "VENUE_DISABLED", "场地删除");
 
+        // 删除场地时自动解绑
+        floorPlanMapper.unbindItemsByVenueId(id);
+
         venueMapper.deleteById(id);
         return Result.success("删除场地成功", null);
+    }
+
+    private Result<Void> applyVenueFloorPlanBinding(Long venueId, Long floorPlanId, String floorPlanItemUid) {
+        if (venueId == null) {
+            return Result.fail(400, "场地ID不能为空");
+        }
+
+        // 没选 item：视为解绑（即使选了场地图标题，也不绑定）
+        if (!StringUtils.hasText(floorPlanItemUid)) {
+            floorPlanMapper.unbindItemsByVenueId(venueId);
+            return null;
+        }
+
+        FloorPlanItem target = floorPlanMapper.selectItemByUid(floorPlanItemUid.trim());
+        if (target == null) {
+            return Result.fail(400, "所选场地图区域不存在");
+        }
+
+        if (target.getVenueId() != null && !target.getVenueId().equals(venueId)) {
+            return Result.fail(400, "所选场地图区域已绑定其他场地");
+        }
+
+        if (floorPlanId != null) {
+            Long actualFloorPlanId = floorPlanMapper.selectFloorPlanIdByItemId(target.getId());
+            if (actualFloorPlanId == null || !actualFloorPlanId.equals(floorPlanId)) {
+                return Result.fail(400, "所选区域不属于该场地图");
+            }
+        }
+
+        FloorPlanItem current = floorPlanMapper.selectItemByVenueId(venueId);
+        if (current != null && !floorPlanItemUid.trim().equals(current.getItemUid())) {
+            floorPlanMapper.unbindItemsByVenueId(venueId);
+        }
+
+        int updated = floorPlanMapper.bindItemVenue(target.getId(), venueId);
+        if (updated <= 0) {
+            return Result.fail(400, "绑定失败：该区域已被占用或状态异常");
+        }
+        return null;
     }
 
     @Override

@@ -3,9 +3,12 @@ package com.tly.controller;
 import com.tly.common.PageResult;
 import com.tly.common.Result;
 import com.tly.entity.FloorPlan;
+import com.tly.entity.FloorPlanItem;
 import com.tly.service.FloorPlanService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/floor-plans")
@@ -55,6 +58,16 @@ public class FloorPlanController {
     @GetMapping("/{id}")
     public Result<FloorPlan> getById(@PathVariable("id") Long id) {
         return floorPlanService.getById(id);
+    }
+
+    /**
+     * 查询场地图下可选 item：GET /sportsVenue/floor-plans/{id}/items
+     * 规则：返回「未绑定」+「当前venue已绑定」的 item（用于编辑回显）。
+     */
+    @GetMapping("/{id}/items")
+    public Result<List<FloorPlanItem>> listItems(@PathVariable("id") Long id,
+                                                 @RequestParam(value = "venueId", required = false) Long venueId) {
+        return floorPlanService.listSelectableItems(id, venueId);
     }
 }
 

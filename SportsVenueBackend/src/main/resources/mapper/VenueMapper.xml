@@ -21,6 +21,10 @@
         <result property="remark" column="remark"/>
         <result property="createTime" column="create_time"/>
         <result property="updateTime" column="update_time"/>
+        <result property="floorPlanId" column="floor_plan_id"/>
+        <result property="floorPlanTitle" column="floor_plan_title"/>
+        <result property="floorPlanItemUid" column="floor_plan_item_uid"/>
+        <result property="floorPlanItemLabel" column="floor_plan_item_label"/>
     </resultMap>
 
     <insert id="insert" parameterType="com.tly.entity.Venue" useGeneratedKeys="true" keyProperty="id">
@@ -59,19 +63,35 @@
 
     <select id="selectById" parameterType="long" resultMap="VenueResultMap">
         SELECT
-            id, name, code, type, capacity, price, open_time, close_time, open_time_desc, description,
-            status, cover_image_url, image_urls, remark, create_time, update_time
+            v.id, v.name, v.code, v.type, v.capacity, v.price, v.open_time, v.close_time, v.open_time_desc, v.description,
+            v.status, v.cover_image_url, v.image_urls, v.remark, v.create_time, v.update_time,
+            fp.id AS floor_plan_id,
+            fp.title AS floor_plan_title,
+            i.item_uid AS floor_plan_item_uid,
+            i.label AS floor_plan_item_label
         FROM venue
-        WHERE id = #{id}
+        v
+        LEFT JOIN floor_plan_item i ON i.venue_id = v.id
+        LEFT JOIN floor_plan_item_rel r ON r.floor_plan_item_id = i.id
+        LEFT JOIN floor_plan fp ON fp.id = r.floor_plan_id AND fp.is_deleted = 0
+        WHERE v.id = #{id}
         LIMIT 1
     </select>
 
     <select id="selectByCode" parameterType="string" resultMap="VenueResultMap">
         SELECT
-            id, name, code, type, capacity, price, open_time, close_time, open_time_desc, description,
-            status, cover_image_url, image_urls, remark, create_time, update_time
+            v.id, v.name, v.code, v.type, v.capacity, v.price, v.open_time, v.close_time, v.open_time_desc, v.description,
+            v.status, v.cover_image_url, v.image_urls, v.remark, v.create_time, v.update_time,
+            fp.id AS floor_plan_id,
+            fp.title AS floor_plan_title,
+            i.item_uid AS floor_plan_item_uid,
+            i.label AS floor_plan_item_label
         FROM venue
-        WHERE code = #{code}
+        v
+        LEFT JOIN floor_plan_item i ON i.venue_id = v.id
+        LEFT JOIN floor_plan_item_rel r ON r.floor_plan_item_id = i.id
+        LEFT JOIN floor_plan fp ON fp.id = r.floor_plan_id AND fp.is_deleted = 0
+        WHERE v.code = #{code}
         LIMIT 1
     </select>
 
@@ -94,22 +114,30 @@
 
     <select id="listByCondition" resultMap="VenueResultMap">
         SELECT
-            id, name, code, type, capacity, price, open_time, close_time, open_time_desc, description,
-            status, cover_image_url, image_urls, remark, create_time, update_time
+            v.id, v.name, v.code, v.type, v.capacity, v.price, v.open_time, v.close_time, v.open_time_desc, v.description,
+            v.status, v.cover_image_url, v.image_urls, v.remark, v.create_time, v.update_time,
+            fp.id AS floor_plan_id,
+            fp.title AS floor_plan_title,
+            i.item_uid AS floor_plan_item_uid,
+            i.label AS floor_plan_item_label
         FROM venue
+        v
+        LEFT JOIN floor_plan_item i ON i.venue_id = v.id
+        LEFT JOIN floor_plan_item_rel r ON r.floor_plan_item_id = i.id
+        LEFT JOIN floor_plan fp ON fp.id = r.floor_plan_id AND fp.is_deleted = 0
         <where>
             <if test="type != null and type != ''">
-                AND type LIKE CONCAT('%', #{type}, '%')
+                AND v.type LIKE CONCAT('%', #{type}, '%')
             </if>
             <if test="status != null and status != ''">
-                AND status = #{status}
+                AND v.status = #{status}
             </if>
             <if test="keyword != null and keyword != ''">
-                AND (name LIKE CONCAT('%', #{keyword}, '%')
-                     OR code LIKE CONCAT('%', #{keyword}, '%'))
+                AND (v.name LIKE CONCAT('%', #{keyword}, '%')
+                     OR v.code LIKE CONCAT('%', #{keyword}, '%'))
             </if>
         </where>
-        ORDER BY create_time DESC
+        ORDER BY v.create_time DESC
         LIMIT #{offset}, #{pageSize}
     </select>
 

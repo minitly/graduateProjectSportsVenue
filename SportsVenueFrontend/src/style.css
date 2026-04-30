@@ -1160,6 +1160,62 @@ body {
   overflow-y: auto;
 }
 
+.booking-modal--booking .n-card {
+  max-height: calc(100vh - 90px);
+}
+
+.booking-modal.booking-modal--booking {
+  max-width: min(540px, calc(100vw - 40px));
+  width: min(540px, calc(100vw - 40px));
+  margin: 20px auto;
+}
+
+.booking-modal.booking-modal--booking.booking-modal--with-map {
+  max-width: min(1360px, calc(100vw - 40px));
+  width: min(1360px, calc(100vw - 40px));
+}
+
+.booking-modal__layout {
+  display: flex;
+  justify-content: center;
+}
+
+.booking-modal__layout--with-map {
+  display: grid;
+  grid-template-columns: 480px minmax(820px, 860px);
+  gap: 18px;
+  align-items: start;
+  justify-content: center;
+}
+
+.booking-modal__main {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+
+.booking-modal__layout--with-map .booking-modal__main {
+  max-width: none;
+  margin: 0;
+}
+
+/* 左侧内容不强制居中收窄，减少留白 */
+
+.booking-modal__side {
+  border: 1px solid #dbe4f0;
+  border-radius: 14px;
+  background: #f8fafc;
+  padding: 12px;
+  min-height: 120px;
+}
+
+.booking-modal__side h4 {
+  margin: 0 0 6px;
+  font-size: 15px;
+  color: #0f172a;
+}
+
 .booking-modal.notice-detail-modal-host {
   max-width: min(640px, calc(100vw - 48px));
 }
@@ -2381,7 +2437,7 @@ body {
   transform: translateX(-50%);
   display: grid;
   gap: 12px;
-  z-index: 20;
+  z-index: 4000;
 }
 
 .toast {
@@ -2435,5 +2491,18 @@ body {
     flex-wrap: wrap;
     row-gap: 12px;
     justify-content: center;
+  }
+
+  .booking-modal__layout {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .booking-modal__layout--with-map {
+    grid-template-columns: 1fr;
+  }
+
+  .booking-modal__main {
+    width: 100%;
   }
 }

@@ -15,6 +15,22 @@
         <result property="updateTime" column="update_time"/>
     </resultMap>
 
+    <resultMap id="FloorPlanItemResultMap" type="com.tly.entity.FloorPlanItem">
+        <id property="id" column="id"/>
+        <result property="itemUid" column="item_uid"/>
+        <result property="type" column="type"/>
+        <result property="x" column="x"/>
+        <result property="y" column="y"/>
+        <result property="w" column="w"/>
+        <result property="h" column="h"/>
+        <result property="rotation" column="rotation"/>
+        <result property="label" column="label"/>
+        <result property="color" column="color"/>
+        <result property="venueId" column="venue_id"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
     <insert id="insert" parameterType="com.tly.entity.FloorPlan" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO floor_plan
         (title, description, status, content_json, is_deleted, create_time, update_time)
@@ -82,6 +98,109 @@
         ORDER BY create_time DESC
         LIMIT #{offset}, #{pageSize}
     </select>
+
+    <insert id="insertFloorPlanItem" parameterType="com.tly.entity.FloorPlanItem" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO floor_plan_item
+        (item_uid, type, x, y, w, h, rotation, label, color, venue_id, create_time, update_time)
+        VALUES
+        (#{itemUid}, #{type}, #{x}, #{y}, #{w}, #{h}, #{rotation}, #{label}, #{color}, #{venueId}, NOW(), NOW())
+    </insert>
+
+    <insert id="insertFloorPlanItemRel">
+        INSERT INTO floor_plan_item_rel
+        (floor_plan_id, floor_plan_item_id, create_time)
+        VALUES
+        (#{floorPlanId}, #{floorPlanItemId}, NOW())
+    </insert>
+
+    <select id="listItemsByFloorPlanId" resultMap="FloorPlanItemResultMap">
+        SELECT
+            i.id, i.item_uid, i.type, i.x, i.y, i.w, i.h, i.rotation, i.label, i.color, i.venue_id, i.create_time, i.update_time
+        FROM floor_plan_item_rel r
+        INNER JOIN floor_plan_item i ON i.id = r.floor_plan_item_id
+        WHERE r.floor_plan_id = #{floorPlanId}
+        ORDER BY r.id ASC
+    </select>
+
+    <select id="listSelectableItemsByFloorPlanId" resultMap="FloorPlanItemResultMap">
+        SELECT
+            i.id, i.item_uid, i.type, i.x, i.y, i.w, i.h, i.rotation, i.label, i.color, i.venue_id, i.create_time, i.update_time
+        FROM floor_plan_item_rel r
+        INNER JOIN floor_plan_item i ON i.id = r.floor_plan_item_id
+        WHERE r.floor_plan_id = #{floorPlanId}
+          AND (i.venue_id IS NULL OR (#{venueId} IS NOT NULL AND i.venue_id = #{venueId}))
+        ORDER BY r.id ASC
+    </select>
+
+    <update id="updateFloorPlanItem" parameterType="com.tly.entity.FloorPlanItem">
+        UPDATE floor_plan_item
+        SET
+            type = #{type},
+            x = #{x},
+            y = #{y},
+            w = #{w},
+            h = #{h},
+            rotation = #{rotation},
+            label = #{label},
+            color = #{color},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <select id="selectItemByUid" resultMap="FloorPlanItemResultMap">
+        SELECT
+            id, item_uid, type, x, y, w, h, rotation, label, color, venue_id, create_time, update_time
+        FROM floor_plan_item
+        WHERE item_uid = #{itemUid}
+        LIMIT 1
+    </select>
+
+    <select id="selectItemByVenueId" resultMap="FloorPlanItemResultMap">
+        SELECT
+            id, item_uid, type, x, y, w, h, rotation, label, color, venue_id, create_time, update_time
+        FROM floor_plan_item
+        WHERE venue_id = #{venueId}
+        LIMIT 1
+    </select>
+
+    <select id="selectFloorPlanIdByItemId" resultType="long">
+        SELECT floor_plan_id
+        FROM floor_plan_item_rel
+        WHERE floor_plan_item_id = #{itemId}
+        LIMIT 1
+    </select>
+
+    <update id="bindItemVenue">
+        UPDATE floor_plan_item
+        SET venue_id = #{venueId},
+            update_time = NOW()
+        WHERE id = #{itemId}
+          AND (venue_id IS NULL OR venue_id = #{venueId})
+    </update>
+
+    <update id="unbindItemsByVenueId">
+        UPDATE floor_plan_item
+        SET venue_id = NULL,
+            update_time = NOW()
+        WHERE venue_id = #{venueId}
+    </update>
+
+    <delete id="deleteFloorPlanItemById">
+        DELETE FROM floor_plan_item
+        WHERE id = #{id}
+    </delete>
+
+    <delete id="deleteItemsByFloorPlanId">
+        DELETE i
+        FROM floor_plan_item i
+        INNER JOIN floor_plan_item_rel r ON r.floor_plan_item_id = i.id
+        WHERE r.floor_plan_id = #{floorPlanId}
+    </delete>
+
+    <delete id="deleteItemRelationsByFloorPlanId">
+        DELETE FROM floor_plan_item_rel
+        WHERE floor_plan_id = #{floorPlanId}
+    </delete>
 
 </mapper>
 

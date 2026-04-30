@@ -14,7 +14,7 @@ public class FloorPlan {
      */
     private String status;
     /**
-     * 画布JSON字符串
+     * 画布JSON字符串（仅canvas）
      */
     private String contentJson;
     /**
