@@ -1,10 +1,10 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
-import BorrowUserPanel from '../components/borrow/BorrowUserPanel.vue'
-import BorrowOwnerPanel from '../components/borrow/BorrowOwnerPanel.vue'
-import BorrowAdminPanel from '../components/borrow/BorrowAdminPanel.vue'
+import { useAuthStore } from '../../stores/auth'
+import BorrowUserPanel from '../../components/borrow/BorrowUserPanel.vue'
+import BorrowOwnerPanel from '../../components/borrow/BorrowOwnerPanel.vue'
+import BorrowAdminPanel from '../../components/borrow/BorrowAdminPanel.vue'
 
 const route = useRoute()
 const authStore = useAuthStore()

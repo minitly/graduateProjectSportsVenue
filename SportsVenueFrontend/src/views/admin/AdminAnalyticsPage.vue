@@ -7,7 +7,7 @@ import { CanvasRenderer } from 'echarts/renderers'
 import { BarChart, LineChart } from 'echarts/charts'
 import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
 import VChart from 'vue-echarts'
-import api from '../services/api'
+import api from '../../services/api'
 
 use([CanvasRenderer, BarChart, LineChart, GridComponent, LegendComponent, TooltipComponent])
 

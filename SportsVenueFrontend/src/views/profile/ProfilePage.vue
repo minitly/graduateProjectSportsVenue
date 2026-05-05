@@ -2,10 +2,10 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { RefreshCw } from 'lucide-vue-next'
 import { NButton, NCard, NInput, NInputNumber, NModal, NTag } from 'naive-ui'
-import api from '../services/api'
-import { useAuthStore } from '../stores/auth'
-import { useToast } from '../composables/useToast'
-import WalletTransactionsModal from '../components/profile/WalletTransactionsModal.vue'
+import api from '../../services/api'
+import { useAuthStore } from '../../stores/auth'
+import { useToast } from '../../composables/useToast'
+import WalletTransactionsModal from '../../components/profile/WalletTransactionsModal.vue'
 
 const authStore = useAuthStore()
 const { pushToast } = useToast()

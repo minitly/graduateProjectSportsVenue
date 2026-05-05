@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>批量注册（临时工具）</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 24px auto; padding: 0 16px; }
+    .warn { background: #fff3cd; border: 1px solid #ffc107; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; }
+    button { padding: 10px 18px; font-size: 15px; cursor: pointer; margin-right: 8px; margin-bottom: 8px; }
+    #log {
+      white-space: pre-wrap; background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 8px;
+      min-height: 200px; max-height: 420px; overflow: auto; font-size: 13px; line-height: 1.45;
+    }
+    label { display: block; margin: 8px 0 4px; font-size: 14px; }
+    input[type="text"] { width: 100%; max-width: 480px; padding: 8px; box-sizing: border-box; }
+  </style>
+</head>
+<body>
+  <h1>批量注册（临时）</h1>
+  <div class="warn">
+    <strong>重要：</strong>本页须通过 <strong><code>http://localhost:端口</code> 或 <code>http://127.0.0.1:端口</code></strong> 打开（Live Server / <code>npx serve</code> 等），
+    <strong>不要</strong>用 <code>file://</code>。<br />
+    若日志全是 <code>[ERR] … Failed to fetch</code>：① 确认 Spring 后端已启动且地址栏里的接口根与端口一致（默认 <code>http://localhost:9999/sportsVenue</code>）；
+    ② 确认已拉取最新后端代码（CORS 已同时放行 <code>localhost</code> 与 <code>127.0.0.1</code>）；③ 不要用 <code>https</code> 页面去请求 <code>http</code> 接口。
+  </div>
+  <label for="baseUrl">接口根地址（含 context-path）</label>
+  <input id="baseUrl" type="text" value="http://localhost:9999/sportsVenue" />
+  <p>
+    <button type="button" id="btnUsers">注册 100 个 USER</button>
+    <button type="button" id="btnOwners">注册 2 个 OWNER</button>
+    <button type="button" id="btnAll">先 USER 再 OWNER（全部）</button>
+  </p>
+  <p>
+    <button type="button" id="btnRecharge">为 100 USER 批量充值</button>
+    <span style="font-size:13px;color:#444">（先 <code>POST /auth/login</code>，再 <code>POST /wallet/recharge</code>，见接口文档 §9.2）</span>
+  </p>
+  <p>
+    <button type="button" id="btnBorrow">随机 10 个 USER 各 1 条借用申请</button>
+    <span style="font-size:13px;color:#444">（每点一次换一批 10 人：100 人在 <code>sessionStorage</code> 中打乱后按段取用，连续点 10 次会覆盖全部用户且不重复；第 11 次起重新洗牌再循环。流程：登录 → <code>GET /items</code> → <code>POST /borrows</code>）</span>
+  </p>
+  <p>
+    <button type="button" id="btnBooking">随机 10 个 USER 各 1 条场地预约</button>
+    <span style="font-size:13px;color:#444">（与借用不同的洗牌游标；登录 → 违规校验 → 拉 <code>AVAILABLE</code> 场地 → 按本批已占缓存+接口 <code>GET /bookings/occupied</code> 避免冲突；余额不足则试下一候选；单次预约时长在 <strong>1～4 小时</strong> 内随机（整点、不跨日、不超过闭馆）；<code>POST /bookings</code>）</span>
+  </p>
+  <div id="log"></div>
+
+  <script>
+    (function () {
+      const ADMIN_PLAIN = 'admin';
+
+      /**
+       * 100 个普通用户核心字段（静态）；手机/邮箱由下方合法格式随机组合填充。
+       *
+       * 【约定 · 后续造数与充值脚本均依赖此点】登录密码与用户名完全一致（与注册时相同），
+       * 即 `POST /auth/login` 的 password 字段等于 username，role 固定为 USER。
+       */
+      const USER_CORE = [
+        { username: 'jack', password: 'jack', realName: 'Jack Miller' },
+        { username: 'matteo', password: 'matteo', realName: 'Matteo Rossi' },
+        { username: 'sara', password: 'sara', realName: 'Sara Khan' },
+        { username: 'alex', password: 'alex', realName: 'Alex Chen' },
+        { username: 'bruno', password: 'bruno', realName: 'Bruno Silva' },
+        { username: 'nina', password: 'nina', realName: 'Nina Petrova' },
+        { username: 'omar', password: 'omar', realName: 'Omar Haddad' },
+        { username: 'yuki', password: 'yuki', realName: 'Yuki Tanaka' },
+        { username: 'hans', password: 'hans', realName: 'Hans Mueller' },
+        { username: 'ivan', password: 'ivan', realName: 'Ivan Popov' },
+        { username: 'zoe', password: 'zoe', realName: 'Zoe Williams' },
+        { username: 'leo', password: 'leo', realName: 'Leo Martinez' },
+        { username: 'mia', password: 'mia', realName: 'Mia Andersen' },
+        { username: 'noah', password: 'noah', realName: 'Noah Wright' },
+        { username: 'emma', password: 'emma', realName: 'Emma Thompson' },
+        { username: 'lucas', password: 'lucas', realName: 'Lucas Nguyen' },
+        { username: 'olivia', password: 'olivia', realName: 'Olivia Brown' },
+        { username: 'ethan', password: 'ethan', realName: 'Ethan Clark' },
+        { username: 'ava', password: 'ava', realName: 'Ava Murphy' },
+        { username: 'mason', password: 'mason', realName: 'Mason Lee' },
+        { username: 'sophia', password: 'sophia', realName: 'Sophia Garcia' },
+        { username: 'liam', password: 'liam', realName: "Liam O'Connor" },
+        { username: 'isabella', password: 'isabella', realName: 'Isabella Costa' },
+        { username: 'james', password: 'james', realName: 'James Walker' },
+        { username: 'charlotte', password: 'charlotte', realName: 'Charlotte Young' },
+        { username: 'benjamin', password: 'benjamin', realName: 'Benjamin Scott' },
+        { username: 'amelia', password: 'amelia', realName: 'Amelia Hughes' },
+        { username: 'michael', password: 'michael', realName: 'Michael Reed' },
+        { username: 'harper', password: 'harper', realName: 'Harper Bell' },
+        { username: 'daniel', password: 'daniel', realName: 'Daniel Price' },
+        { username: 'evelyn', password: 'evelyn', realName: 'Evelyn Ward' },
+        { username: 'henry', password: 'henry', realName: 'Henry Foster' },
+        { username: 'abigail', password: 'abigail', realName: 'Abigail Powell' },
+        { username: 'owen', password: 'owen', realName: 'Owen Butler' },
+        { username: 'emily', password: 'emily', realName: 'Emily Simmons' },
+        { username: 'samuel', password: 'samuel', realName: 'Samuel Gray' },
+        { username: 'david', password: 'david', realName: 'David Russell' },
+        { username: 'avery', password: 'avery', realName: 'Avery Kelly' },
+        { username: 'joseph', password: 'joseph', realName: 'Joseph Perry' },
+        { username: 'ella', password: 'ella', realName: 'Ella Cooper' },
+        { username: 'john', password: 'john', realName: 'John Brooks' },
+        { username: 'scarlett', password: 'scarlett', realName: 'Scarlett Ross' },
+        { username: 'chris', password: 'chris', realName: 'Chris Bennett' },
+        { username: 'victoria', password: 'victoria', realName: 'Victoria Hayes' },
+        { username: 'andrew', password: 'andrew', realName: 'Andrew Foster' },
+        { username: 'aria', password: 'aria', realName: 'Aria Patel' },
+        { username: 'ryan', password: 'ryan', realName: 'Ryan Murphy' },
+        { username: 'grace', password: 'grace', realName: 'Grace Kim' },
+        { username: 'nathan', password: 'nathan', realName: 'Nathan Wells' },
+        { username: 'chloe', password: 'chloe', realName: 'Chloe Adams' },
+        { username: 'thomas', password: 'thomas', realName: 'Thomas Baker' },
+        { username: 'camila', password: 'camila', realName: 'Camila Rivera' },
+        { username: 'joshua', password: 'joshua', realName: 'Joshua Coleman' },
+        { username: 'penny', password: 'penny', realName: 'Penelope Parker' },
+        { username: 'charles', password: 'charles', realName: 'Charles King' },
+        { username: 'layla', password: 'layla', realName: 'Layla Turner' },
+        { username: 'jonathan', password: 'jonathan', realName: 'Jonathan Hill' },
+        { username: 'riley', password: 'riley', realName: 'Riley Morgan' },
+        { username: 'adam', password: 'adam', realName: 'Adam Blake' },
+        { username: 'aaron', password: 'aaron', realName: 'Aaron Walsh' },
+        { username: 'jordan', password: 'jordan', realName: 'Jordan Fox' },
+        { username: 'lily', password: 'lily', realName: 'Lily Moss' },
+        { username: 'bryan', password: 'bryan', realName: 'Bryan Shaw' },
+        { username: 'hugo', password: 'hugo', realName: 'Hugo Laurent' },
+        { username: 'hannah', password: 'hannah', realName: 'Hannah Page' },
+        { username: 'carlos', password: 'carlos', realName: 'Carlos Vega' },
+        { username: 'diego', password: 'diego', realName: 'Diego Morales' },
+        { username: 'marcus', password: 'marcus', realName: 'Marcus Webb' },
+        { username: 'eric', password: 'eric', realName: 'Eric Stone' },
+        { username: 'sean', password: 'sean', realName: 'Sean Doyle' },
+        { username: 'brian', password: 'brian', realName: 'Brian Lynch' },
+        { username: 'kevin', password: 'kevin', realName: 'Kevin Floyd' },
+        { username: 'jason', password: 'jason', realName: 'Jason Drake' },
+        { username: 'george', password: 'george', realName: 'George Quinn' },
+        { username: 'timothy', password: 'timothy', realName: 'Timothy Banks' },
+        { username: 'jeffrey', password: 'jeffrey', realName: 'Jeffrey Holt' },
+        { username: 'carter', password: 'carter', realName: 'Carter Cross' },
+        { username: 'jayden', password: 'jayden', realName: 'Jayden Reeves' },
+        { username: 'robert', password: 'robert', realName: 'Robert Vaughn' },
+        { username: 'tyler', password: 'tyler', realName: 'Tyler Nash' },
+        { username: 'wyatt', password: 'wyatt', realName: 'Wyatt Cole' },
+        { username: 'jackson', password: 'jackson', realName: 'Jackson Rhodes' },
+        { username: 'isaac', password: 'isaac', realName: 'Isaac Manning' },
+        { username: 'luke', password: 'luke', realName: 'Luke Frost' },
+        { username: 'gabriel', password: 'gabriel', realName: 'Gabriel Vance' },
+        { username: 'anthony', password: 'anthony', realName: 'Anthony Cruz' },
+        { username: 'julian', password: 'julian', realName: 'Julian Pierce' },
+        { username: 'elijah', password: 'elijah', realName: 'Elijah Tate' },
+        { username: 'dylan', password: 'dylan', realName: 'Dylan Marsh' },
+        { username: 'logan', password: 'logan', realName: 'Logan Avery' },
+        { username: 'christian', password: 'christian', realName: 'Christian Dale' },
+        { username: 'hudson', password: 'hudson', realName: 'Hudson Lane' },
+        { username: 'cooper', password: 'cooper', realName: 'Cooper Sloan' },
+        { username: 'landon', password: 'landon', realName: 'Landon Briggs' },
+        { username: 'colton', password: 'colton', realName: 'Colton Hayes' },
+        { username: 'greyson', password: 'greyson', realName: 'Greyson Holt' },
+        { username: 'brooks', password: 'brooks', realName: 'Brooks Finley' },
+        { username: 'xavier', password: 'xavier', realName: 'Xavier Lang' },
+        { username: 'kai', password: 'kai', realName: 'Kai Nakamura' },
+        { username: 'everett', password: 'everett', realName: 'Everett Sloan' }
+      ];
+
+      const CN_MOBILE_PREFIXES = ['130', '131', '132', '133', '135', '136', '137', '138', '139', '150', '151', '152', '153', '155', '156', '157', '158', '159', '180', '181', '182', '185', '186', '187', '188', '189'];
+
+      function synthPhone(idx) {
+        const p = CN_MOBILE_PREFIXES[idx % CN_MOBILE_PREFIXES.length];
+        const tail = String(10000000 + (idx * 7919 + 1024) % 90000000).padStart(8, '0');
+        return p + tail;
+      }
+
+      function synthEmail(username, idx) {
+        const tag = ((idx * 17) % 9000) + 1000;
+        return username + '+' + tag + '@bulk-data.test';
+      }
+
+      /** 0 无 / 1 仅手机 / 2 仅邮箱 / 3 都有（12 项循环，分布打乱） */
+      const CONTACT_MODE = [3, 1, 0, 2, 3, 2, 1, 0, 1, 3, 2, 0];
+
+      const USER_BATCH = USER_CORE.map(function (row, i) {
+        const mode = CONTACT_MODE[i % CONTACT_MODE.length];
+        let phone = '';
+        let email = '';
+        if (mode === 1 || mode === 3) phone = synthPhone(i);
+        if (mode === 2 || mode === 3) email = synthEmail(row.username, i);
+        return {
+          username: row.username,
+          password: row.password,
+          realName: row.realName,
+          role: 'USER',
+          adminPassword: '',
+          phone: phone,
+          email: email
+        };
+      });
+
+      /** 2 个场地管理员：需校验 admin 明文密码；联系信息（一仅邮箱、一手机+邮箱） */
+      const OWNER_BATCH = [
+        {
+          username: 'elena_courts',
+          password: 'elena_courts',
+          realName: 'Elena Marquez',
+          role: 'OWNER',
+          adminPassword: ADMIN_PLAIN,
+          phone: '',
+          email: 'elena_courts+venue@owner-mail.test'
+        },
+        {
+          username: 'harrisonhall',
+          password: 'harrisonhall',
+          realName: 'Harrison Hall',
+          role: 'OWNER',
+          adminPassword: ADMIN_PLAIN,
+          phone: '18655280417',
+          email: 'harrisonhall+ops@owner-mail.test'
+        }
+      ];
+
+      const logEl = document.getElementById('log');
+      function log(line) {
+        logEl.textContent += line + '\n';
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+
+      function base() {
+        return document.getElementById('baseUrl').value.replace(/\/$/, '');
+      }
+
+      async function registerOne(body) {
+        const url = base() + '/auth/register';
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const json = await res.json().catch(function () { return null; });
+        return { ok: res.ok, status: res.status, json: json };
+      }
+
+      /**
+       * 第 i 个用户（0-based）的充值金额（元）：区间 [1000, 10000]，且个位恒为 0（避免出现 xxxx.x1 等奇怪小数观感）。
+       * 与 USER_BATCH 顺序一致；算法确定、可重复执行。
+       */
+      function rechargeAmountYuan(i) {
+        const k = (i * 97 + 41) % 901;
+        return 1000 + k * 10;
+      }
+
+      async function postJson(path, body, bearerToken) {
+        const headers = { 'Content-Type': 'application/json' };
+        if (bearerToken) headers['Authorization'] = 'Bearer ' + bearerToken;
+        const res = await fetch(base() + path, {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify(body)
+        });
+        const json = await res.json().catch(function () { return null; });
+        return { res: res, json: json };
+      }
+
+      async function getJson(path, bearerToken) {
+        const headers = {};
+        if (bearerToken) headers['Authorization'] = 'Bearer ' + bearerToken;
+        const res = await fetch(base() + path, { headers: headers });
+        const json = await res.json().catch(function () { return null; });
+        return { res: res, json: json };
+      }
+
+      /**
+       * 使用第一个已注册用户拉取器材列表（GET /items 需登录），返回有库存的 itemId 数组。
+       */
+      async function fetchBorrowableItemIds() {
+        const probe = USER_BATCH[0];
+        const loginR = await postJson('/auth/login', {
+          username: probe.username,
+          password: probe.password,
+          role: 'USER'
+        }, null);
+        if (!loginR.json || loginR.json.code !== 200 || !loginR.json.data || !loginR.json.data.token) {
+          throw new Error('无法登录 ' + probe.username + ' 以拉取器材列表：' + (loginR.json && loginR.json.message ? loginR.json.message : '请先完成批量注册'));
+        }
+        const token = loginR.json.data.token;
+        const listR = await getJson('/items?pageNo=1&pageSize=300&onlyAvailable=true', token);
+        if (!listR.json || listR.json.code !== 200 || !listR.json.data) {
+          throw new Error('拉取器材失败：' + (listR.json && listR.json.message ? listR.json.message : ''));
+        }
+        const records = listR.json.data.records || [];
+        const ids = records
+          .filter(function (row) { return row && row.id != null && (row.availableQuantity == null || row.availableQuantity > 0); })
+          .map(function (row) { return row.id; });
+        if (!ids.length) {
+          throw new Error('没有可借器材（availableQuantity>0），请先执行仓库 seed 或检查 /items）');
+        }
+        return ids;
+      }
+
+      /**
+       * 拉取可预约场地（需登录）；仅 status=AVAILABLE。
+       */
+      async function fetchAvailableVenuesForBooking() {
+        var probe = USER_BATCH[0];
+        var loginR = await postJson('/auth/login', {
+          username: probe.username,
+          password: probe.password,
+          role: 'USER'
+        }, null);
+        if (!loginR.json || loginR.json.code !== 200 || !loginR.json.data || !loginR.json.data.token) {
+          throw new Error('无法登录 ' + probe.username + ' 以拉取场地：' + (loginR.json && loginR.json.message ? loginR.json.message : '请先完成批量注册'));
+        }
+        var token = loginR.json.data.token;
+        var listR = await getJson('/venues?status=AVAILABLE&pageNo=1&pageSize=200', token);
+        if (!listR.json || listR.json.code !== 200 || !listR.json.data) {
+          throw new Error('拉取场地失败：' + (listR.json && listR.json.message ? listR.json.message : ''));
+        }
+        var records = listR.json.data.records || [];
+        var venues = records.filter(function (v) {
+          return v && v.id != null && String(v.status || '').toUpperCase() === 'AVAILABLE' && v.openTime && v.closeTime;
+        });
+        if (!venues.length) {
+          throw new Error('没有带开放时间的 AVAILABLE 场地，请先维护场地数据');
+        }
+        return venues;
+      }
+
+      function pad2Num(n) {
+        return String(n).padStart(2, '0');
+      }
+
+      function formatYmd(d) {
+        return d.getFullYear() + '-' + pad2Num(d.getMonth() + 1) + '-' + pad2Num(d.getDate());
+      }
+
+      function parseVenueOpenCloseHour(timeStr) {
+        if (!timeStr || typeof timeStr !== 'string') return null;
+        var p = timeStr.split(':');
+        var h = parseInt(p[0], 10);
+        return Number.isFinite(h) ? h : null;
+      }
+
+      function hourlyPrice(venue) {
+        var p = venue.price;
+        if (p == null || p === '') return 0;
+        var n = Number(p);
+        return Number.isFinite(n) ? n : 0;
+      }
+
+      /** 后端按小时计价：fee = price × 小时数 */
+      function bookingFeeForHours(venue, hours) {
+        return hourlyPrice(venue) * hours;
+      }
+
+      function slotRangeOverlapsOccupied(dateStr, startH, endH, occupiedList) {
+        var slotStart = new Date(dateStr + 'T' + pad2Num(startH) + ':00:00').getTime();
+        var slotEnd = new Date(dateStr + 'T' + pad2Num(endH) + ':00:00').getTime();
+        if (!Number.isFinite(slotStart) || !Number.isFinite(slotEnd)) return true;
+        var list = occupiedList || [];
+        for (var i = 0; i < list.length; i++) {
+          var occ = list[i];
+          var os = new Date(occ.slotStartTime).getTime();
+          var oe = new Date(occ.slotEndTime).getTime();
+          if (Number.isFinite(os) && Number.isFinite(oe) && slotStart < oe && slotEnd > os) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      /**
+       * 未来 7 天内、整点开始、时长 1～4 小时（须在闭馆前结束，不跨日）。
+       * 与后端一致：60 分钟整数倍、当日开始须 >= 当前小时+1。
+       * 候选池包含所有合法 (开始, 结束) 组合，洗牌后取用，相当于时长在 1～4 小时内随机。
+       */
+      function collectAllBookableSlots(venues) {
+        var now = new Date();
+        var dates = [];
+        for (var d = 0; d < 7; d++) {
+          var t = new Date(now.getFullYear(), now.getMonth(), now.getDate() + d);
+          dates.push(formatYmd(t));
+        }
+        var todayStr = dates[0];
+        var minTodayHour = now.getHours() + 1;
+        var out = [];
+        for (var vi = 0; vi < venues.length; vi++) {
+          var v = venues[vi];
+          var openH = parseVenueOpenCloseHour(v.openTime);
+          var closeH = parseVenueOpenCloseHour(v.closeTime);
+          if (openH == null || closeH == null || openH >= closeH) continue;
+          for (var di = 0; di < dates.length; di++) {
+            var dateStr = dates[di];
+            for (var h = openH; h < closeH; h++) {
+              if (dateStr === todayStr && h < minTodayHour) continue;
+              var maxDur = Math.min(4, closeH - h);
+              for (var dur = 1; dur <= maxDur; dur++) {
+                out.push({ venue: v, date: dateStr, startH: h, endH: h + dur });
+              }
+            }
+          }
+        }
+        return out;
+      }
+
+      function shuffleArrayCopy(arr) {
+        var a = arr.slice();
+        for (var i = a.length - 1; i > 0; i--) {
+          var j = Math.floor(Math.random() * (i + 1));
+          var t = a[i];
+          a[i] = a[j];
+          a[j] = t;
+        }
+        return a;
+      }
+
+      async function getMergedOccupied(venueId, dateStr, token, occBatchState) {
+        var k = venueId + '|' + dateStr;
+        if (!occBatchState[k]) {
+          var r = await getJson('/bookings/occupied?venueId=' + venueId + '&startDate=' + encodeURIComponent(dateStr) + '&endDate=' + encodeURIComponent(dateStr), token);
+          var raw = (r.json && r.json.data) ? r.json.data : [];
+          occBatchState[k] = Array.isArray(raw) ? raw.slice() : [];
+        }
+        return occBatchState[k];
+      }
+
+      function addSyntheticOccupied(venueId, dateStr, startIso, endIso, occBatchState) {
+        var k = venueId + '|' + dateStr;
+        if (!occBatchState[k]) occBatchState[k] = [];
+        occBatchState[k].push({ slotStartTime: startIso, slotEndTime: endIso });
+      }
+
+      var BOOKING_STORE_ORDER = 'bulkBookingShuffleOrder';
+      var BOOKING_STORE_CURSOR = 'bulkBookingShuffleCursor';
+
+      function loadBookingShuffleOrder() {
+        try {
+          var raw = sessionStorage.getItem(BOOKING_STORE_ORDER);
+          if (!raw) return null;
+          var order = JSON.parse(raw);
+          if (!Array.isArray(order) || order.length !== USER_BATCH.length) return null;
+          return order;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function saveBookingShuffleOrder(order) {
+        sessionStorage.setItem(BOOKING_STORE_ORDER, JSON.stringify(order));
+      }
+
+      function loadBookingCursor() {
+        var c = parseInt(sessionStorage.getItem(BOOKING_STORE_CURSOR) || '0', 10);
+        return isNaN(c) || c < 0 ? 0 : c;
+      }
+
+      function saveBookingCursor(c) {
+        sessionStorage.setItem(BOOKING_STORE_CURSOR, String(c));
+      }
+
+      function consumeNextTenUserIndicesForBooking() {
+        var order = loadBookingShuffleOrder();
+        if (!order) {
+          order = shuffleUserIndices();
+          saveBookingShuffleOrder(order);
+          saveBookingCursor(0);
+        }
+        var cursor = loadBookingCursor();
+        if (cursor >= USER_BATCH.length) {
+          cursor = 0;
+        }
+        var batch = order.slice(cursor, cursor + 10);
+        if (batch.length < 10) {
+          order = shuffleUserIndices();
+          saveBookingShuffleOrder(order);
+          cursor = 0;
+          batch = order.slice(0, 10);
+        }
+        cursor += 10;
+        if (cursor >= USER_BATCH.length) {
+          cursor = 0;
+          order = shuffleUserIndices();
+          saveBookingShuffleOrder(order);
+          log('[INFO][预约] 100 个用户已各轮到一批，已重新洗牌');
+        }
+        saveBookingCursor(cursor);
+        return batch;
+      }
+
+      /**
+       * 随机 10 用户（独立洗牌游标），每人 1 条预约；单次时长 1～4 小时（候选池洗牌）；本批内已约区间不重复占用。
+       */
+      async function runBulkBookingSim() {
+        var venues;
+        try {
+          venues = await fetchAvailableVenuesForBooking();
+          log('[INFO][预约] AVAILABLE 场地 ' + venues.length + ' 个');
+        } catch (e) {
+          log('[ERR] ' + (e && e.message ? e.message : String(e)));
+          return;
+        }
+
+        var allSlots = collectAllBookableSlots(venues);
+        if (!allSlots.length) {
+          log('[ERR][预约] 无可用候选时段（请检查场地开放时间）');
+          return;
+        }
+        var candidates = shuffleArrayCopy(allSlots);
+
+        var indices = consumeNextTenUserIndicesForBooking();
+        log('—— 本批 10 用户场地预约（每人最多 1 条成功）——');
+        log('[INFO][预约] 本批用户：' + indices.map(function (ix) { return USER_BATCH[ix].username; }).join(', '));
+
+        var occBatchState = {};
+        var claimedSlotKeys = {};
+        var okLogin = 0;
+        var failLogin = 0;
+        var okBook = 0;
+        var skipUser = 0;
+        var failBook = 0;
+
+        for (var k = 0; k < indices.length; k++) {
+          var userIx = indices[k];
+          var userRow = USER_BATCH[userIx];
+          var token;
+          var balance;
+          try {
+            var loginR = await postJson('/auth/login', {
+              username: userRow.username,
+              password: userRow.password,
+              role: 'USER'
+            }, null);
+            if (!loginR.json || loginR.json.code !== 200 || !loginR.json.data || !loginR.json.data.token) {
+              failLogin++;
+              log('[FAIL login] ' + userRow.username + ' ' + (loginR.json && loginR.json.message ? loginR.json.message : ''));
+              continue;
+            }
+            token = loginR.json.data.token;
+            balance = Number(loginR.json.data.balance != null ? loginR.json.data.balance : 0);
+            if (!Number.isFinite(balance)) balance = 0;
+            okLogin++;
+          } catch (e) {
+            failLogin++;
+            log('[ERR login] ' + userRow.username + ' ' + (e && e.message ? e.message : String(e)));
+            continue;
+          }
+
+          var violR = await getJson('/bookings/my/violation-status', token);
+          if (violR.json && violR.json.data && violR.json.data.isViolationUser) {
+            skipUser++;
+            log('[SKIP] ' + userRow.username + ' 违规限制中，不可预约');
+            continue;
+          }
+
+          var booked = false;
+          for (var ci = 0; ci < candidates.length && !booked; ci++) {
+            var c = candidates[ci];
+            var vid = c.venue.id;
+            var hours = c.endH - c.startH;
+            if (hours < 1 || hours > 4) continue;
+            var fee = bookingFeeForHours(c.venue, hours);
+            if (balance + 1e-9 < fee) {
+              continue;
+            }
+            var slotKey = vid + '|' + c.date + '|' + c.startH + '|' + c.endH;
+            if (claimedSlotKeys[slotKey]) continue;
+
+            var mergedOcc;
+            try {
+              mergedOcc = await getMergedOccupied(vid, c.date, token, occBatchState);
+            } catch (e) {
+              continue;
+            }
+            if (slotRangeOverlapsOccupied(c.date, c.startH, c.endH, mergedOcc)) continue;
+
+            var startIso = c.date + 'T' + pad2Num(c.startH) + ':00:00';
+            var endIso = c.date + 'T' + pad2Num(c.endH) + ':00:00';
+            try {
+              var br = await postJson('/bookings', {
+                venueId: vid,
+                startTime: startIso,
+                endTime: endIso
+              }, token);
+              if (br.json && br.json.code === 200) {
+                okBook++;
+                booked = true;
+                claimedSlotKeys[slotKey] = true;
+                addSyntheticOccupied(vid, c.date, startIso, endIso, occBatchState);
+                var rid = br.json.data && br.json.data.id != null ? br.json.data.id : '';
+                log('[OK booking] ' + userRow.username + ' venueId=' + vid + ' ' + startIso + ' ~ ' + endIso + ' (' + hours + 'h) id=' + rid + ' fee≈' + fee);
+              } else {
+                var msg = (br.json && br.json.message) ? br.json.message : '';
+                if (br.json && br.json.code === 409 || (msg && msg.indexOf('已被预约') !== -1)) {
+                  addSyntheticOccupied(vid, c.date, startIso, endIso, occBatchState);
+                  continue;
+                }
+                if (msg && msg.indexOf('余额不足') !== -1) {
+                  continue;
+                }
+                failBook++;
+                log('[FAIL booking] ' + userRow.username + ' ' + msg);
+              }
+            } catch (e) {
+              failBook++;
+              log('[ERR booking] ' + userRow.username + ' ' + (e && e.message ? e.message : String(e)));
+            }
+          }
+
+          if (!booked) {
+            skipUser++;
+            log('[SKIP] ' + userRow.username + ' 无可用时段或余额不足以支付候选时段');
+          }
+        }
+
+        log('预约本批结束：登录成功 ' + okLogin + ' / 失败 ' + failLogin + '；预约成功 ' + okBook + '；跳过 ' + skipUser + '；失败 ' + failBook + '\n');
+      }
+
+      var BORROW_STORE_ORDER = 'bulkBorrowShuffleOrder';
+      var BORROW_STORE_CURSOR = 'bulkBorrowShuffleCursor';
+
+      function shuffleUserIndices() {
+        var arr = [];
+        for (var i = 0; i < USER_BATCH.length; i++) arr.push(i);
+        for (var j = arr.length - 1; j > 0; j--) {
+          var r = Math.floor(Math.random() * (j + 1));
+          var t = arr[j];
+          arr[j] = arr[r];
+          arr[r] = t;
+        }
+        return arr;
+      }
+
+      function loadBorrowShuffleOrder() {
+        try {
+          var raw = sessionStorage.getItem(BORROW_STORE_ORDER);
+          if (!raw) return null;
+          var order = JSON.parse(raw);
+          if (!Array.isArray(order) || order.length !== USER_BATCH.length) return null;
+          return order;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function saveBorrowShuffleOrder(order) {
+        sessionStorage.setItem(BORROW_STORE_ORDER, JSON.stringify(order));
+      }
+
+      function loadBorrowCursor() {
+        var c = parseInt(sessionStorage.getItem(BORROW_STORE_CURSOR) || '0', 10);
+        return isNaN(c) || c < 0 ? 0 : c;
+      }
+
+      function saveBorrowCursor(c) {
+        sessionStorage.setItem(BORROW_STORE_CURSOR, String(c));
+      }
+
+      /**
+       * 从当前洗牌序列中取出连续 10 个用户下标；本批与上一批不重叠。
+       * 游标满 100 后重新 Fisher–Yates 洗牌，下一轮 10 次点击又是另一套顺序。
+       */
+      function consumeNextTenUserIndices() {
+        var order = loadBorrowShuffleOrder();
+        if (!order) {
+          order = shuffleUserIndices();
+          saveBorrowShuffleOrder(order);
+          saveBorrowCursor(0);
+        }
+        var cursor = loadBorrowCursor();
+        if (cursor >= USER_BATCH.length) {
+          cursor = 0;
+        }
+        var batch = order.slice(cursor, cursor + 10);
+        if (batch.length < 10) {
+          order = shuffleUserIndices();
+          saveBorrowShuffleOrder(order);
+          cursor = 0;
+          batch = order.slice(0, 10);
+        }
+        cursor += 10;
+        if (cursor >= USER_BATCH.length) {
+          cursor = 0;
+          order = shuffleUserIndices();
+          saveBorrowShuffleOrder(order);
+          log('[INFO] 100 个用户已各轮到一批，已重新洗牌，下一轮 10 次点击将使用新顺序');
+        }
+        saveBorrowCursor(cursor);
+        return batch;
+      }
+
+      /**
+       * 本批 10 个 USER：每人登录后 1 次 POST /borrows；用户集合由 sessionStorage 中的洗牌+游标决定。
+       */
+      async function runBulkBorrowRequests() {
+        var itemIds;
+        try {
+          itemIds = await fetchBorrowableItemIds();
+          log('[INFO] 已加载可借器材 id 共 ' + itemIds.length + ' 个');
+        } catch (e) {
+          log('[ERR] ' + (e && e.message ? e.message : String(e)));
+          return;
+        }
+
+        var indices = consumeNextTenUserIndices();
+        var label = indices.map(function (ix) { return USER_BATCH[ix].username; }).join(', ');
+        log('—— 本批 10 用户借用（每人 1 条）——');
+        log('[INFO] 本批用户：' + label);
+
+        var okLogin = 0;
+        var failLogin = 0;
+        var okBorrow = 0;
+        var failBorrow = 0;
+
+        for (var k = 0; k < indices.length; k++) {
+          var i = indices[k];
+          var userRow = USER_BATCH[i];
+          var token;
+          try {
+            var loginR = await postJson('/auth/login', {
+              username: userRow.username,
+              password: userRow.password,
+              role: 'USER'
+            }, null);
+            if (!loginR.json || loginR.json.code !== 200 || !loginR.json.data || !loginR.json.data.token) {
+              failLogin++;
+              log('[FAIL login] ' + userRow.username + ' ' + (loginR.json && loginR.json.message ? loginR.json.message : ''));
+              continue;
+            }
+            token = loginR.json.data.token;
+            okLogin++;
+          } catch (e) {
+            failLogin++;
+            log('[ERR login] ' + userRow.username + ' ' + (e && e.message ? e.message : String(e)));
+            continue;
+          }
+
+          var itemId = itemIds[(i * 31 + k * 7) % itemIds.length];
+          try {
+            var br = await postJson('/borrows', {
+              itemId: itemId,
+              quantity: 1,
+              remark: 'bulk-register 模拟借用'
+            }, token);
+            if (br.json && br.json.code === 200) {
+              okBorrow++;
+              var bid = br.json.data && br.json.data.id != null ? br.json.data.id : '';
+              log('[OK borrow] ' + userRow.username + ' itemId=' + itemId + ' borrowId=' + bid);
+            } else {
+              failBorrow++;
+              log('[FAIL borrow] ' + userRow.username + ' itemId=' + itemId + ' ' + (br.json && br.json.message ? br.json.message : ''));
+            }
+          } catch (e) {
+            failBorrow++;
+            log('[ERR borrow] ' + userRow.username + ' itemId=' + itemId + ' ' + (e && e.message ? e.message : String(e)));
+          }
+        }
+
+        log('本批结束：登录成功 ' + okLogin + ' / 失败 ' + failLogin + '；申请成功 ' + okBorrow + ' / 失败 ' + failBorrow + '\n');
+      }
+
+      async function runRechargeForBulkUsers() {
+        log('—— 100 USER 批量充值（先登录再充值；金额 1000–10000 元、个位为 0）——');
+        let ok = 0;
+        let fail = 0;
+        for (let i = 0; i < USER_BATCH.length; i++) {
+          const item = USER_BATCH[i];
+          const amount = rechargeAmountYuan(i);
+          try {
+            const loginR = await postJson('/auth/login', {
+              username: item.username,
+              password: item.password,
+              role: 'USER'
+            }, null);
+            if (!loginR.json || loginR.json.code !== 200) {
+              fail++;
+              log('[FAIL login] ' + item.username + ' ' + (loginR.json && loginR.json.message ? loginR.json.message : ''));
+              continue;
+            }
+            const token = loginR.json.data && loginR.json.data.token;
+            if (!token) {
+              fail++;
+              log('[FAIL] ' + item.username + ' 登录响应无 token');
+              continue;
+            }
+            const recR = await postJson('/wallet/recharge', {
+              amount: amount,
+              remark: '批量模拟充值'
+            }, token);
+            if (recR.json && recR.json.code === 200) {
+              ok++;
+              const after = recR.json.data && recR.json.data.afterBalance != null ? recR.json.data.afterBalance : '';
+              log('[OK] ' + item.username + ' +' + amount + ' 元 余额=' + after);
+            } else {
+              fail++;
+              log('[FAIL recharge] ' + item.username + ' amount=' + amount + ' ' + (recR.json && recR.json.message ? recR.json.message : ''));
+            }
+          } catch (e) {
+            fail++;
+            log('[ERR] ' + item.username + ' ' + (e && e.message ? e.message : String(e)));
+          }
+        }
+        log('充值完成：成功 ' + ok + '，失败 ' + fail + '\n');
+      }
+
+      async function runList(list, label) {
+        log('—— ' + label + ' ——');
+        let ok = 0, fail = 0;
+        for (let i = 0; i < list.length; i++) {
+          const item = list[i];
+          const payload = {
+            username: item.username,
+            password: item.password,
+            realName: item.realName,
+            role: item.role,
+            adminPassword: item.role === 'OWNER' ? item.adminPassword : '',
+            phone: item.phone || undefined,
+            email: item.email || undefined
+          };
+          try {
+            const r = await registerOne(payload);
+            const msg = r.json && r.json.message != null ? r.json.message : '';
+            const code = r.json && typeof r.json.code === 'number' ? r.json.code : r.status;
+            if (r.json && r.json.code === 200) {
+              ok++;
+              log('[OK] ' + item.username + ' ' + msg);
+            } else {
+              fail++;
+              log('[FAIL] ' + item.username + ' code=' + code + ' ' + msg);
+            }
+          } catch (e) {
+            fail++;
+            log('[ERR] ' + item.username + ' ' + (e && e.message ? e.message : String(e)));
+          }
+        }
+        log('完成：成功 ' + ok + '，失败 ' + fail + '\n');
+      }
+
+      document.getElementById('btnUsers').onclick = function () {
+        logEl.textContent = '';
+        runList(USER_BATCH, '100 USER');
+      };
+      document.getElementById('btnOwners').onclick = function () {
+        logEl.textContent = '';
+        runList(OWNER_BATCH, '2 OWNER');
+      };
+      document.getElementById('btnAll').onclick = async function () {
+        logEl.textContent = '';
+        await runList(USER_BATCH, '100 USER');
+        await runList(OWNER_BATCH, '2 OWNER');
+      };
+      document.getElementById('btnRecharge').onclick = function () {
+        logEl.textContent = '';
+        runRechargeForBulkUsers();
+      };
+      document.getElementById('btnBorrow').onclick = function () {
+        logEl.textContent = '';
+        runBulkBorrowRequests();
+      };
+      document.getElementById('btnBooking').onclick = function () {
+        logEl.textContent = '';
+        runBulkBookingSim();
+      };
+    })();
+  </script>
+</body>
+</html>

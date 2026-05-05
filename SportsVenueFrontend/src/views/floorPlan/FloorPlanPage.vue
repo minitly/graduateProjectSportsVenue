@@ -1,9 +1,9 @@
 <script setup>
 import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
-import FloorPlanAdminPanel from '../components/floorPlan/FloorPlanAdminPanel.vue'
-import FloorPlanUserPanel from '../components/floorPlan/FloorPlanUserPanel.vue'
+import { useAuthStore } from '../../stores/auth'
+import FloorPlanAdminPanel from '../../components/floorPlan/FloorPlanAdminPanel.vue'
+import FloorPlanUserPanel from '../../components/floorPlan/FloorPlanUserPanel.vue'
 
 const route = useRoute()
 const authStore = useAuthStore()

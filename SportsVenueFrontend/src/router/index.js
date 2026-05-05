@@ -1,15 +1,16 @@
 import { createRouter, createWebHistory } from "vue-router";
-import HomePage from "../views/HomePage.vue";
-import AuthPage from "../views/AuthPage.vue";
+import HomePage from "../views/home/HomePage.vue";
+import AuthPage from "../views/auth/AuthPage.vue";
 import DashboardLayout from "../layouts/DashboardLayout.vue";
-import VenuesPage from "../views/VenuesPage.vue";
-import BorrowPage from "../views/BorrowPage.vue";
-import BorrowApprovalPage from "../views/BorrowApprovalPage.vue";
-import ProfilePage from "../views/ProfilePage.vue";
-import AdminUsersPage from "../views/AdminUsersPage.vue";
-import AdminAnalyticsPage from "../views/AdminAnalyticsPage.vue";
-import NoticesPage from "../views/NoticesPage.vue";
-import FloorPlanPage from "../views/FloorPlanPage.vue";
+import VenuesPage from "../views/venue/VenuesPage.vue";
+import BookingsPage from "../views/booking/BookingsPage.vue";
+import BorrowPage from "../views/borrow/BorrowPage.vue";
+import BorrowApprovalPage from "../views/borrow/BorrowApprovalPage.vue";
+import ProfilePage from "../views/profile/ProfilePage.vue";
+import AdminUsersPage from "../views/admin/AdminUsersPage.vue";
+import AdminAnalyticsPage from "../views/admin/AdminAnalyticsPage.vue";
+import NoticesPage from "../views/notices/NoticesPage.vue";
+import FloorPlanPage from "../views/floorPlan/FloorPlanPage.vue";
 import { useAuthStore } from "../stores/auth";
 import { useToast } from "../composables/useToast";
 
@@ -33,7 +34,6 @@ const routes = [
                 path: "venues",
                 name: "venues",
                 component: VenuesPage,
-                props: { module: "venue" },
                 meta: {
                     title: "场地管理",
                     subtitle: "维护场地信息、状态与可预约资源",
@@ -42,8 +42,7 @@ const routes = [
             {
                 path: "bookings",
                 name: "bookings",
-                component: VenuesPage,
-                props: { module: "booking" },
+                component: BookingsPage,
                 meta: {
                     title: "预约管理",
                     subtitle: "查看预约记录并执行审核/核销操作",

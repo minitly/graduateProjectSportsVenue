@@ -1,5 +1,5 @@
 <script setup>
-import BorrowOwnerPanel from '../components/borrow/BorrowOwnerPanel.vue'
+import BorrowOwnerPanel from '../../components/borrow/BorrowOwnerPanel.vue'
 </script>
 
 <template>

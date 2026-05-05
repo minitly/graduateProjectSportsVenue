@@ -10,8 +10,8 @@ import {
   NSelect,
   NTag
 } from 'naive-ui'
-import api from '../services/api'
-import { useToast } from '../composables/useToast'
+import api from '../../services/api'
+import { useToast } from '../../composables/useToast'
 
 const { pushToast } = useToast()
 const queryClient = useQueryClient()
