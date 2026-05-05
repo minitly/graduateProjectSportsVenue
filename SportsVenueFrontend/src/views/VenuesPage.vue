@@ -53,7 +53,9 @@ const bookingModal = reactive({
   submitting: false,
   floorPlanLoading: false,
   floorPlanTitle: '',
-  floorPlanModel: null
+  floorPlanModel: null,
+  /** 场地图绑定的场地 id → status，用于禁用不可预约区域的点击 */
+  floorPlanVenueStatusById: {}
 })
 
 const venueNameMap = reactive({})
@@ -76,6 +78,38 @@ function stopBookingOccupiedPoll() {
     clearInterval(bookingOccupiedPollTimer.value)
     bookingOccupiedPollTimer.value = null
   }
+}
+
+function resetBookingFloorPlanVenueStatuses() {
+  for (const k of Object.keys(bookingModal.floorPlanVenueStatusById)) {
+    delete bookingModal.floorPlanVenueStatusById[k]
+  }
+}
+
+function isVenueStatusBookable(status) {
+  return String(status || '').toUpperCase() === 'AVAILABLE'
+}
+
+async function hydrateBookingFloorPlanVenueStatuses() {
+  const model = bookingModal.floorPlanModel
+  if (!model?.items?.length) return
+  const ids = [
+    ...new Set(model.items.map((it) => Number(it.venueId)).filter((n) => Number.isFinite(n) && n > 0))
+  ]
+  await Promise.all(
+    ids.map(async (vid) => {
+      const existing = bookingModal.floorPlanVenueStatusById[vid]
+      if (existing != null && existing !== '') return
+      try {
+        const response = await api.get(`/venues/${vid}`)
+        if (response.code === 200 && response.data?.status != null && response.data.status !== '') {
+          bookingModal.floorPlanVenueStatusById[vid] = response.data.status
+        }
+      } catch {
+        /* 忽略：点击时再请求 */
+      }
+    })
+  )
 }
 
 const venueQueryKey = computed(() => [
@@ -134,6 +168,22 @@ const venuesQuery = useQuery({
 const venuesData = computed(() => venuesQuery.data?.records || venuesQuery.data?.value?.records || [])
 const venuesTotal = computed(() => venuesQuery.data?.total || venuesQuery.data?.value?.total || 0)
 const isVenuesFetching = computed(() => Boolean(venuesQuery.isFetching?.value ?? venuesQuery.isFetching))
+
+function primeBookingFloorPlanVenueStatusesFromList() {
+  const model = bookingModal.floorPlanModel
+  if (!model?.items?.length) return
+  const ids = new Set(
+    model.items.map((it) => Number(it.venueId)).filter((n) => Number.isFinite(n) && n > 0)
+  )
+  for (const v of venuesData.value) {
+    if (v?.id && ids.has(v.id) && v.status != null && v.status !== '') {
+      bookingModal.floorPlanVenueStatusById[v.id] = v.status
+    }
+  }
+  if (bookingModal.venue?.id != null && bookingModal.venue.status != null && bookingModal.venue.status !== '') {
+    bookingModal.floorPlanVenueStatusById[bookingModal.venue.id] = bookingModal.venue.status
+  }
+}
 
 watch(
     venuesData,
@@ -308,10 +358,10 @@ const venueDetailModal = reactive({
 
 const bookingStatusOptions = [
   { label: '全部', value: '' },
-  { label: '申请中', value: 'APPLIED' },
-  { label: '已取消', value: 'CANCELED' },
-  { label: '已核销', value: 'VERIFIED' },
-  { label: '违规', value: 'VIOLATION' }
+  { label: getStatusText('APPLIED'), value: 'APPLIED' },
+  { label: getStatusText('CANCELED'), value: 'CANCELED' },
+  { label: getStatusText('VERIFIED'), value: 'VERIFIED' },
+  { label: getStatusText('VIOLATION'), value: 'VIOLATION' }
 ]
 
 const bookingFilters = reactive({
@@ -636,10 +686,10 @@ const ownerBookingFilters = reactive({
 
 const ownerBookingStatusOptions = [
   { label: '全部状态', value: '' },
-  { label: '申请中', value: 'APPLIED' },
-  { label: '已取消', value: 'CANCELED' },
-  { label: '已核销', value: 'VERIFIED' },
-  { label: '违规', value: 'VIOLATION' }
+  { label: getStatusText('APPLIED'), value: 'APPLIED' },
+  { label: getStatusText('CANCELED'), value: 'CANCELED' },
+  { label: getStatusText('VERIFIED'), value: 'VERIFIED' },
+  { label: getStatusText('VIOLATION'), value: 'VIOLATION' }
 ]
 
 const ownerBookingPagination = reactive({
@@ -854,6 +904,7 @@ async function openBookingModal(venue) {
   if (!canBook) return
 
   bookingModal.show = true
+  resetBookingFloorPlanVenueStatuses()
   bookingModal.venue = venue
   bookingModal.date = bookingDates.value[0]?.value || null
   bookingModal.startTime = null
@@ -862,6 +913,9 @@ async function openBookingModal(venue) {
   bookingModal.floorPlanLoading = false
   bookingModal.floorPlanTitle = ''
   bookingModal.floorPlanModel = null
+  if (venue.status != null && venue.status !== '') {
+    bookingModal.floorPlanVenueStatusById[venue.id] = venue.status
+  }
   await loadBookingFloorPlan(venue)
 }
 
@@ -876,6 +930,8 @@ async function loadBookingFloorPlan(venue) {
     const detail = response.data || {}
     bookingModal.floorPlanTitle = detail.title || ''
     bookingModal.floorPlanModel = parseFloorPlanContent(detail.contentJson)
+    primeBookingFloorPlanVenueStatusesFromList()
+    await hydrateBookingFloorPlanVenueStatuses()
   } catch (error) {
     pushToast(error?.message || '场地图加载失败', 'warning')
     bookingModal.floorPlanModel = null
@@ -1216,6 +1272,7 @@ function confirmDeleteVenue() {
 
 function closeBookingModal() {
   bookingModal.show = false
+  resetBookingFloorPlanVenueStatuses()
 }
 
 async function loadOccupiedSlots() {
@@ -1251,6 +1308,13 @@ async function jumpToVenueBooking(venueId) {
     }
     const venue = response.data
     if (!venue?.id) return
+    if (venue.status != null && venue.status !== '') {
+      bookingModal.floorPlanVenueStatusById[id] = venue.status
+    }
+    if (!isVenueStatusBookable(venue.status)) {
+      pushToast(`该场地不可预约（${getStatusText(venue.status)}）`, 'warning')
+      return
+    }
     bookingModal.venue = venue
     bookingModal.date = bookingDates.value[0]?.value || null
     bookingModal.startTime = null
@@ -1277,6 +1341,12 @@ function showUnboundMapHint(item) {
 function handleBookingMapItemClick(item) {
   if (!item?.venueId) {
     showUnboundMapHint(item)
+    return
+  }
+  const vid = Number(item.venueId)
+  const cached = bookingModal.floorPlanVenueStatusById[vid]
+  if (cached != null && cached !== '' && !isVenueStatusBookable(cached)) {
+    pushToast(`该场地不可预约（${getStatusText(cached)}）`, 'warning')
     return
   }
   jumpToVenueBooking(item.venueId)
@@ -2245,6 +2315,7 @@ onUnmounted(() => {
           <FloorPlanCanvasPreview
             v-else-if="bookingModal.floorPlanModel"
             :model="bookingModal.floorPlanModel"
+            :venue-status-by-id="bookingModal.floorPlanVenueStatusById"
             :highlight-item-uid="bookingModal.venue?.floorPlanItemUid || ''"
             :max-height="620"
             interactive

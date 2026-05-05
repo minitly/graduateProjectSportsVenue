@@ -19,7 +19,10 @@
               v-for="item in floorPlanModel.items"
               :key="item.uid"
               class="map-rect"
-              :class="{ active: String(item.venueId) === String(venue.id) }"
+              :class="{
+                active: String(item.venueId) === String(venue.id),
+                unavailable: isMapItemUnavailable(item)
+              }"
               :style="mapRectStyle(item)"
               @click="onMapItemClick(item)"
             >
@@ -90,7 +93,7 @@
 
 <script setup>
 import dayjs from "dayjs";
-import { computed, ref } from "vue";
+import { computed, reactive, ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
 import { fetchFloorPlanDetailApi, fetchVenueDetailApi } from "../../api/venue";
 import { createBookingApi, fetchMyViolationStatusApi, fetchOccupiedSlotsApi } from "../../api/booking";
@@ -102,6 +105,63 @@ const venueId = ref("");
 const venue = ref(null);
 const floorPlanTitle = ref("");
 const floorPlanModel = ref(null);
+/** 场地图绑定的场地 id → status，用于禁止切换到不可预约场地并弱化展示 */
+const floorPlanVenueStatusById = reactive({});
+
+const STATUS_LABELS = { AVAILABLE: "可预约", DISABLED: "已停用", MAINTAIN: "维护中", SUSPEND: "暂停预约" };
+
+function resetBookingFloorPlanVenueStatuses() {
+  for (const k of Object.keys(floorPlanVenueStatusById)) {
+    delete floorPlanVenueStatusById[k];
+  }
+}
+
+function isVenueStatusBookable(status) {
+  return String(status || "").toUpperCase() === "AVAILABLE";
+}
+
+function venueStatusText(status) {
+  return STATUS_LABELS[status] || status || "-";
+}
+
+function primeBookingFloorPlanVenueStatusesFromCurrentVenue() {
+  const model = floorPlanModel.value;
+  if (!model?.items?.length) return;
+  const v = venue.value;
+  if (v?.id != null && v.status != null && v.status !== "") {
+    floorPlanVenueStatusById[v.id] = v.status;
+  }
+}
+
+async function hydrateBookingFloorPlanVenueStatuses() {
+  const model = floorPlanModel.value;
+  if (!model?.items?.length) return;
+  const ids = [
+    ...new Set(model.items.map((it) => Number(it.venueId)).filter((n) => Number.isFinite(n) && n > 0))
+  ];
+  await Promise.all(
+    ids.map(async (vid) => {
+      const existing = floorPlanVenueStatusById[vid];
+      if (existing != null && existing !== "") return;
+      try {
+        const res = await fetchVenueDetailApi(vid);
+        if (res.code === 200 && res.data?.status != null && res.data.status !== "") {
+          floorPlanVenueStatusById[vid] = res.data.status;
+        }
+      } catch (_) {
+        /* 忽略：点击时再请求 */
+      }
+    })
+  );
+}
+
+function isMapItemUnavailable(item) {
+  const vid = Number(item?.venueId);
+  if (!Number.isFinite(vid) || vid <= 0) return false;
+  const st = floorPlanVenueStatusById[vid];
+  if (st == null || st === "") return false;
+  return !isVenueStatusBookable(st);
+}
 const bookingDate = ref("");
 const startTime = ref("");
 const endTime = ref("");
@@ -343,6 +403,7 @@ async function loadBookingFloorPlan(v) {
   if (!fpId) {
     floorPlanTitle.value = "";
     floorPlanModel.value = null;
+    resetBookingFloorPlanVenueStatuses();
     return;
   }
   try {
@@ -350,13 +411,17 @@ async function loadBookingFloorPlan(v) {
     if (res.code !== 200 || !res.data) {
       floorPlanTitle.value = "";
       floorPlanModel.value = null;
+      resetBookingFloorPlanVenueStatuses();
       return;
     }
     floorPlanTitle.value = res.data.title || "";
     floorPlanModel.value = parseFloorPlanContent(res.data.contentJson || "");
+    primeBookingFloorPlanVenueStatusesFromCurrentVenue();
+    await hydrateBookingFloorPlanVenueStatuses();
   } catch (_) {
     floorPlanTitle.value = "";
     floorPlanModel.value = null;
+    resetBookingFloorPlanVenueStatuses();
   }
 }
 
@@ -364,16 +429,20 @@ function mapRectStyle(item) {
   const cw = floorPlanModel.value?.canvas?.width || 1200;
   const ch = floorPlanModel.value?.canvas?.height || 800;
   const rotation = Number(item.rotation || 0);
+  const dimmed = isMapItemUnavailable(item);
   const baseColor = item.color || "#5c8fe6";
-  return {
+  const style = {
     left: `${((item.x || 0) / cw) * 100}%`,
     top: `${((item.y || 0) / ch) * 100}%`,
     width: `${((item.w || 200) / cw) * 100}%`,
     height: `${((item.h || 120) / ch) * 100}%`,
     transform: `rotate(${rotation}deg)`,
-    transformOrigin: "center center",
-    borderColor: baseColor
+    transformOrigin: "center center"
   };
+  if (!dimmed) {
+    style.borderColor = baseColor;
+  }
+  return style;
 }
 
 function showUnboundMapHint(item) {
@@ -385,13 +454,32 @@ function showUnboundMapHint(item) {
 }
 
 async function jumpToVenueBooking(nextVenueId) {
-  if (!nextVenueId) return;
-  if (String(nextVenueId) === String(venue.value?.id)) return;
+  const id = Number(nextVenueId);
+  if (!Number.isFinite(id) || id <= 0) return;
+  if (String(id) === String(venue.value?.id)) return;
   loading.value = true;
   try {
-    venueId.value = String(nextVenueId);
+    const res = await fetchVenueDetailApi(id);
+    if (res.code !== 200 || !res.data) {
+      uni.showModal({ title: "切换失败", content: res.message || "加载场地失败", showCancel: false });
+      return;
+    }
+    const v = res.data;
+    if (!v?.id) return;
+    if (v.status != null && v.status !== "") {
+      floorPlanVenueStatusById[id] = v.status;
+    }
+    if (!isVenueStatusBookable(v.status)) {
+      uni.showToast({ title: `该场地不可预约（${venueStatusText(v.status)}）`, icon: "none" });
+      return;
+    }
+    venueId.value = String(id);
     clearSlotSelection();
-    await loadVenueDetail();
+    venue.value = v;
+    if (!bookingDate.value) {
+      bookingDate.value = dateStart.value;
+    }
+    await loadBookingFloorPlan(v);
     await loadOccupiedSlots();
   } catch (error) {
     uni.showModal({ title: "切换失败", content: error?.message || "无法切换场地", showCancel: false });
@@ -403,6 +491,12 @@ async function jumpToVenueBooking(nextVenueId) {
 function onMapItemClick(item) {
   if (!item?.venueId) {
     showUnboundMapHint(item);
+    return;
+  }
+  const vid = Number(item.venueId);
+  const cached = floorPlanVenueStatusById[vid];
+  if (cached != null && cached !== "" && !isVenueStatusBookable(cached)) {
+    uni.showToast({ title: `该场地不可预约（${venueStatusText(cached)}）`, icon: "none" });
     return;
   }
   jumpToVenueBooking(item.venueId);
@@ -497,6 +591,7 @@ onLoad(async (query) => {
     return;
   }
   venueId.value = query.venueId;
+  resetBookingFloorPlanVenueStatuses();
   loading.value = true;
   try {
     const blocked = await checkViolationAndBlock();
@@ -558,6 +653,15 @@ onLoad(async (query) => {
 .map-stage { height: 260rpx; position: relative; overflow: hidden; }
 .map-rect { position: absolute; border: 2rpx solid #5c8fe6; border-radius: 12rpx; background: rgba(255,255,255,.20); display: flex; align-items: center; justify-content: center; }
 .map-rect.active { box-shadow: 0 0 0 4rpx rgba(77,116,248,.28); background: rgba(77,116,248,.10); }
+.map-rect.unavailable {
+  opacity: 0.42;
+  filter: grayscale(0.72);
+  cursor: not-allowed;
+  border-color: rgba(138, 152, 172, 0.48);
+  background: rgba(148, 158, 176, 0.12);
+  box-shadow: none;
+}
+.map-rect.unavailable .map-label { color: rgba(31, 62, 103, 0.38); }
 .map-label { color: #2a3a57; font-size: 20rpx; font-weight: 700; text-align: center; padding: 6rpx; }
 </style>
 

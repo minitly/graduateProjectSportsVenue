@@ -18,6 +18,11 @@ const props = defineProps({
   maxHeight: {
     type: Number,
     default: 520
+  },
+  /** 场地 id → 状态；已知非 AVAILABLE 的区域不可点击并弱化显示 */
+  venueStatusById: {
+    type: Object,
+    default: () => ({})
   }
 })
 
@@ -30,14 +35,33 @@ const stageStyle = computed(() => ({
   background: normalized.value.canvas.backgroundColor
 }))
 
+function isKnownUnavailableVenue(item) {
+  if (!item?.venueId) return false
+  const vid = Number(item.venueId)
+  if (!Number.isFinite(vid) || vid <= 0) return false
+  const st = props.venueStatusById?.[vid]
+  if (st === undefined || st === null || st === '') return false
+  return String(st).toUpperCase() !== 'AVAILABLE'
+}
+
 function rectStyle(item) {
   const color = /^#([0-9a-fA-F]{6})$/.test(item?.color || '') ? item.color : '#4f7bc3'
   const isHighlighted = !props.highlightItemUid || props.highlightItemUid === item?.id
-  const clickable = Boolean(props.interactive && item?.venueId)
-  return {
+  const unavailable = isKnownUnavailableVenue(item)
+  const clickable = Boolean(props.interactive && item?.venueId && !unavailable)
+
+  const layout = {
     width: `${item.w}px`,
     height: `${item.h}px`,
-    transform: `translate(${item.x}px, ${item.y}px) rotate(${item.rotation}deg)`,
+    transform: `translate(${item.x}px, ${item.y}px) rotate(${item.rotation}deg)`
+  }
+
+  if (unavailable) {
+    return layout
+  }
+
+  return {
+    ...layout,
     borderColor: color,
     background: `${color}33`,
     color: '#1f3e67',
@@ -61,6 +85,7 @@ function handleRectClick(item) {
         v-for="item in normalized.items"
         :key="item.id"
         class="preview-rect"
+        :class="{ unavailable: isKnownUnavailableVenue(item) }"
         :style="rectStyle(item)"
         @click="handleRectClick(item)"
       >
@@ -103,5 +128,22 @@ function handleRectClick(item) {
   text-align: center;
   padding: 8px;
   word-break: break-word;
+}
+
+.preview-rect.unavailable {
+  opacity: 0.4;
+  filter: grayscale(0.72);
+  cursor: not-allowed;
+  border-color: rgba(138, 152, 172, 0.42);
+  background: rgba(148, 158, 176, 0.12);
+  box-shadow: none;
+}
+
+.preview-rect.unavailable:hover {
+  cursor: not-allowed;
+}
+
+.preview-rect.unavailable span {
+  color: rgba(31, 62, 103, 0.38);
 }
 </style>
