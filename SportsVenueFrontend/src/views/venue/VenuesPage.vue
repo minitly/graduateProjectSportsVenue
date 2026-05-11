@@ -959,7 +959,9 @@ async function quickChangeVenueStatus(venue, status) {
   try {
     const response = await api.put(`/venues/${venue.id}`, {
       ...venue,
-      status
+      status,
+      floorPlanId: venue.floorPlanId ?? null,
+      floorPlanItemUid: venue.floorPlanItemUid ?? null
     })
     if (response.code !== 200) {
       pushToast(response.message || '状态切换失败', 'error')

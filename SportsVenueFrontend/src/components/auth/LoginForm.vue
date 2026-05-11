@@ -1,11 +1,8 @@
 <script setup>
 import { computed, reactive, ref } from 'vue'
+import { buildApiUrl } from '../../config/appConfig'
 
 const props = defineProps({
-  apiBase: {
-    type: String,
-    required: true
-  },
   loading: {
     type: Boolean,
     required: true
@@ -66,7 +63,7 @@ async function handleLogin() {
   if (!validate() || !canSubmit.value) return
   emit('update:loading', true)
   try {
-    const response = await fetch(`${props.apiBase}/auth/login`, {
+    const response = await fetch(buildApiUrl('/auth/login'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

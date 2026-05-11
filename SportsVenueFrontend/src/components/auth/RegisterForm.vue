@@ -1,11 +1,8 @@
 <script setup>
     import { computed, reactive, ref, watch } from "vue";
+    import { buildApiUrl } from "../../config/appConfig";
 
     const props = defineProps({
-        apiBase: {
-            type: String,
-            required: true,
-        },
         loading: {
             type: Boolean,
             required: true,
@@ -290,7 +287,7 @@
                         : "",
                 phone: registerForm.phone,
             };
-            const response = await fetch(`${props.apiBase}/auth/register`, {
+            const response = await fetch(buildApiUrl("/auth/register"), {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

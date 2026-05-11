@@ -1,8 +1,9 @@
 import axios from 'axios'
 import { useAuthStore } from '../stores/auth'
+import { API_BASE_URL } from '../config/appConfig'
 
 const api = axios.create({
-  baseURL: 'http://localhost:9999/sportsVenue',
+  baseURL: API_BASE_URL,
   timeout: 15000
 })
 

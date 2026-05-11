@@ -6,8 +6,6 @@ import RegisterForm from '../../components/auth/RegisterForm.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useToast } from '../../composables/useToast'
 import logo from '../../assets/logo.svg'
-
-const apiBase = 'http://localhost:9999/sportsVenue'
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
@@ -139,7 +137,6 @@ onUnmounted(() => {
           <div class="flip-card">
             <div class="flip-face front">
               <LoginForm
-                :api-base="apiBase"
                 :loading="loading"
                 :remember-me="rememberMe"
                 @update:remember-me="rememberMe = $event"
@@ -150,7 +147,6 @@ onUnmounted(() => {
             </div>
             <div class="flip-face back">
               <RegisterForm
-                :api-base="apiBase"
                 :loading="loading"
                 :agree-policy="agreePolicy"
                 @update:agree-policy="agreePolicy = $event"

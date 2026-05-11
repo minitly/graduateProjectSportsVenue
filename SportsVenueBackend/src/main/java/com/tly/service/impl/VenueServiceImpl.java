@@ -22,6 +22,7 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -98,6 +99,23 @@ public class VenueServiceImpl implements VenueService {
 
         String oldStatus = exists.getStatus();
         String newStatus = venue.getStatus();
+
+        normalizeImageUrlsForRead(exists);
+
+        /*
+         * 前端「快速切换状态」等场景常 PUT 整个对象；若 JSON 未携带场地图字段，反序列化后为 null，
+         * 会被 applyVenueFloorPlanBinding 误判为「主动解绑」。仅当字段为 null 时沿用库中已有值；
+         * 空字符串仍表示前端显式解绑/清空。
+         */
+        if (venue.getFloorPlanItemUid() == null) {
+            venue.setFloorPlanItemUid(exists.getFloorPlanItemUid());
+        }
+        if (venue.getFloorPlanId() == null) {
+            venue.setFloorPlanId(exists.getFloorPlanId());
+        }
+        if (venue.getImageUrls() == null) {
+            venue.setImageUrls(new ArrayList<>(exists.getImageUrls()));
+        }
 
         venue.setId(id);
         normalizeImageUrlsForSave(venue);
